@@ -1,0 +1,19 @@
+.idea/
+*.pyc
+__pycache__
+*.swp
+.nfs*
+*.sqlite
+*.touch
+
+tmp/
+.snakemake
+sge_output
+_py*_venv*/
+doc/*.ps
+doc/*.pdf
+reports/*.pdf
+
+# This is volatile and used for tinkering/testing
+environ.sh
+environ.*.sh

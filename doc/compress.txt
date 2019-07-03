@@ -1,0 +1,11 @@
+At the moment we're getting a whole lot of uncompressed FASTQ. The run I copied has
+173GB of FASTQ and 996G of FAST5.
+
+If I gzip the FASTQ I get about a 50% reduction in size.
+
+The FAST5 files only reduce by about 25% but it's still worth it.
+
+We can xz the files and shave another 10% off. But it will take an age.
+
+Or will it? 4000 files at 2 minutes each == 133 hours, but with 1000 cores that's 10 min.
+So maybe we should. Yeah.

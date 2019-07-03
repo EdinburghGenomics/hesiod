@@ -1,0 +1,11 @@
+Duncan had already mounted a /lustre share on the promethion machine. It's CIFS and a bit meh.
+
+I moved it to /mnt at least.
+
+I also added a new volume on FluidFS, having expanded the storage as per:
+
+https://www.dell.com/storagehelp/dellstorageclient/2016R3.10/en-US/GUID-6CABD6A4-6F7B-44AC-BBD7-E0787B09F1E3.html
+
+(Pretty simple - you type in a number and it adds volumes and assigns them to Purple, but you can't shrink so beware)
+
+So now maybe we can write direct to fluid and pull from there? Simplifies things!

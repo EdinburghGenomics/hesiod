@@ -1,0 +1,145 @@
+Assuming (see states_and_runs.txt) we can work out what to sync and how to
+sync it, how do we actually get files across?
+
+1) Regular cp (or rsync wrapped) to /fluidfs
+
+Should be fast-ish as NFS is tuned. My best guess.
+
+2) Rsync over ssh. Dumb and slow but should work.
+
+3) syncthing.net as mentioned to Urmi looks cool but it doesn't really fit with
+   what we want to do, I think
+
+
+Let's copy a run to fluid via NFS and see how fast it is...
+
+About 4h for 1TB, so not super fast but about what we expect. Compression might help
+but I don't want to load the machine as it has a lot of other processing to do.
+
+Good news is that re-sync is really quick (a few seconds).
+
+Then I need to work out how to get things over as quick as poss. Naive way is to sync
+everything to /fluid and then after that to sync it to /lustre. But this seems slow/silly.
+
+We want to get the fastq_pass directory over ASAP so we can start processing on it.
+Do we sync continuously? Or trigger at the end like with SMRTino?
+
+I assume that Hesiod wants to run off the CRON on pipline@gseg-login0 like the others,
+so we have a fair amount of SSH action - need robust quoting!! (see ssh_run_robust.sh)
+
+** Urmi is looking if we can write directly to fluidfs.  Let's make the share anyway...
+   DONE - /fluidfs/promethion
+**
+
+---
+
+So, if we can write directly to fluidfs:
+
+1) Files should be compressed, but this needs to happen on GSEG
+2) fastq.gz files should be on both. fast5 files on /fluidfs
+
+Hmmm.
+
+Raw files appear on /fluidfs
+Once a cell finishes, it gets copied and compressed???
+But then I'm going fluid -> lustre -> fluid, as I don't want to do compression/processing on the old
+cluster (which should be killed off).
+Messy, messy, messy
+
+Hesiod detects new dirs on /fluidfs
+Files need to be sync'd to /lustre for processing
+
+Would we be better off writing to /lustre. Almost certainly.
+So...
+
+Runs land in /lustre/promethion/prom_runs
+Pipeline creates /lustre/promethion/prom_fastqdata/...
+When a cell finishes, we copy and compress to /lustre/promethion/prom_fastqdata and make report
+Backup happens like Illuminatus, to /fluidfs/promethion
+Need to decide what happens with the .fast5 files - keep one copy? or two?
+
+What if we have to sync ourselves?
+
+OK this is basically the same as for writing to /fluidfs - we need all the data on /lustre to
+process it.
+
+Rsync to /lustre because it's actually reasonably fast (?! or is it - no, just now it's freezing for
+some daft reason)
+Do the stuff as above.
+Delete data dirs as noted elsewhere (mark for deletion and have a script to actually do it)
+
+This has the advantage that we always have 2 copies of the data - either on the machine + lustre
+or then on fluid + lustre.
+
+OK, let's assume this.
+
+Pipeline runs every 5 minutes:
+
+If it sees a new dir on prom:/data then it makes /lustre/promethion/prom_runs/{runid}/pipeline
+and opens an RT ticket. Then quits. [Or maybe it syncs??]
+
+If it sees an existing directory in /lustre/promethion/prom_runs/ and the status is open then
+it checks if there is a dir on prom:/data. If so it looks for new cells. If so, it syncs.
+
+After syncing it looks to see if this gives it any new complete cells. If so, it processes.
+Also if the run is now "complete" it notifies RT.
+
+When a complete cell is processed, do we delete from /lustre/promethion/prom_runs?
+I feel we should, or at least have the option. When a cell is done and in /lustre/promethion/prom_fastqdata
+then there should be a marker in {runid}/pipeline that suppresses further processing.
+
+pipeline/from (text file with address)
+pipeline/failed (if failed)
+pipeline/{cell}.synced
+pipeline/{cell}.started
+pipeline/{cell}.done
+
+If the output dir exists the cell cannot be new
+If the dir exists without pipeline/{from} status is Unknown
+Any cell seen on prom:/data not in pipeline we do an rsync
+Then once the copy is done {cell}.synced blocks any further rsync
+{cell}.started indicates processing (to prom_fastqdata) is happening - compress and then QC.
+{cell}.done indicates that the cell has been fully processed and will not be touched further -
+{cell}.done implies {cell}.synced even if not synced.
+
+That gives statuses:
+
+New Run
+Sync Needed
+Syncing
+Cell Ready
+Processing
+Processing Sync Needed
+Processing Syncing
+Complete
+Failed
+
+( See the .odg diagram for how details on how Processing and Syncing interact - either or both or none
+of these things may be happening at any one time )
+
+How do we reliably lock an rsync process? One answer is we don't need to - we only start the sync once the
+cell is complete and then each sync is just a fancy copy. I'm not sure about this. I think we start the rsync
+early and then have a lock. This should be a single lock for the run, so:
+
+touch pipeline/rsync.started
+[sync]
+mv pipeline/rsync.started pipeline/rsync.[done|failed]
+
+We don't need flock at the start because "touch -c" is atomic. There's not much point in detecting stale
+lock files as rsync may freeze and if we're running it via SSH this won't help anyway.
+
+The RunInfo.py won't be able to call New Run, so this will have to be done separately. But then how do we know
+if a run has new cells? Well, we need to get a list of cells from prom:/data and this needs to be an input to
+RunInfo.py.
+
+If the copy is done as a pull:
+
+rsync -vrlptD prom:/data/{run}/{lib}/{flowcell} /lustre/promethion/prom_runs/{run}/{lib}
+
+If the copy is done as a push:
+
+ssh prom rsync -vrlptD /data/{run}/{lib}/{flowcell} /mnt/lustre/promethion/prom_runs/{run}/{lib}
+
+Not much difference. And this still works if initial writing is done to /fluidfs
+And it even works if writing is direct to /lustre, as the pipeline/{from} can be set to LOCAL and then
+we could bypass the Syncing step.

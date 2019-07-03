@@ -1,0 +1,62 @@
+The first job of the pipeline is to get the data off the machine and onto /fluidfs and /lustre.
+
+This is tricky, as the promised auto-sync is not yet available, and we're not sure how to detect that
+a run is finished, nor how to query the internal database. Looking on the machine:
+
+In /data we have directories that may be named per run or maybe per project? Need to
+see what happens when a duplicate name is specified. In general we need to see how the
+info entered by Marion maps to the file/dir naming convention like:
+
+20190614_11685BN/11685BN0004L01/20190614_1558_2-E1-H1_PAD48914_88421642/fast5_pass
+
+Looks like:
+
+run/library/flowcell
+
+Are any of those dates auto-generated?
+
+The run name is arbitrary. But the date is auto-coded into the start of the flowcell name.
+Could I synthesize a run name like:
+
+1) Take the date of the first flowcell.
+2) If the run name starts with {date}_ then return run_name
+   Else return {date}_run_name
+
+Is 2-E1-H1 the slot number?
+Is PAD48914 the flowcell ID?
+What's that final number? Just a hash?
+
+Does the final_summary.txt actually appear after everything else, or does it appear
+gradually? If the latter, we can use it to detect a new dataset to process (yay).
+If not, we may still be able to detect when it grows to 17 lines.
+
+But why is this only for some runs? Is it brought by a software update?
+
+We have a "sequencing_summary" file. Per flowcell. These are big. Again are they written on-the-fly?
+
+Does it make sense to talk about "a run" at all? Does it make sense to talk about a run starting
+and finishing? It seems that a run can be stopped and then restarted, in which case...
+
+The idea of a run, as per SMRTino, could be a red herring. Maybe we have runs as placeholders
+but they are just open-ended and collect new flowcells?
+
+Run start:
+
+A run is new when it has any flowcell directory. Generate the name and make a (very) initial
+report. Monitor for events which may be:
+
+Flowcell added
+
+Log the new flowcell and update the report
+
+Flowcell complete
+
+Start processing and at the end make the report
+If all flowcells are complete, notify RT - so then a run "finishes" when the number complete == number added, but there could still be more to come.
+
+We need to resolve the fact that new cells could (I think) appear as old ones are processing.
+SMRTino already deals with multiple cells finishing at once, but...
+
+When is it safe to remove a run? How was Urmi doing that? Manual, automatic, special procedure?
+Can the script safely purge old runs? Or how about it logs the ones it would like to purge, then
+there is a script on the machine to actually do it? Sounds better!
