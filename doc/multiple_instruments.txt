@@ -1,0 +1,20 @@
+At the moment, we have one Promethion instrument. What if we had more than one?
+
+Well, we could set multiple values for UPSTREAM. And we could ensure that the
+instrument name was added to the run by the same munging mechanism in
+list_remote_cells.sh. That would be useful to incorporate now, I think.
+
+Unlike the Illumina machines and the PacBio, the Promethion doesn't seem to
+know it's own name, or at least does not incorporte this into the run names.
+But it says "EGS-1" on the side so I'll call it "EGS1".
+
+So instead of:
+
+UPSTREAM=prom@promethion:/data
+
+We have:
+
+UPSTREAM="EGS1"
+UPSTREAM_EGS1=prom@promethion:/data
+
+Oh yeah.
