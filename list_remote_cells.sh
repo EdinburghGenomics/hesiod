@@ -15,6 +15,8 @@ if [[ -z "$UPSTREAM" ]] ; then
 elif [[ "$UPSTREAM" =~ : ]] ; then
     # This works as long as there are no rogue spaces.
     ls_cmd="ssh ${UPSTREAM%%:*} cd ${UPSTREAM#*:} && ls -d $pattern"
+    # Prevent glob expansion in local shell
+    set -o noglob
 else
     ls_cmd="cd ${UPSTREAM} && ls -d $pattern"
 fi
