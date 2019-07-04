@@ -4,8 +4,8 @@ set -euo pipefail
 # Basically, the job of this script is to run:
 # ls -d */*/20??????_*_????????/fast?_????
 
-# Then to digest that into a two-column TSV:
-# ourname origname/library/cell
+# Then to digest that into a three-column TSV:
+# ourname loc origname/library/cell
 
 pattern='*/*/20??????_*_????????/fast?_????'
 
@@ -48,7 +48,7 @@ while read l ; do
         # Remember this name for all lines with this run name
         last_dir="$this_dir"
     fi
-    echo "$last_munged"$'\t'"$l"
+    echo "$last_munged"$'\t'"$UPSTREAM_LOC"$'\t'"$l"
 
 done < <($ls_cmd | sed 's,/[^/]*$,,' | env LC_ALL=C sort -u -t/ -k1,1 -k3 )
 

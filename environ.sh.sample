@@ -1,7 +1,11 @@
 # Config parameters for Hesiod
 STALL_TIME=''
 
-UPSTREAM=prom@promethion:/data
+# We may have multiple UPSTREAM locations, ie. instruments. In which case you could set
+# UPSTREAM="EGS1 EGS2 LOANER1". But for now just one box.
+UPSTREAM="EGS1"
+UPSTREAM_EGS1=prom@promethion:/data
+
 PROM_RUNS=/lustre/promethion/prom_runs
 FASTQDATA=/lustre/promethion/prom_fastqdata
 

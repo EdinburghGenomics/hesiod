@@ -85,17 +85,18 @@ After syncing it looks to see if this gives it any new complete cells. If so, it
 Also if the run is now "complete" it notifies RT.
 
 When a complete cell is processed, do we delete from /lustre/promethion/prom_runs?
-I feel we should, or at least have the option. When a cell is done and in /lustre/promethion/prom_fastqdata
-then there should be a marker in {runid}/pipeline that suppresses further processing.
+I feel we should, or at least have the option. But if the directory is still on the sequencer
+then it will be brought back. So maybe just leave a stub dir and remove all the cells??
 
-pipeline/from (text file with address)
+pipeline/upstream (text file with address)
+pipeline/output   (symlink to output dir)
 pipeline/failed (if failed)
 pipeline/{cell}.synced
 pipeline/{cell}.started
 pipeline/{cell}.done
 
-If the output dir exists the cell cannot be new
-If the dir exists without pipeline/{from} status is Unknown
+If the dir in prom_runs exists the cell cannot be new
+If the dir exists without pipeline/upstream status is Unknown
 Any cell seen on prom:/data not in pipeline we do an rsync
 Then once the copy is done {cell}.synced blocks any further rsync
 {cell}.started indicates processing (to prom_fastqdata) is happening - compress and then QC.
@@ -143,3 +144,20 @@ ssh prom rsync -vrlptD /data/{run}/{lib}/{flowcell} /mnt/lustre/promethion/prom_
 Not much difference. And this still works if initial writing is done to /fluidfs
 And it even works if writing is direct to /lustre, as the pipeline/{from} can be set to LOCAL and then
 we could bypass the Syncing step.
+
+...
+
+OK, I spotted a problem. If one run is aborted and another started, then in my scheme above the driver will
+continuously see the aborted run in state sync_needed, sync and exit. The new run will get no love. How can I
+get around this? Well, how about:
+
+Gather all the sync_needed actions as we go through the runs. Then only if BREAK is not set, start all of them
+at once, but run the actual commands sequentially. This will avoid too many RSYNCS happening at once. It will make
+debugging more complex, but we can log clearly. For example in log and plog we can say:
+
+Commencing sync of runs: xxx, yyy, zzz
+
+Then run zzz will show up in status 'syncing' and the log will hint why nothing seems to be happening (because
+runs xxx and yyy have to finish first. If xxx finishes but yyy is ongoing the next run of driver might pick up
+xxx again but this is absolutely fine. And remember again that "touch -c" prevents two syncs at once on the same
+run, even if the driver hits the race condition.
