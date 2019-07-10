@@ -126,7 +126,8 @@ touch pipeline/rsync.started
 [sync]
 mv pipeline/rsync.started pipeline/rsync.[done|failed]
 
-We don't need flock at the start because "touch -c" is atomic. There's not much point in detecting stale
+I can make an atomic version (only creates new files) of touch pretty easily in BASH.
+We don't need flock at the start because "touch_atomic" is atomic. There's not much point in detecting stale
 lock files as rsync may freeze and if we're running it via SSH this won't help anyway.
 
 The RunInfo.py won't be able to call New Run, so this will have to be done separately. But then how do we know
@@ -148,8 +149,9 @@ we could bypass the Syncing step.
 ...
 
 OK, I spotted a problem. If one run is aborted and another started, then in my scheme above the driver will
-continuously see the aborted run in state sync_needed, sync and exit. The new run will get no love. How can I
-get around this? Well, how about:
+continuously see the aborted run in state sync_needed, sync and exit. The new run will get no love until I go
+in and manually mark the old run as aborted. How can I get around this? We need to prioritise processing over
+syncing. Well, how about:
 
 Gather all the sync_needed actions as we go through the runs. Then only if BREAK is not set, start all of them
 at once, but run the actual commands sequentially. This will avoid too many RSYNCS happening at once. It will make
@@ -159,5 +161,5 @@ Commencing sync of runs: xxx, yyy, zzz
 
 Then run zzz will show up in status 'syncing' and the log will hint why nothing seems to be happening (because
 runs xxx and yyy have to finish first. If xxx finishes but yyy is ongoing the next run of driver might pick up
-xxx again but this is absolutely fine. And remember again that "touch -c" prevents two syncs at once on the same
+xxx again but this is absolutely fine. And remember again that "touch_atomic" prevents two syncs at once on the same
 run, even if the driver hits the race condition.

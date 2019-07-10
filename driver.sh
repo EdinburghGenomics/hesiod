@@ -13,7 +13,7 @@ shopt -sq failglob
 #  A driver script that is to be called directly from the CRON. Based on the similar
 #  ones in Illuminatus and SMRTino.
 #
-#  Runs are synced from UPSTREAM_{NAME} to PROM_RUNS, then as each cell completes the
+#  Runs are synced from UPSTREAM_{NAME} to PROM_RUNS then, as each cell completes, the
 #  files are compressed and processed into FASTQDATA, from where a report is
 #  generated.
 #  This script will go through all the runs in PROM_RUNS and take action on them as
@@ -21,7 +21,7 @@ shopt -sq failglob
 #  determine the state. For runs in UPSTREAM and not in PROM_RUNS an action_new
 #  event is triggered.
 #  As a well behaved CRON job this script should only output critical error messages
-#  to stdout - this is controlled by the MAINLOG setting.
+#  to STDOUT - this is controlled by the MAINLOG setting.
 #  The script wants to run every 5 minutes or so, and having multiple instances
 #  in flight at once is fine (and expected), though in fact there are race conditions
 #  possible if two instances start at once and claim the same run for processing. This
@@ -56,7 +56,7 @@ export HESIOD_VERSION=$(cat "$(dirname $BASH_SOURCE)"/version.txt || echo unknow
 
 # LOG_DIR is ignored if MAINLOG is set explicitly.
 LOG_DIR="${LOG_DIR:-${HOME}/hesiod/logs}"
-RUN_NAME_REGEX="${RUN_NAME_REGEX:-.*}"
+RUN_NAME_REGEX="${RUN_NAME_REGEX:-.+_.+_.+}"
 
 BIN_LOCATION="${BIN_LOCATION:-$(dirname $0)}"
 PATH="$(readlink -m $BIN_LOCATION):$PATH"
@@ -170,7 +170,6 @@ action_new(){
 
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
-        plog_start
         echo "$UPSTREAM_LOC" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
@@ -180,24 +179,52 @@ action_new(){
     fi
 
     # Now, this should fail if $FASTQDATA/$RUNID already exists or can't be created.
-    if mkdir -v "$FASTQDATA/$RUNID" |&plog ; then
-        ln -svn . "$FASTQDATA/$RUNID/rundata" |&plog
+    RUN_OUTPUT="$FASTQDATA/$RUNID"
+    if _msg="$(mkdir -v "$RUN_OUTPUT")" ; then
+        plog_start
+        plog "$_msg"
+        # Links both ways, as usual
+        ln -svn "$(readlink -f .)" "$RUN_OUTPUT/rundata" |&plog
+        ln -svn "$(readlink -f "$RUN_OUTPUT")" "pipeline/output" |&plog
     else
         # Possibly the directory in $PROM_RUNS had been deleted and there is old data
         # in $FASTQDATA. In which case it should have been moved off the machine!
         # An error in any case. But here we do keep going.
         msg="Either $FASTQDATA/$RUNID already existed or could not be created."
+        set +e
         log "$msg" ; plog "$msg"
         pipeline_fail New_Run_Setup
     fi
 
     # Triggers a summary to be sent to RT as a comment, which should create
     # the new RT ticket.
-    notify_rt_or_whatever | plog && log "DONE"
+    # FIXME - add more actual content like the other pipelines
+    rt_runticket_manager --comment @<(echo "Syncing new run from $UPSTREAM_LOC with ${#UPSTREAM_CELLS[@]} cells.") |& \
+        plog && log "DONE"
 }
 
+SYNC_QUEUE=()
+
+action_sync_needed(){
+    # Deferred action - add to the sync queue
+    debug "\_SYNC_NEEDED $RUNID. Adding to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
+
+    SYNC_QUEUE+=($RUNID)
+}
+
+action_processing_sync_needed(){
+    # Same as above
+    action_sync_needed
+}
 
 ###--->>> UTILITY FUNCTIONS <<<---###
+touch_atomic(){
+    # Create a file or files but it's an error if the file already existed.
+    # (Like the opposite of touch -n)
+    for f in "$@" ; do
+        (set -o noclobber ; >"$f")
+    done
+}
 
 save_start_time(){
     ( echo -n "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
@@ -350,9 +377,11 @@ pipeline_fail() {
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
 _upstream_info=""
+_upstream_locs=""
 for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
 
+    _upstream_locs+="$UPSTREAM_LOC "
     _upstream_info+="$(list_remote_cells.sh)"
 done
 
@@ -360,14 +389,24 @@ done
 
 # This is more complicated than other pipelines as we have to go in stages:
 
-# 1) Process all run directories
-# 2) Process all new runs
-# 3) Commence all syncs
+# 1) Process all run directories in $PROM_RUNS
+# 2) Process all new runs from $_upstream_info
+# 3) Commence all syncs (see doc/syncing.sh for why this works the way it does)
 
 log "Looking for run directories matching regex $PROM_RUNS/$RUN_NAME_REGEX/"
 
-# 6) Scan through each run until we find something that needs dealing with.
-for run in "$PROM_RUNS"/*/ ; do
+# If there is nothing in "$PROM_RUNS" and nothing in "$_upstream_info" it's an error.
+# Seems best to be explicit checking this.
+if ! compgen -G "$PROM_RUNS/*/" >/dev/null && [ -z "$_upstream_info" ] ; then
+    _msg="Nothing found in $PROM_RUNS or any upstream locations (${_upstream_locs% })"
+    log "$_msg"
+    echo "$_msg" >&2 # This will go out as a CRON error
+    exit 1
+fi
+
+# Now scan through each prom_run dir until we find something that needs dealing with.
+BREAK=0
+if compgen -G "$PROM_RUNS/*/" ; then for run in "$PROM_RUNS"/*/ ; do
 
   if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
     debug "Ignoring `basename $run`"
@@ -388,12 +427,14 @@ for run in "$PROM_RUNS"/*/ ; do
   CELLSABORTED=`grep ^CellsAborted: <<<"$_runstatus" || echo ''` ; CELLSABORTED=${CELLSABORTED#*: }
   STATUS=`grep ^PipelineStatus: <<<"$_runstatus"` ;                STATUS=${STATUS#*: }
 
+  # Resolve output location
+  RUN_OUTPUT="$(readlink -f "$run/pipeline/output")"
+
   # FIXME - taken from SMRTino
   if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
   $_log "$run has $RUNID from $INSTRUMENT with cell(s) [$CELLS] and status=$STATUS"
 
   #Call the appropriate function in the appropriate directory.
-  BREAK=0
   { pushd "$run" >/dev/null && eval action_"$STATUS" &&
     popd >/dev/null
   } || log "Error while trying to run action_$STATUS on $run"
@@ -407,12 +448,46 @@ for run in "$PROM_RUNS"/*/ ; do
   # it, fails, and then exits.
   # Negated test is needed to play nicely with 'set -e'
   ! [ "$BREAK" = 1 ] || break
-done
+done ; fi
+
+if [ "$BREAK" = 1 ] ; then
+    wait ; exit
+fi
 
 # Now synthesize new run events
-for blah in blah do blah
+STATUS=new
+if [ -n "$UPSTREAM" ] ; then
+    log "Looking for new upstream runs matching regex $RUN_NAME_REGEX"
+    while read RUNID ; do
+        if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
+          debug "Ignoring $RUNID"
+          continue
+        fi
 
-# Now start sync events
-for blah in blah do blah
+        if ! [ -e "$PROM_RUNS/$RUNID" ] ; then
+            # FIXME - ensure these match what is emitted by run_status.py
+            UPSTREAM_LOC=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
+            UPSTREAM_CELLS=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
+
+            { eval action_"$STATUS"
+            } || log "Error while trying to run action_$STATUS on $RUNID"
+        fi
+    done < <(awk -F $'\t' '{print $1}' <<<"$_upstream_info")
+fi
+
+# Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
+if [ -n "${SYNC_QUEUE:-}" ] ; then
+    for RUNID in "${SYNC_QUEUE[@]}" ; do
+        touch_atomic "$PROM_RUNS/$RUNID/pipeline/rsync.started"
+        # If some calls to touch_atomic fail this will be bad. But trying to auto-recify the
+        # situation could well be worse.
+    done
+
+    for RUNID in "${SYNC_QUEUE[@]}" ; do
+        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_rsync &&
+          popd >/dev/null
+        } || log "Error while trying to run Rsync on $PROM_RUNS/$RUNID"
+    done
+fi
 
 wait
