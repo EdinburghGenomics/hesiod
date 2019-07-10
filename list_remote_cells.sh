@@ -18,7 +18,7 @@ elif [[ "$UPSTREAM_LOC" =~ : ]] ; then
     # Prevent glob expansion in local shell
     set -o noglob
 else
-    ls_cmd="cd ${UPSTREAM_LOC} && ls -d $pattern"
+    ls_cmd="eval cd ${UPSTREAM_LOC} && ls -d $pattern"
 fi
 
 # UPSTREAM_NAME must be set
