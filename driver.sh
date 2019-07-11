@@ -92,7 +92,7 @@ debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then log "$@" ; else [ $# = 0 ] && cat >/
 # TODO - decide if PROM_RUNS needs a marker file like .smrtino uses.
 
 # Per-run log for more detailed progress messages, goes into the output
-# directory. Obvously this can't be used in action_new.
+# directory. Obvously this can't be used in action_new until the directory is made.
 plog() {
     per_run_log="$RUN_OUTPUT/pipeline.log"
     if ! { [ $# = 0 ] && cat >> "$per_run_log" || echo "$*" >> "$per_run_log" ; } ; then
@@ -155,7 +155,7 @@ fi
 
 # TODO - consider if we need a separate reporting state. I guess not.
 
-# All actions can see CELLS STATUS RUNID INSTRUMENT CELLSABORTED as reported by prom_run_status.py, and
+# All actions can see CELLS STATUS RUNID INSTRUMENT CELLSABORTED as reported by run_status.py, and
 # RUN_OUTPUT (the input dir is simply the CWD)
 # The cell_ready action can read the CELLSREADY array which is guaranteed to be non-empty
 
@@ -165,8 +165,13 @@ action_new(){
     # Also a matching output directory and back/forth symlinks
     # If something fails we should assume that something is wrong  with the FS and not try to
     # process more runs. However, if nothing fails we can process multiple new runs in one go.
-
-    log "\_NEW $RUNID. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
+    if [ "$UPSTREAM_LOC" = LOCAL ] ; then
+        log "\_NEW $RUNID (LOCAL). Creating output directory in $FASTQDATA."
+        _msg="New run in $PROM_RUNS with ${#CELLS[@]} cells."
+    else
+        log "\_NEW $RUNID. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
+        _msg="Syncing new run from $UPSTREAM_LOC to $PROM_RUNS with ${#CELLS[@]} cells."
+    fi
 
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
@@ -196,15 +201,17 @@ action_new(){
         pipeline_fail New_Run_Setup
     fi
 
+    # Now detect if any cells are already complete, so we can skip the sync on the
+    # next run-through.
+    check_for_ready_cells
+
     # Triggers a summary to be sent to RT as a comment, which should create
     # the new RT ticket.
     # FIXME - add more actual content like the other pipelines
-    rt_runticket_manager --comment @<(echo "Syncing new run from $UPSTREAM_LOC with ${#UPSTREAM_CELLS[@]} cells.") |& \
-        plog && log "DONE"
+    rt_runticket_manager --comment @<(echo "$_msg") |& plog && log "DONE"
 }
 
 SYNC_QUEUE=()
-
 action_sync_needed(){
     # Deferred action - add to the sync queue
     debug "\_SYNC_NEEDED $RUNID. Adding to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
@@ -215,6 +222,22 @@ action_sync_needed(){
 action_processing_sync_needed(){
     # Same as above
     action_sync_needed
+}
+
+action_incomplete(){
+    # When there are cells with no .synced flag but also no upstream to fetch from
+    # Maybe we can rescue the situation if files are added outside of the pipeline?
+    check_for_ready_cells
+}
+
+# Not really an action but almost:
+do_rsync(){
+    # See doc/syncing.txt
+    # Called per run, and needs to sync all cells for which there is a remote
+    # but no {cell}.synced
+
+    check_for_ready_cells
+    mv pipeline/rsync.started pipeline/rsync.done
 }
 
 ###--->>> UTILITY FUNCTIONS <<<---###
@@ -234,6 +257,16 @@ save_start_time(){
 # Wrapper for ticket manager that sets the run and queue
 rt_runticket_manager(){
     rt_runticket_manager.py -r "$RUNID" -Q promrun "$@"
+}
+
+check_for_ready_cells(){
+    # After a sync completes, check if any cells are now ready for processing and
+    # if so write the {cell}.synced files
+    for blah in blah ; do
+        if whatever ; then
+            touch_atomic "pipeline/$cell.synced"
+        fi
+    done
 }
 
 notify_run_complete(){
@@ -416,8 +449,8 @@ if compgen -G "$PROM_RUNS/*/" ; then for run in "$PROM_RUNS"/*/ ; do
   # invoke runinfo and collect some meta-information about the run. We're passing this info
   # to the state functions via global variables.
   # This construct allows error output to be seen in the log.
-  _runstatus="$(prom_run_status.py "$run" <<<"$_upstream_info")" || \
-        prom_run_status.py "$run" <<<"$_upstream_info" | log 2>&1
+  _runstatus="$(run_status.py "$run" <<<"$_upstream_info")" || \
+        run_status.py "$run" <<<"$_upstream_info" | log 2>&1
 
   # Ugly, but I can't think of a better way...
   RUNID=`grep ^RunID: <<<"$_runstatus"` ;                          RUNID=${RUNID#*: }
@@ -467,7 +500,7 @@ if [ -n "$UPSTREAM" ] ; then
         if ! [ -e "$PROM_RUNS/$RUNID" ] ; then
             # FIXME - ensure these match what is emitted by run_status.py
             UPSTREAM_LOC=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
-            UPSTREAM_CELLS=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
+            CELLS=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
 
             { eval action_"$STATUS"
             } || log "Error while trying to run action_$STATUS on $RUNID"

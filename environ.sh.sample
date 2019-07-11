@@ -9,8 +9,14 @@ UPSTREAM_EGS1=prom@promethion:/data
 PROM_RUNS=/lustre/promethion/prom_runs
 FASTQDATA=/lustre/promethion/prom_fastqdata
 
-# I suspect this is not what I want in the config but...
-SYNC_CMD="rsync -vrlptDR ${UPSTREAM}/{remote_run}/./{lib}/{flowcell} ${PROM_RUNS}/{local_run}/"
+# Provide a sync command as a template that may access:
+#   {upstream_host} - eg prom@promethion
+#   {upstream_path} - eg /data/testrun
+#   {cell}          - eg testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b
+#   {run}           - eg 20190710_TEST_testrun
+SYNC_CMD="rsync -vrlptDR {upstream_host}/{upstream_path}/./{cell} ${PROM_RUNS}/{run}/"
 ## Or:
-SYNC_CMD="ssh ${UPSTREAM%%:*} rsync -vrlptDR ${UPSTREAM#*:}/{remote_run}/./{lib}/{flowcell} /mnt/lustre/prometion/prom_runs/{local_run}/"
+SYNC_CMD="ssh {upstream_host} rsync -vrlptDR {upstream_path}/./{cell} /mnt/lustre/prometion/prom_runs/{run}/"
 
+# If you want different sync commands for different upstream hosts then this is not yet supported.
+# I'm imaginging if we get another Promethion we'll just set it up the same.

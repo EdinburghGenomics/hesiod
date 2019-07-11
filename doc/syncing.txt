@@ -146,6 +146,14 @@ Not much difference. And this still works if initial writing is done to /fluidfs
 And it even works if writing is direct to /lustre, as the pipeline/{from} can be set to LOCAL and then
 we could bypass the Syncing step.
 
+Update - the upstream location for a run is something I'm saving as prom:/data/{run}, and we can be more
+cunning with rsync -R to get:
+
+upstream_host, upstream_path = upstream.split('/')
+pull_cmd="rsync -vrlptDR {upstream_host}:{upstream_path}/./{cell} /lustre/promethion/prom_runs/{run}"
+push_cmd="ssh {upstream_host} rsync -vrlptDR {upstream_path}/{cell} /mnt/lustre/promethion/prom_runs/{run}"
+
+Anyway see environ.sh.sample for the latest thoughts.
 ...
 
 OK, I spotted a problem. If one run is aborted and another started, then in my scheme above the driver will

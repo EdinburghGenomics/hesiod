@@ -98,31 +98,29 @@ class T(unittest.TestCase):
 
         return self.bm.last_stdout.split("\n")
 
-    '''
     def copy_run(self, run):
-        """Utility function to add a run from mock_examples into TMP/seqdata.
+        """Utility function to add a run from examples/runs into temp_dir/runs.
            Returns the path to the run copied.
         """
-        run_dir = os.path.join(os.path.dirname(__file__), 'mock_examples', run)
+        run_dir = os.path.join(EXAMPLES, 'runs', run)
 
-        # We want to know the expected output location
-        self.to_path = os.path.join(self.temp_dir, 'pacbio_data', run)
+        # We want to know the desired output location
+        self.to_path = os.path.join(self.temp_dir, 'runs', run)
 
         # Annoyingly, copytree gives me no way to avoid running copystat on the files.
         # But that doesn't mean it's impossible...
         with patch('shutil.copystat', lambda *a, **kw: True):
             return copytree(run_dir,
-                            os.path.join(self.temp_dir, 'sequel', run),
+                            self.to_path,
                             symlinks = True )
-    '''
 
     def assertInStdout(self, *words):
         """Assert that there is at least one line in stdout containing all these strings
         """
         o_split = self.bm.last_stdout.split("\n")
 
-        #This loop progressively prunes down the lines, until anything left
-        #must have contained each word in the list.
+        # This loop progressively prunes down the lines, until anything left
+        # must have contained each word in the list.
         for w in words:
             o_split = [ l for l in o_split if w in l ]
 
@@ -133,8 +131,8 @@ class T(unittest.TestCase):
         """
         o_split = self.bm.last_stdout.split("\n")
 
-        #This loop progressively prunes down the lines, until anything left
-        #must have contained each word in the list.
+        # This loop progressively prunes down the lines, until anything left
+        # must have contained each word in the list.
         for w in words:
             o_split = [ l for l in o_split if w in l ]
 
@@ -210,7 +208,7 @@ class T(unittest.TestCase):
                           os.path.realpath(self.temp_dir + "/runs/20190226_TEST_testrun") )
 
         with open(self.temp_dir + "/runs/20190226_TEST_testrun/pipeline/upstream") as fh:
-            self.assertEqual(fh.read().rstrip('\n'), self.environment['UPSTREAM_TEST'])
+            self.assertEqual(fh.read().rstrip('\n'), self.environment['UPSTREAM_TEST'] + '/testrun')
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
@@ -223,12 +221,57 @@ class T(unittest.TestCase):
         self.assertEqual(self.bm.last_calls, expected_calls)
 
     def test_new_without_upstream(self):
-        """With a new run in PROM_RUNS this isn't found in the UPSTREAM this should trigger
+        """With a new run in PROM_RUNS that isn't found in the UPSTREAM this should trigger
            creation of a corresponding directory in FASTQDATA and a new run ticket much as
            above, but no sync as there is nothing to sync - our assumption is that this run
            should be ready for processing right away.
         """
-        pass
+        self.copy_run("201907010_LOCALTEST_newrun")
+        self.bm_rundriver()
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # Check for dirs and symlinks as above
+        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline"))
+        self.assertTrue(os.path.isdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"))
+        self.assertEqual( os.path.realpath(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/output"),
+                          os.path.realpath(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun") )
+        self.assertEqual( os.path.realpath(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun/rundata"),
+                          os.path.realpath(self.temp_dir + "/runs/201907010_LOCALTEST_newrun") )
+
+        with open(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/upstream") as fh:
+            self.assertEqual(fh.read().rstrip('\n'), 'LOCAL')
+
+        # A new ticket should have been made
+        expected_calls = self.bm.empty_calls()
+        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --comment @???']
+
+        # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
+        self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
+                                    r'@\S+$', '@???', self.bm.last_calls['rt_runticket_manager.py'][0] )
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_new_but_output_exists(self):
+        """There should be an error if the directory in fastqdata already exists
+        """
+        self.copy_run("201907010_LOCALTEST_newrun")
+
+        os.mkdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun")
+
+        self.bm_rundriver(expected_retval=1)
+        self.assertInStdout("already existed or could not be created")
+
+        # A new ticket should have been made, but with an error
+        expected_calls = self.bm.empty_calls()
+        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --reply @???']
+
+        # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
+        self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
+                                    r'@\S+$', '@???', self.bm.last_calls['rt_runticket_manager.py'][0] )
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
 
 if __name__ == '__main__':
     unittest.main()

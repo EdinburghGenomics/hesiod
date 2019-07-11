@@ -5,7 +5,9 @@ set -euo pipefail
 # ls -d */*/20??????_*_????????/fast?_????
 
 # Then to digest that into a three-column TSV:
-# ourname loc origname/library/cell
+# ourname loc/origname library/cell
+# The first and second columns will always correspond with a 1:1 mapping.
+# The third column may provide multiple values for each name.
 
 pattern='*/*/20??????_*_????????/fast?_????'
 
@@ -33,6 +35,7 @@ while read l ; do
     #echo "**$l"
 
     this_dir="${l%%/*}"
+    cell="${l#*/}"
     if [[ "$this_dir" != "$last_dir" ]] ; then
         # Get the date from the last dir, which the machine generates.
         cell_dir="${l##*/}"
@@ -48,7 +51,7 @@ while read l ; do
         # Remember this name for all lines with this run name
         last_dir="$this_dir"
     fi
-    echo "$last_munged"$'\t'"$UPSTREAM_LOC"$'\t'"$l"
+    echo "$last_munged"$'\t'"$UPSTREAM_LOC/$this_dir"$'\t'"$cell"
 
 done < <($ls_cmd | sed 's,/[^/]*$,,' | env LC_ALL=C sort -u -t/ -k1,1 -k3 )
 
