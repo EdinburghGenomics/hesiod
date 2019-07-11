@@ -17,7 +17,7 @@ shopt -sq failglob
 #  files are compressed and processed into FASTQDATA, from where a report is
 #  generated.
 #  This script will go through all the runs in PROM_RUNS and take action on them as
-#  needed according to the state machine model. prom_run_status.py is called to
+#  needed according to the state machine model. run_status.py is called to
 #  determine the state. For runs in UPSTREAM and not in PROM_RUNS an action_new
 #  event is triggered.
 #  As a well behaved CRON job this script should only output critical error messages
@@ -165,17 +165,18 @@ action_new(){
     # Also a matching output directory and back/forth symlinks
     # If something fails we should assume that something is wrong  with the FS and not try to
     # process more runs. However, if nothing fails we can process multiple new runs in one go.
-    if [ "$UPSTREAM_LOC" = LOCAL ] ; then
+    _cc=`wc -w <<<"$CELLS"`
+    if [ "$UPSTREAM" = LOCAL ] ; then
         log "\_NEW $RUNID (LOCAL). Creating output directory in $FASTQDATA."
-        _msg="New run in $PROM_RUNS with ${#CELLS[@]} cells."
+        _msg="New run in $PROM_RUNS with $_cc cells."
     else
         log "\_NEW $RUNID. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
-        _msg="Syncing new run from $UPSTREAM_LOC to $PROM_RUNS with ${#CELLS[@]} cells."
+        _msg="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
     fi
 
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
-        echo "$UPSTREAM_LOC" > "pipeline/upstream"
+        echo "$UPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
         log "FAILED $RUNID (creating $PROM_RUNS/$RUNID/pipeline)"
@@ -235,6 +236,7 @@ do_rsync(){
     # See doc/syncing.txt
     # Called per run, and needs to sync all cells for which there is a remote
     # but no {cell}.synced
+    echo $SYNC_CMD
 
     check_for_ready_cells
     mv pipeline/rsync.started pipeline/rsync.done
@@ -262,9 +264,9 @@ rt_runticket_manager(){
 check_for_ready_cells(){
     # After a sync completes, check if any cells are now ready for processing and
     # if so write the {cell}.synced files
-    for blah in blah ; do
-        if whatever ; then
-            touch_atomic "pipeline/$cell.synced"
+    for cell in $CELLSPENDING ; do
+        if [ -e "$cell/final_summary.txt" ] ; then
+            touch_atomic "pipeline/${cell}.synced"
         fi
     done
 }
@@ -407,6 +409,28 @@ pipeline_fail() {
     fi
 }
 
+get_run_status() { # run_dir, [upstream_info]
+  # invoke run_status.py in CWD and collect some meta-information about the run.
+  # We're passing this info to the state functions via global variables.
+  # This construct allows error output to be seen in the log.
+
+  _runstatus="$(run_status.py "$1" <<<"${2:-}")" || \
+        run_status.py "$1" <<<"${2:-}" | log 2>&1
+
+  # Ugly, but I can't think of a better way...
+  RUNID=`grep ^RunID: <<<"$_runstatus"` ;                          RUNID=${RUNID#*: }
+  INSTRUMENT=`grep ^Instrument: <<<"$_runstatus"` ;                INSTRUMENT=${INSTRUMENT#*: }
+  CELLS=`grep ^Cells: <<<"$_runstatus"` ;                          CELLS=(${CELLS#*: })
+  CELLSPENDING=`grep ^CellsPending: <<<"$_runstatus"` ;            CELLSPENDING=(${CELLSPENDING#*: })
+  CELLSREADY=`grep ^CellsReady: <<<"$_runstatus" || echo ''` ;     CELLSREADY=${CELLSREADY#*: }
+  CELLSABORTED=`grep ^CellsAborted: <<<"$_runstatus" || echo ''` ; CELLSABORTED=${CELLSABORTED#*: }
+  STATUS=`grep ^PipelineStatus: <<<"$_runstatus"` ;                STATUS=${STATUS#*: }
+  UPSTREAM=`grep ^Upstream: <<<"$_runstatus"` ;                    UPSTREAM=${UPSTREAM#*: }
+
+  # Resolve output location
+  RUN_OUTPUT="$(readlink -f "$run/pipeline/output" || true)"
+}
+
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
 _upstream_info=""
@@ -415,8 +439,10 @@ for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
 
     _upstream_locs+="$UPSTREAM_LOC "
-    _upstream_info+="$(list_remote_cells.sh)"
+    # If this fails (network error or whatever) we still want to process local stuff
+    _upstream_info+="$(list_remote_cells.sh || true)"
 done
+unset UPSTREAM_LOC UPSTREAM_NAME
 
 ###--->>> SCANNING LOOP <<<---###
 
@@ -439,48 +465,34 @@ fi
 
 # Now scan through each prom_run dir until we find something that needs dealing with.
 BREAK=0
-if compgen -G "$PROM_RUNS/*/" ; then for run in "$PROM_RUNS"/*/ ; do
+if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
 
-  if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
-    debug "Ignoring `basename $run`"
-    continue
-  fi
+    if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
+        debug "Ignoring `basename $run`"
+        continue
+    fi
 
-  # invoke runinfo and collect some meta-information about the run. We're passing this info
-  # to the state functions via global variables.
-  # This construct allows error output to be seen in the log.
-  _runstatus="$(run_status.py "$run" <<<"$_upstream_info")" || \
-        run_status.py "$run" <<<"$_upstream_info" | log 2>&1
+    # This sets RUNID, STATUS, etc.
+    get_run_status "$run" "$_upstream_info"
 
-  # Ugly, but I can't think of a better way...
-  RUNID=`grep ^RunID: <<<"$_runstatus"` ;                          RUNID=${RUNID#*: }
-  INSTRUMENT=`grep ^Instrument: <<<"$_runstatus"` ;                INSTRUMENT=${INSTRUMENT#*: }
-  CELLS=`grep ^Cells: <<<"$_runstatus"` ;                          CELLS=${CELLS#*: }
-  CELLSREADY=`grep ^CellsReady: <<<"$_runstatus" || echo ''` ;     CELLSREADY=${CELLSREADY#*: }
-  CELLSABORTED=`grep ^CellsAborted: <<<"$_runstatus" || echo ''` ; CELLSABORTED=${CELLSABORTED#*: }
-  STATUS=`grep ^PipelineStatus: <<<"$_runstatus"` ;                STATUS=${STATUS#*: }
+    # Taken from SMRTino - normall yodn't log all the boring stuff
+    if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
+    $_log "$run has $RUNID with cell(s) [$CELLS] and status=$STATUS"
 
-  # Resolve output location
-  RUN_OUTPUT="$(readlink -f "$run/pipeline/output")"
-
-  # FIXME - taken from SMRTino
-  if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
-  $_log "$run has $RUNID from $INSTRUMENT with cell(s) [$CELLS] and status=$STATUS"
-
-  #Call the appropriate function in the appropriate directory.
-  { pushd "$run" >/dev/null && eval action_"$STATUS" &&
+    #Call the appropriate function in the appropriate directory.
+    { pushd "$run" >/dev/null && eval action_"$STATUS"
+    } || log "Error while trying to run action_$STATUS on $run"
     popd >/dev/null
-  } || log "Error while trying to run action_$STATUS on $run"
-  #in case this setting got clobbered...
-  set -e
+    #in case this setting got clobbered...
+    set -e
 
-  # If the driver started some actual work it should request to break, as the CRON will start
-  # a new scan at regular intervals in any case. We don't want an instance of the driver to
-  # spend 2 hours processing then start working on a new run. On the other hand, we don't
-  # want a problem run to gum up the pipeline if every instance of the script tries to process
-  # it, fails, and then exits.
-  # Negated test is needed to play nicely with 'set -e'
-  ! [ "$BREAK" = 1 ] || break
+    # If the driver started some actual work it should request to break, as the CRON will start
+    # a new scan at regular intervals in any case. We don't want an instance of the driver to
+    # spend 2 hours processing then start working on a new run. On the other hand, we don't
+    # want a problem run to gum up the pipeline if every instance of the script tries to process
+    # it, fails, and then exits.
+    # Negated test is needed to play nicely with 'set -e'
+    ! [ "$BREAK" = 1 ] || break
 done ; fi
 
 if [ "$BREAK" = 1 ] ; then
@@ -492,15 +504,20 @@ STATUS=new
 if [ -n "$UPSTREAM" ] ; then
     log "Looking for new upstream runs matching regex $RUN_NAME_REGEX"
     while read RUNID ; do
+        if [[ -z "$RUNID" ]] ; then
+            log "No runs seen"
+            continue
+        fi
+
         if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
-          debug "Ignoring $RUNID"
-          continue
+            debug "Ignoring $RUNID"
+            continue
         fi
 
         if ! [ -e "$PROM_RUNS/$RUNID" ] ; then
             # FIXME - ensure these match what is emitted by run_status.py
-            UPSTREAM_LOC=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
-            CELLS=($(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info"))
+            UPSTREAM=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info")
+            CELLS=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $3}' <<<"$_upstream_info")
 
             { eval action_"$STATUS"
             } || log "Error while trying to run action_$STATUS on $RUNID"
@@ -517,9 +534,10 @@ if [ -n "${SYNC_QUEUE:-}" ] ; then
     done
 
     for RUNID in "${SYNC_QUEUE[@]}" ; do
-        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_rsync &&
-          popd >/dev/null
+        get_run_status "$PROM_RUNS/$RUNID"
+        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_rsync
         } || log "Error while trying to run Rsync on $PROM_RUNS/$RUNID"
+        popd >/dev/null
     done
 fi
 

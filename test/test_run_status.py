@@ -8,10 +8,11 @@ from shutil import rmtree, copytree
 from pprint import pprint
 import logging as L
 from unittest.mock import Mock, patch
+from io import StringIO
 
 # Adding this to sys.path makes the test work if you just run it directly.
 with patch('sys.path', new=['.'] + sys.path):
-    from run_status import RunStatus
+    from run_status import RunStatus, parse_remote_cell_info
 
 EXAMPLES = os.path.dirname(__file__) + '/examples'
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
@@ -86,7 +87,7 @@ class T(unittest.TestCase):
             os.remove(os.path.join(self.current_run_dir, dp))
     # And the tests...
 
-    def test_run_new( self ):
+    def test_run_new(self):
         """ A totally new run.
         """
         run_info = self.use_run('201907010_LOCALTEST_newrun')
@@ -98,12 +99,24 @@ class T(unittest.TestCase):
         # I should get the same via YAML
         self.assertEqual( dictify(run_info.get_yaml())['PipelineStatus:'], 'new' )
         self.assertEqual( dictify(run_info.get_yaml())['Upstream:'], 'LOCAL' )
+        self.assertEqual( dictify(run_info.get_yaml())['Cells:'], 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' )
+        self.assertEqual( dictify(run_info.get_yaml())['CellsPending:'], 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' )
 
         # This run has 1 cell
         self.assertCountEqual( run_info.get_cells(), "testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b".split() )
 
         # None are ready
         self.assertCountEqual( run_info.get_cells_in_state(run_info.CELL_READY), [] )
+
+    def test_parse_remote_cell_info(self):
+        """Test that we can get info from list_remote_cells.sh
+           This reads stdin directly so mock it
+        """
+        with patch('sys.stdin', new=StringIO("")):
+            self.assertEqual(parse_remote_cell_info(), dict())
+
+        with patch('sys.stdin', new=StringIO("\n")):
+            self.assertEqual(parse_remote_cell_info(), dict())
 
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.

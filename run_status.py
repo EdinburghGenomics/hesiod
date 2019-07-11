@@ -101,6 +101,7 @@ class RunStatus:
                 res[cellname] = self.CELL_PENDING
             else:
                 # It's not ready for processing but there is no upstream?
+                # Maybe the upstream is unreachable just now.
                 res[cellname] = self.CELL_INCOMPLETE
 
         # Now factor in the remote stuff
@@ -216,7 +217,6 @@ class RunStatus:
         elif sync_needed:
             return "sync_needed"
 
-        # Could we be in incomplete state?
         if any( s in [self.CELL_INCOMPLETE] for s in all_cell_statuses ):
             return "incomplete"
 
@@ -268,7 +268,7 @@ class RunStatus:
                                'Instrument: '   + self.get_instrument(),
                                'Upstream: '     + (self.remote_loc or 'LOCAL'),
                                'Cells: '        + ' '.join(sorted(self.get_cells())),
-                               'CellsToSync: '  + ' '.join(sorted(self.get_cells_in_state(self.CELL_PENDING))),
+                               'CellsPending: ' + ' '.join(sorted(self.get_cells_in_state(self.CELL_PENDING, self.CELL_INCOMPLETE))),
                                'CellsReady: '   + ' '.join(sorted(self.get_cells_in_state(self.CELL_READY))),
                                'CellsDone: '    + ' '.join(sorted(self.get_cells_in_state(self.CELL_PROCESSED))),
                                'CellsAborted: ' + ' '.join(sorted(self.get_cells_in_state(self.CELL_ABORTED))),
@@ -299,6 +299,7 @@ def parse_remote_cell_info():
     res = dict()
 
     for l in sys.stdin:
+        if not l.strip(): continue
         run_id, loc, cell = l.strip().split('\t')
 
         run_infos = res.setdefault(run_id, dict())
