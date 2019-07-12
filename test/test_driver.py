@@ -22,6 +22,8 @@ EXAMPLES = os.path.dirname(__file__) + '/examples'
 DRIVER = os.path.abspath(os.path.dirname(__file__) + '/../driver.sh')
 
 PROGS_TO_MOCK = {
+    "ssh" : None,
+    "rsync" : None,
     "Snakefile.process_run" : None,
     "rt_runticket_manager.py" : "echo STDERR rt_runticket_manager.py >&2",
     "upload_report.sh" : "echo STDERR upload_report.sh >&2"
@@ -245,7 +247,7 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --comment @???']
+        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --comment @???']
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
@@ -260,18 +262,38 @@ class T(unittest.TestCase):
 
         os.mkdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun")
 
-        self.bm_rundriver(expected_retval=1)
-        self.assertInStdout("already existed or could not be created")
+        # Driver should still exit cleanly
+        self.bm_rundriver()
+        # This should go to the main log
+        self.assertInStdout("cannot create directory")
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # The failed flag should be set
+        self.assertTrue(os.path.exists(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/failed"))
+        # The source should be set to 'LOCAL'
+        with open(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/upstream") as fh:
+            self.assertEqual(fh.read(), "LOCAL\n")
 
         # A new ticket should have been made, but with an error
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --reply @???']
+        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject failed'
+                                                     ' --reply New_Run_Setup. See log in ???']
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
-                                    r'@\S+$', '@???', self.bm.last_calls['rt_runticket_manager.py'][0] )
+                                    r'See log in.*', 'See log in ???', self.bm.last_calls['rt_runticket_manager.py'][0] )
+
 
         self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_sync_needed(self):
+        """A run has two cells that need synced
+           After the sync, one should be ready to process
+           For good measure there is a space in the directory name
+        """
+        self.assertTrue(True)
 
 if __name__ == '__main__':
     unittest.main()

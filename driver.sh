@@ -1,6 +1,7 @@
 #!/bin/bash -l
 set -euo pipefail
 shopt -sq failglob
+IFS=$'\t' # I'm using tab-separated lists instead of arrays
 
 #  Contents:
 #    - Configuration
@@ -186,7 +187,7 @@ action_new(){
 
     # Now, this should fail if $FASTQDATA/$RUNID already exists or can't be created.
     RUN_OUTPUT="$FASTQDATA/$RUNID"
-    if _msg="$(mkdir -v "$RUN_OUTPUT")" ; then
+    if _msg="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
         plog_start
         plog "$_msg"
         # Links both ways, as usual
@@ -196,14 +197,14 @@ action_new(){
         # Possibly the directory in $PROM_RUNS had been deleted and there is old data
         # in $FASTQDATA. In which case it should have been moved off the machine!
         # An error in any case. But here we do keep going.
-        msg="Either $FASTQDATA/$RUNID already existed or could not be created."
         set +e
-        log "$msg" ; plog "$msg"
+        log "$_msg" ; plog "$_msg"
         pipeline_fail New_Run_Setup
+        return
     fi
 
     # Now detect if any cells are already complete, so we can skip the sync on the
-    # next run-through.
+    # next run-through. This will only be the case for local runs.
     check_for_ready_cells
 
     # Triggers a summary to be sent to RT as a comment, which should create
@@ -212,12 +213,12 @@ action_new(){
     rt_runticket_manager --comment @<(echo "$_msg") |& plog && log "DONE"
 }
 
-SYNC_QUEUE=()
+SYNC_QUEUE=""
 action_sync_needed(){
     # Deferred action - add to the sync queue
-    debug "\_SYNC_NEEDED $RUNID. Adding to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
+    debug "\_SYNC_NEEDED $RUNID. Adding to SYNC_QUEUE for deferred processing (`wc -w <<<"$SYNC_QUEUE"` items in queue)."
 
-    SYNC_QUEUE+=($RUNID)
+    SYNC_QUEUE+="$RUNID"$'\t'
 }
 
 action_processing_sync_needed(){
@@ -232,14 +233,35 @@ action_incomplete(){
 }
 
 # Not really an action but almost:
-do_rsync(){
+do_sync(){
     # See doc/syncing.txt
     # Called per run, and needs to sync all cells for which there is a remote
-    # but no {cell}.synced
-    echo $SYNC_CMD
+    # in $UPSTREAM_INFO but no {cell}.synced
+
+    # assertion
+    if ! [[ "$STATUS" =~ sync_needed ]] ; then
+        log "Error - status=$STATUS"
+        return
+    fi
+
+    # Loop through cells
+    while read run upstream cell ; do
+
+        _cell_tfn="$(cell_to_tfn "$cell")"
+        if [ ! -e "pipeline/${_cell_tfn}.synced" ] ; then
+
+            # Set upstream_host, upstream_path
+            upstream_host="${upstream%%:*}"
+            upstream_path="${upstream#*:}"
+
+            # Run the SYNC_CMD - TODO, work out the logging and error behaviour
+            eval echo $SYNC_CMD >&2 || { touch pipeline/sync.failed ; }
+        fi
+
+    done < <(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print}' <<<"$UPSTREAM_INFO")
 
     check_for_ready_cells
-    mv pipeline/rsync.started pipeline/rsync.done
+    mv pipeline/sync.started pipeline/sync.done
 }
 
 ###--->>> UTILITY FUNCTIONS <<<---###
@@ -249,6 +271,12 @@ touch_atomic(){
     for f in "$@" ; do
         (set -o noclobber ; >"$f")
     done
+}
+
+cell_to_tfn(){
+    # Cell names are lib/cell but this can't be used as a filename
+    # I think the best option is just to chop the lib/ part
+    echo "${1##*/}"
 }
 
 save_start_time(){
@@ -275,18 +303,19 @@ notify_run_complete(){
     # Tell RT that the run finished. Ie. that all cells seen are synced and ready to process.
     # As the number of cells in a run is open-ended, this may happen more than once, but only
     # once for any given number of cells.
-    if ! [ -e "$RUN_OUTPUT"/pipeline/notify_${n}_cells_complete.done ] ; then
 
-        # FIXME - this is still code from SMRTino
-        _cc=`wc -w <<<"$CELLS"`
-        _ca=`wc -w <<<"$CELLSABORTED"`
+    # FIXME - this is still code from SMRTino
+    _cc=`wc -w <<<"$CELLS"`
+    _ca=`wc -w <<<"$CELLSABORTED"`
+    if ! [ -e pipeline/notify_${_cc}_cells_complete.done ] ; then
+
         if [ $_ca -gt 0 ] ; then
-            _comment=$(( $_cc - $_ca))" SMRT cells have run. $_ca were aborted. Final report will follow soon."
+            _comment=$(( $_cc - $_ca))" cells have run. $_ca were aborted. Final report will follow soon."
         else
-            _comment="All $_cc SMRT cells have run on the instrument. Final report will follow soon."
+            _comment="All $_cc cells have run on the instrument. Final report will follow soon."
         fi
         if rt_runticket_manager --subject processing --reply "$_comment" ; then
-            touch "$RUN_OUTPUT"/pbpipeline/notify_run_complete.done
+            touch pipeline/notify_${_cc}_cells_complete.done
         fi
     fi
 }
@@ -325,11 +354,11 @@ run_report() {
     # We want stderr from upload_report.sh to go to stdout, so it gets plogged.
     # Note that the code relies on checking the existence of this file to see if the upload worked,
     # so if the upload fails it needs to be removed.
-    rm -f "$RUN_OUTPUT"/pbpipeline/report_upload_url.txt
+    rm -f pipeline/report_upload_url.txt
     if [ $_retval = 0 ] ; then
-        upload_report.sh "$RUN_OUTPUT" 2>&1 >"$RUN_OUTPUT"/pbpipeline/report_upload_url.txt || \
+        upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
             { log "Upload error. See $_plog" ;
-              rm -f "$RUN_OUTPUT"/pbpipeline/report_upload_url.txt ; }
+              rm -f pipeline/report_upload_url.txt ; }
     fi
 
     send_summary_to_rt comment "$_rt_run_status" "$_rprefix Run report is at"
@@ -348,7 +377,7 @@ run_report() {
 }
 
 send_summary_to_rt() {
-    # Sends a summary to RT. It is assumed that "$RUN_OUTPUT"/pbpipeline/report_upload_url.txt is
+    # Sends a summary to RT. It is assumed that pipeline/report_upload_url.txt is
     # in place and can be read. In the initial cut, we'll simply list the
     # SMRT cells on the run, as I'm not sure how soon I get to see the XML meta-data?
     # Other than that, supply run_status and premble if you want this.
@@ -366,7 +395,7 @@ send_summary_to_rt() {
 
     echo "Sending new summary of PacBio run to RT."
     # Subshell needed to capture STDERR from make_summary.py
-    last_upload_report="`cat "$RUN_OUTPUT"/pbpipeline/report_upload_url.txt 2>/dev/null || echo "Report was not generated or upload failed"`"
+    last_upload_report="`cat pipeline/report_upload_url.txt 2>/dev/null || echo "Report was not generated or upload failed"`"
     ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
         @<(echo "$_preamble "$'\n'"$last_upload_report" ;
            echo ;
@@ -384,16 +413,17 @@ pipeline_fail() {
         # General failure
 
         # Mark the failure status
-        echo "$stage on `date`" > "$RUN_OUTPUT"/pbpipeline/failed
+        echo "$stage on `date`" > pipeline/failed
 
-        _failure="$stage failed"
+        _failure="$stage"
     else
         # Failure of a cell or cells
         for c in $2 ; do
-            echo "$stage on `date`" > "$RUN_OUTPUT"/pbpipeline/$c.failed
+            _cell_tfn="$(cell_to_tfn "$c")"
+            echo "$stage on `date`" > "pipeline/${_cell_tfn}.failed"
         done
 
-        _failure="$stage failed for cells [$2]"
+        _failure="$stage for cells [$2]"
     fi
 
     # Send an alert to RT.
@@ -409,13 +439,13 @@ pipeline_fail() {
     fi
 }
 
-get_run_status() { # run_dir, [upstream_info]
+get_run_status() { # run_dir
   # invoke run_status.py in CWD and collect some meta-information about the run.
   # We're passing this info to the state functions via global variables.
-  # This construct allows error output to be seen in the log.
 
-  _runstatus="$(run_status.py "$1" <<<"${2:-}")" || \
-        run_status.py "$1" <<<"${2:-}" | log 2>&1
+  # This construct allows error output to be seen in the log.
+  _runstatus="$(run_status.py "$1" <<<"$UPSTREAM_INFO")" || \
+        run_status.py "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
   # Ugly, but I can't think of a better way...
   RUNID=`grep ^RunID: <<<"$_runstatus"` ;                          RUNID=${RUNID#*: }
@@ -433,14 +463,14 @@ get_run_status() { # run_dir, [upstream_info]
 
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
-_upstream_info=""
-_upstream_locs=""
+UPSTREAM_INFO=""
+UPSTREAM_LOCS=""
 for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
 
-    _upstream_locs+="$UPSTREAM_LOC "
+    UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
     # If this fails (network error or whatever) we still want to process local stuff
-    _upstream_info+="$(list_remote_cells.sh || true)"
+    UPSTREAM_INFO+="$(list_remote_cells.sh || true)"
 done
 unset UPSTREAM_LOC UPSTREAM_NAME
 
@@ -449,15 +479,15 @@ unset UPSTREAM_LOC UPSTREAM_NAME
 # This is more complicated than other pipelines as we have to go in stages:
 
 # 1) Process all run directories in $PROM_RUNS
-# 2) Process all new runs from $_upstream_info
+# 2) Process all new runs from $UPSTREAM_INFO
 # 3) Commence all syncs (see doc/syncing.sh for why this works the way it does)
 
 log "Looking for run directories matching regex $PROM_RUNS/$RUN_NAME_REGEX/"
 
-# If there is nothing in "$PROM_RUNS" and nothing in "$_upstream_info" it's an error.
+# If there is nothing in "$PROM_RUNS" and nothing in "$UPSTREAM_INFO" it's an error.
 # Seems best to be explicit checking this.
-if ! compgen -G "$PROM_RUNS/*/" >/dev/null && [ -z "$_upstream_info" ] ; then
-    _msg="Nothing found in $PROM_RUNS or any upstream locations (${_upstream_locs% })"
+if ! compgen -G "$PROM_RUNS/*/" >/dev/null && [ -z "$UPSTREAM_INFO" ] ; then
+    _msg="Nothing found in $PROM_RUNS or any upstream locations (${UPSTREAM_LOCS% })"
     log "$_msg"
     echo "$_msg" >&2 # This will go out as a CRON error
     exit 1
@@ -473,7 +503,7 @@ if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
     fi
 
     # This sets RUNID, STATUS, etc.
-    get_run_status "$run" "$_upstream_info"
+    get_run_status "$run"
 
     # Taken from SMRTino - normall yodn't log all the boring stuff
     if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
@@ -509,33 +539,34 @@ if [ -n "$UPSTREAM" ] ; then
             continue
         fi
 
-        if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
-            debug "Ignoring $RUNID"
-            continue
-        fi
-
         if ! [ -e "$PROM_RUNS/$RUNID" ] ; then
+            if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
+                debug "Ignoring $RUNID"
+                continue
+            fi
+
             # FIXME - ensure these match what is emitted by run_status.py
-            UPSTREAM=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$_upstream_info")
-            CELLS=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $3}' <<<"$_upstream_info")
+            UPSTREAM=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$UPSTREAM_INFO")
+            CELLS=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $3}' <<<"$UPSTREAM_INFO")
+            CELLSPENDING=""
 
             { eval action_"$STATUS"
             } || log "Error while trying to run action_$STATUS on $RUNID"
         fi
-    done < <(awk -F $'\t' '{print $1}' <<<"$_upstream_info")
+    done < <(awk -F $'\t' '{print $1}' <<<"$UPSTREAM_INFO")
 fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
 if [ -n "${SYNC_QUEUE:-}" ] ; then
-    for RUNID in "${SYNC_QUEUE[@]}" ; do
-        touch_atomic "$PROM_RUNS/$RUNID/pipeline/rsync.started"
+    for RUNID in $SYNC_QUEUE ; do
+        touch_atomic "$PROM_RUNS/$RUNID/pipeline/sync.started"
         # If some calls to touch_atomic fail this will be bad. But trying to auto-recify the
         # situation could well be worse.
     done
 
-    for RUNID in "${SYNC_QUEUE[@]}" ; do
+    for RUNID in $SYNC_QUEUE ; do
         get_run_status "$PROM_RUNS/$RUNID"
-        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_rsync
+        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_sync
         } || log "Error while trying to run Rsync on $PROM_RUNS/$RUNID"
         popd >/dev/null
     done

@@ -122,9 +122,9 @@ How do we reliably lock an rsync process? One answer is we don't need to - we on
 cell is complete and then each sync is just a fancy copy. I'm not sure about this. I think we start the rsync
 early and then have a lock. This should be a single lock for the run, so:
 
-touch pipeline/rsync.started
+touch pipeline/sync.started
 [sync]
-mv pipeline/rsync.started pipeline/rsync.[done|failed]
+mv pipeline/sync.started pipeline/sync.[done|failed]
 
 I can make an atomic version (only creates new files) of touch pretty easily in BASH.
 We don't need flock at the start because "touch_atomic" is atomic. There's not much point in detecting stale
