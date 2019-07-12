@@ -20,10 +20,12 @@ class RunStatus:
     CELL_ABORTED    = 5   # cell aborted - disregard it
     CELL_INCOMPLETE = 6   # cell is not ready but there is no remote to fetch
 
-    def __init__( self, run_dir, opts='', remote_info=None , stall_time=None ):
+    def __init__( self, run_dir, opts='', upstream=None , stall_time=None ):
 
         # Are we auto-aborting stalled cells like SMRTino?
         self.stall_time = int(stall_time) if stall_time is not None else None
+
+        self._error = None
 
         if os.path.exists(os.path.join(run_dir, 'rundata', 'pipeline')):
             # We seem to be running in an existing output directory
@@ -39,9 +41,9 @@ class RunStatus:
             # it is new or aborted.
             if not os.path.isdir(self.fastqdata_path):
                 # Status will be unknown but we might still get some further info
-                self._assertion_error = True
+                self._error = "Missing pipeline/output directory"
 
-        remote_info_for_run = (remote_info or {}).get(self.get_run_id(), dict())
+        remote_info_for_run = (upstream or {}).get(self.get_run_id(), dict())
         self.remote_cells = remote_info_for_run.get('cells', set())
         self.remote_loc = remote_info_for_run.get('loc', None)
 
@@ -77,6 +79,11 @@ class RunStatus:
 
         return len( self._exists_cache[full_pattern] )
 
+    def cell_to_tfn(self, cellname):
+        """This corresponds to cell_to_tfn in driver.sh
+        """
+        return cellname.split('/')[-1]
+
     def get_cells( self ):
         """ Returns a dict of { cellname: status } where status is one of the constants
             defined above.
@@ -89,13 +96,15 @@ class RunStatus:
 
         for cellname in self.local_cells:
 
-            if self._exists_pipeline( cellname + '.aborted' ):
+            tfn = self.cell_to_tfn(cellname)
+
+            if self._exists_pipeline( tfn + '.aborted' ):
                 res[cellname] = self.CELL_ABORTED
-            elif self._exists_pipeline( cellname + '.done' ):
+            elif self._exists_pipeline( tfn + '.done' ):
                 res[cellname] = self.CELL_PROCESSED
-            elif self._exists_pipeline( cellname + '.started' ):
+            elif self._exists_pipeline( tfn + '.started' ):
                 res[cellname] = self.CELL_PROCESSING
-            elif self._exists_pipeline( cellname + '.synced' ):
+            elif self._exists_pipeline( tfn + '.synced' ):
                 res[cellname] = self.CELL_READY
             elif cellname in self.remote_cells:
                 res[cellname] = self.CELL_PENDING
@@ -162,7 +171,8 @@ class RunStatus:
 
         # Otherwise if one of the sanity checks failed the status must be unknown - any action
         # would be dangerous.
-        if self._assertion_error:
+        # TODO - actually do something with the message?
+        if self._error:
             return "unknown"
 
         # No provision for 'redo' state just now, but if there was this would need to
@@ -177,7 +187,7 @@ class RunStatus:
         # Now look at the cells. If all are non-aborted cells are complete we're done.
         all_cell_statuses = self.get_cells().values()
 
-        if all( s in [self.CELL_COMPLETE, self.CELL_ABORTED] for s in all_cell_statuses):
+        if all( s in [self.CELL_PROCESSED, self.CELL_ABORTED] for s in all_cell_statuses):
             return "complete"
 
         # Is anything needing processed? We kick off processing in preference to sync.
@@ -185,7 +195,7 @@ class RunStatus:
             return "cell_ready"
 
         # Is anything waiting to sync?
-        sync_needed = any( s in [self.CELL_PENDING] for s in all_cell_statuses )
+        sync_needed = any( s in [self.CELL_PENDING, self.CELL_NEW] for s in all_cell_statuses )
 
         # Is anything being processed just now?
         processing_now = any( s in [self.CELL_PROCESSING] for s in all_cell_statuses )
@@ -230,7 +240,7 @@ class RunStatus:
     def get_cells_in_state(self, *states):
         """ Get a list of the cells which are ready to be processed, if any.
         """
-        return [c for c, v in self.get_cells().items() if v in states]
+        return [c for c, v in sorted(self.get_cells().items()) if v in states]
 
     def get_run_id(self):
         """ The directory name is the run name. Allow a .xxx extension
@@ -267,11 +277,13 @@ class RunStatus:
             return '\n'.join([ 'RunID: '        + self.get_run_id(),
                                'Instrument: '   + self.get_instrument(),
                                'Upstream: '     + (self.remote_loc or 'LOCAL'),
-                               'Cells: '        + ' '.join(sorted(self.get_cells())),
-                               'CellsPending: ' + ' '.join(sorted(self.get_cells_in_state(self.CELL_PENDING, self.CELL_INCOMPLETE))),
-                               'CellsReady: '   + ' '.join(sorted(self.get_cells_in_state(self.CELL_READY))),
-                               'CellsDone: '    + ' '.join(sorted(self.get_cells_in_state(self.CELL_PROCESSED))),
-                               'CellsAborted: ' + ' '.join(sorted(self.get_cells_in_state(self.CELL_ABORTED))),
+                               'Cells: '        + '\t'.join(sorted(self.get_cells())),
+                               'CellsPending: ' + '\t'.join(self.get_cells_in_state(self.CELL_NEW,
+                                                                                    self.CELL_PENDING,
+                                                                                    self.CELL_INCOMPLETE)),
+                               'CellsReady: '   + '\t'.join(self.get_cells_in_state(self.CELL_READY)),
+                               'CellsDone: '    + '\t'.join(self.get_cells_in_state(self.CELL_PROCESSED)),
+                               'CellsAborted: ' + '\t'.join(self.get_cells_in_state(self.CELL_ABORTED)),
                                'StartTime: '    + self.get_start_time(),
                                'PipelineStatus: ' + self.get_status() ])
 
@@ -328,6 +340,6 @@ if __name__ == '__main__':
     runs = sys.argv[optind:] or ['.']
     for run in runs:
         run_info = RunStatus(run, opts,
-                             remote_info = remote_info,
+                             upstream = remote_info,
                              stall_time  = os.environ.get('STALL_TIME') or None)
         print ( run_info.get_yaml( debug=os.environ.get('DEBUG', '0') != '0' ) )

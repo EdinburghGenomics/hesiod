@@ -20,7 +20,7 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 EXAMPLES = os.path.dirname(__file__) + '/examples'
 SCRIPT = os.path.abspath(os.path.dirname(__file__) + '/../list_remote_cells.sh')
 
-PROGS_TO_MOCK = {}
+PROGS_TO_MOCK = {'ssh': None}
 
 class T(unittest.TestCase):
 
@@ -60,13 +60,29 @@ class T(unittest.TestCase):
         self.environment['UPSTREAM_LOC'] = EXAMPLES + '/upstream1'
         self.environment['UPSTREAM_NAME'] = 'TEST'
 
-        retval = bm.runscript(SCRIPT, set_path=False, env=self.environment)
+        retval = bm.runscript(SCRIPT, env=self.environment)
 
         self.assertEqual(retval, 0)
         self.assertEqual(bm.last_stderr, '')
         self.assertEqual(bm.last_stdout.split('\t'), [ '20190226_TEST_testrun',
                                                        EXAMPLES + '/upstream1/testrun',
                                                        'testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n' ])
+
+    def test_ssh(self):
+        """With a ':' in the UPSTREAM_LOC, ssh should be invoked
+        """
+        bm = self.bm
+        self.environment['UPSTREAM_LOC'] = 'foo@bar.example.com:whatever'
+        self.environment['UPSTREAM_NAME'] = 'TEST'
+
+        retval = bm.runscript(SCRIPT, env=self.environment)
+
+        self.assertEqual(retval, 0)
+        self.assertEqual(bm.last_stderr, '')
+        self.assertEqual(bm.last_stdout, '')
+
+        self.assertEqual(len(bm.last_calls['ssh']), 1)
+        self.assertTrue(bm.last_calls['ssh'][0].startswith("foo@bar.example.com cd whatever "))
 
 if __name__ == '__main__':
     unittest.main()

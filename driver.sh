@@ -258,7 +258,7 @@ do_sync(){
             eval echo $SYNC_CMD >&2 || { touch pipeline/sync.failed ; }
         fi
 
-    done < <(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print}' <<<"$UPSTREAM_INFO")
+    done < <(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print}' <<<"$UPSTREAM_INFO")
 
     check_for_ready_cells
     mv pipeline/sync.started pipeline/sync.done
@@ -275,7 +275,8 @@ touch_atomic(){
 
 cell_to_tfn(){
     # Cell names are lib/cell but this can't be used as a filename
-    # I think the best option is just to chop the lib/ part
+    # I think the best option is just to chop the lib/ part. Note this must
+    # correspond to the locic in run_status.py which interprets the touch files.
     echo "${1##*/}"
 }
 
@@ -545,15 +546,16 @@ if [ -n "$UPSTREAM" ] ; then
                 continue
             fi
 
-            # FIXME - ensure these match what is emitted by run_status.py
-            UPSTREAM=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $2}' <<<"$UPSTREAM_INFO")
-            CELLS=$(awk -F $'\t' -v runid="$RUNID" '$1 == runid {print $3}' <<<"$UPSTREAM_INFO")
+            # FIXME - ensure these match what is emitted by run_status.py,
+            # and check IFS compatibility
+            UPSTREAM=$(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print $2}' <<<"$UPSTREAM_INFO")
+            CELLS=$(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print $3}' <<<"$UPSTREAM_INFO")
             CELLSPENDING=""
 
             { eval action_"$STATUS"
             } || log "Error while trying to run action_$STATUS on $RUNID"
         fi
-    done < <(awk -F $'\t' '{print $1}' <<<"$UPSTREAM_INFO")
+    done < <(awk -F "$IFS" '{print $1}' <<<"$UPSTREAM_INFO")
 fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.

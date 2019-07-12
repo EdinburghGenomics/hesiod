@@ -295,5 +295,9 @@ class T(unittest.TestCase):
         """
         self.assertTrue(True)
 
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream1'
+        self.bm_rundriver()
+
+
 if __name__ == '__main__':
     unittest.main()
