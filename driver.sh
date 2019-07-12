@@ -48,7 +48,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     # Saves having to put 'export' on every line in the config.
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
-           RT_SYSTEM STALL_TIME VERBOSE
+           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE
 fi
 
 # Tools may reliably use this to report the version of Hesiod being run right now.
@@ -166,30 +166,31 @@ action_new(){
     # Also a matching output directory and back/forth symlinks
     # If something fails we should assume that something is wrong  with the FS and not try to
     # process more runs. However, if nothing fails we can process multiple new runs in one go.
-    _cc=`wc -w <<<"$CELLS"`
+    _cc=`twc $CELLS`
     if [ "$UPSTREAM" = LOCAL ] ; then
-        log "\_NEW $RUNID (LOCAL). Creating output directory in $FASTQDATA."
-        _msg="New run in $PROM_RUNS with $_cc cells."
+        log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
+        _msg1="New run in $PROM_RUNS with $_cc cells."
     else
-        log "\_NEW $RUNID. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
-        _msg="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
+        log "\_NEW $RUNID with $_cc cells. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
+        _msg1="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
     fi
 
+    BREAK=1
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
         echo "$UPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
         log "FAILED $RUNID (creating $PROM_RUNS/$RUNID/pipeline)"
-        BREAK=1
         return
     fi
 
     # Now, this should fail if $FASTQDATA/$RUNID already exists or can't be created.
     RUN_OUTPUT="$FASTQDATA/$RUNID"
-    if _msg="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
+    if _msg2="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
         plog_start
-        plog "$_msg"
+        plog "$_msg1"
+        plog "$_msg2"
         # Links both ways, as usual
         ln -svn "$(readlink -f .)" "$RUN_OUTPUT/rundata" |&plog
         ln -svn "$(readlink -f "$RUN_OUTPUT")" "pipeline/output" |&plog
@@ -198,7 +199,9 @@ action_new(){
         # in $FASTQDATA. In which case it should have been moved off the machine!
         # An error in any case. But here we do keep going.
         set +e
-        log "$_msg" ; plog "$_msg"
+        log "$_msg2"
+        # Prevent writing to the pipeline log during failure handling as we don't own it!
+        plog() { ! [ $# = 0 ] || cat >/dev/null ; } ; per_run_log="$MAINLOG"
         pipeline_fail New_Run_Setup
         return
     fi
@@ -210,15 +213,16 @@ action_new(){
     # Triggers a summary to be sent to RT as a comment, which should create
     # the new RT ticket.
     # FIXME - add more actual content like the other pipelines
-    rt_runticket_manager --comment @<(echo "$_msg") |& plog && log "DONE"
+    rt_runticket_manager --comment @<(echo "$_msg1") |& plog && log "DONE"
 }
 
 SYNC_QUEUE=""
 action_sync_needed(){
-    # Deferred action - add to the sync queue
-    debug "\_SYNC_NEEDED $RUNID. Adding to SYNC_QUEUE for deferred processing (`wc -w <<<"$SYNC_QUEUE"` items in queue)."
-
+    # Deferred action - add to the sync queue. No plogging just yet.
+    # Note that if another run needs attention we may never actually get to process
+    # the contents of the SYNC_QUEUE
     SYNC_QUEUE+="$RUNID"$'\t'
+    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (`wc -w <<<"$SYNC_QUEUE"` items in queue)."
 }
 
 action_processing_sync_needed(){
@@ -229,6 +233,9 @@ action_processing_sync_needed(){
 action_incomplete(){
     # When there are cells with no .synced flag but also no upstream to fetch from
     # Maybe we can rescue the situation if files are added outside of the pipeline?
+    # No BREAK here since there is the potential for sticking in a loop. Incomplete
+    # cells that will never be completed should be aborted as soom as possible.
+    plog_start
     check_for_ready_cells
 }
 
@@ -237,10 +244,12 @@ do_sync(){
     # See doc/syncing.txt
     # Called per run, and needs to sync all cells for which there is a remote
     # in $UPSTREAM_INFO but no {cell}.synced
+    log "\_DO_SYNC $RUNID."
+    plog_start
 
     # assertion
     if ! [[ "$STATUS" =~ sync_needed ]] ; then
-        log "Error - status=$STATUS"
+        log "Error - unexpected status $STATUS in do_sync"
         return
     fi
 
@@ -248,14 +257,24 @@ do_sync(){
     while read run upstream cell ; do
 
         _cell_tfn="$(cell_to_tfn "$cell")"
-        if [ ! -e "pipeline/${_cell_tfn}.synced" ] ; then
+        if ! [ -e "pipeline/${_cell_tfn}.synced" -o \
+               -e "pipeline/${_cell_tfn}.done" ] ; then
+
+            plog "Cell $cell needs syncing from $upstream"
 
             # Set upstream_host, upstream_path
-            upstream_host="${upstream%%:*}"
+            if [[ "$upstream" =~ : ]] ; then
+                upstream_host="${upstream%%:*}"
+            else
+                upstream_host=""
+            fi
             upstream_path="${upstream#*:}"
 
             # Run the SYNC_CMD - TODO, work out the logging and error behaviour
-            eval echo $SYNC_CMD >&2 || { touch pipeline/sync.failed ; }
+            eval echo "Running: $SYNC_CMD" | plog
+            eval $SYNC_CMD |&plog || { touch pipeline/sync.failed ; }
+        else
+            plog "Cell $cell is already synced and/or complete"
         fi
 
     done < <(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print}' <<<"$UPSTREAM_INFO")
@@ -280,6 +299,12 @@ cell_to_tfn(){
     echo "${1##*/}"
 }
 
+twc(){
+    # Count the number of words in a tab-separated string. This is
+    # simple when IFS=$'\t'
+    echo $#
+}
+
 save_start_time(){
     ( echo -n "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
         >>"$RUN_OUTPUT"/pipeline/start_times
@@ -294,8 +319,8 @@ check_for_ready_cells(){
     # After a sync completes, check if any cells are now ready for processing and
     # if so write the {cell}.synced files
     for cell in $CELLSPENDING ; do
-        if [ -e "$cell/final_summary.txt" ] ; then
-            touch_atomic "pipeline/${cell}.synced"
+        if [ -e "$cell/final_summary.txt" ] ; then 
+            touch_atomic "pipeline/$(cell_to_tfn "$cell").synced"
         fi
     done
 }
@@ -483,7 +508,7 @@ unset UPSTREAM_LOC UPSTREAM_NAME
 # 2) Process all new runs from $UPSTREAM_INFO
 # 3) Commence all syncs (see doc/syncing.sh for why this works the way it does)
 
-log "Looking for run directories matching regex $PROM_RUNS/$RUN_NAME_REGEX/"
+log ">> Looking for run directories matching regex $PROM_RUNS/$RUN_NAME_REGEX/"
 
 # If there is nothing in "$PROM_RUNS" and nothing in "$UPSTREAM_INFO" it's an error.
 # Seems best to be explicit checking this.
@@ -506,9 +531,9 @@ if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
     # This sets RUNID, STATUS, etc.
     get_run_status "$run"
 
-    # Taken from SMRTino - normall yodn't log all the boring stuff
+    # Taken from SMRTino - normally we don't log all the boring stuff
     if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
-    $_log "$run has $RUNID with cell(s) [$CELLS] and status=$STATUS"
+    $_log "$RUNID with `twc $CELLS` cell(s) and status=$STATUS"
 
     #Call the appropriate function in the appropriate directory.
     { pushd "$run" >/dev/null && eval action_"$STATUS"
@@ -533,7 +558,7 @@ fi
 # Now synthesize new run events
 STATUS=new
 if [ -n "$UPSTREAM" ] ; then
-    log "Looking for new upstream runs matching regex $RUN_NAME_REGEX"
+    log ">> Looking for new upstream runs matching regex $RUN_NAME_REGEX"
     while read RUNID ; do
         if [[ -z "$RUNID" ]] ; then
             log "No runs seen"
@@ -548,8 +573,8 @@ if [ -n "$UPSTREAM" ] ; then
 
             # FIXME - ensure these match what is emitted by run_status.py,
             # and check IFS compatibility
-            UPSTREAM=$(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print $2}' <<<"$UPSTREAM_INFO")
-            CELLS=$(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print $3}' <<<"$UPSTREAM_INFO")
+            UPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
+            CELLS=$(   awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
             CELLSPENDING=""
 
             { eval action_"$STATUS"
@@ -560,10 +585,16 @@ fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
 if [ -n "${SYNC_QUEUE:-}" ] ; then
+    log ">> Processing SYNC_QUEUE"
+    _nn=1
     for RUNID in $SYNC_QUEUE ; do
         touch_atomic "$PROM_RUNS/$RUNID/pipeline/sync.started"
         # If some calls to touch_atomic fail this will be bad. But trying to auto-recify the
         # situation could well be worse.
+        RUN_OUTPUT="$(readlink -f "$PROM_RUNS/$RUNID/pipeline/output")"
+
+        plog ">>> $0 preparing to sync at `date`. This run is #$_nn in the queue."
+        _nn=$(( $_nn + 1 ))
     done
 
     for RUNID in $SYNC_QUEUE ; do

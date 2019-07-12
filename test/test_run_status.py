@@ -113,7 +113,7 @@ class T(unittest.TestCase):
            in the upstream the status should switch from 'incomplete' to 'sync_needed'
            and the internal status should chenge from INCOMPLETE to PENDING
         """
-        run_info = self.use_run('20000101_LOCALTEST_testrun2', copy=True)
+        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
 
         # This should have two incomplete cells, and thus be in status incomplete
         self.assertEqual( run_info.get_status(), 'incomplete' )
@@ -129,7 +129,7 @@ class T(unittest.TestCase):
 
         # Now if I redo the run_info with relevant upstream
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_LOCALTEST_testrun2": {
+                            upstream = { "20000101_TEST_testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                            "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]) } } )
@@ -157,7 +157,7 @@ class T(unittest.TestCase):
         # If I add an unrecognised cell to the upstream that should be pending,
         # and push us back to sync_needed
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_LOCALTEST_testrun2": {
+                            upstream = { "20000101_TEST_testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/TEST123" ]) } } )
 

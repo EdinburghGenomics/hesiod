@@ -107,13 +107,14 @@ class T(unittest.TestCase):
         run_dir = os.path.join(EXAMPLES, 'runs', run)
 
         # We want to know the desired output location
-        self.to_path = os.path.join(self.temp_dir, 'runs', run)
+        # Note if you copy multiple runs then self.run_path will just be the last
+        self.run_path = os.path.join(self.temp_dir, 'runs', run)
 
         # Annoyingly, copytree gives me no way to avoid running copystat on the files.
         # But that doesn't mean it's impossible...
         with patch('shutil.copystat', lambda *a, **kw: True):
             return copytree(run_dir,
-                            self.to_path,
+                            self.run_path,
                             symlinks = True )
 
     def assertInStdout(self, *words):
@@ -148,6 +149,12 @@ class T(unittest.TestCase):
             raise ChildProcessError("Exit status was %s running command:\n%s" % (status, cmd))
 
         return status
+
+    def touch(self, fp, content="meh"):
+        """Create a new file within self.run_path
+        """
+        with open(os.path.join(self.run_path, fp), 'w') as fh:
+            print(content, file=fh)
 
     ### And the actual tests ###
 
@@ -210,7 +217,7 @@ class T(unittest.TestCase):
                           os.path.realpath(self.temp_dir + "/runs/20190226_TEST_testrun") )
 
         with open(self.temp_dir + "/runs/20190226_TEST_testrun/pipeline/upstream") as fh:
-            self.assertEqual(fh.read().rstrip('\n'), self.environment['UPSTREAM_TEST'] + '/testrun')
+            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun\n')
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
@@ -221,6 +228,26 @@ class T(unittest.TestCase):
                                     r'@\S+$', '@???', self.bm.last_calls['rt_runticket_manager.py'][0] )
 
         self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_new_upstream2(self):
+        """A slightly more complex run with spaces in the lib name
+        """
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.bm_rundriver()
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline"))
+
+        # Did we correctly see the three cells?
+        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells".format(
+                                 self.environment['UPSTREAM_TEST'],
+                                                        self.temp_dir + "/runs/20000101_TEST_testrun2" ))
+
+        # Is the upstream written correctly?
+        with open(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline/upstream") as fh:
+            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun2\n')
 
     def test_new_without_upstream(self):
         """With a new run in PROM_RUNS that isn't found in the UPSTREAM this should trigger
@@ -285,19 +312,36 @@ class T(unittest.TestCase):
         self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
                                     r'See log in.*', 'See log in ???', self.bm.last_calls['rt_runticket_manager.py'][0] )
 
+        # And nothing should be written to the fastqdata dir
+        self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
     def test_sync_needed(self):
-        """A run has two cells that need synced
-           After the sync, one should be ready to process
-           For good measure there is a space in the directory name
+        """A run has two cells that need synced and one completely new one.
+           After the sync, we'll force one to be ready to process
+           For good measure there is a space in the directory name.
         """
-        self.assertTrue(True)
+        # Note the upstream2 example is also used by test_run_status.py so check all is well
+        # with those before trying to diagnose fualts here.
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
+        self.copy_run('20000101_TEST_testrun2')
 
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream1'
+        self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
+
         self.bm_rundriver()
 
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        # Because of final_summary.txt we should see this:
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced"))
+
+        expected_calls = self.bm.empty_calls()
+        rsync_first_bit = "== ={}= =20000101_TEST_testrun2=".format(EXAMPLES + '/upstream2/testrun2')
+        expected_calls['rsync'] = [ rsync_first_bit + " =a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa=",
+                                    rsync_first_bit + " =a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb=",
+                                    rsync_first_bit + " =another test/20000101_0000_3-C1-C1_PAD00000_cccccccc=" ]
+        self.assertEqual(self.bm.last_calls, expected_calls)
 
 if __name__ == '__main__':
     unittest.main()
