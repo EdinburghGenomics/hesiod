@@ -6,12 +6,15 @@ STALL_TIME=''
 UPSTREAM="EGS1"
 UPSTREAM_EGS1=prom@promethion:/data
 
-PROM_RUNS=/lustre/promethion/prom_runs
-FASTQDATA=/lustre/promethion/prom_fastqdata
+# Or for local testing, just this:
+UPSTREAM=""
 
-# For production, use the real RT and use the global partition on SLURM
-RT_SYSTEM=production-rt
-CLUSTER_QUEUE=casava
+PROM_RUNS=~/test_promethion/prom_runs
+FASTQDATA=~/test_promethion/prom_fastqdata
+
+# For testing, bypass RT and use the global partition on SLURM
+RT_SYSTEM=none
+CLUSTER_QUEUE=global
 
 # Provide a sync command as a template that may access:
 #   {upstream}      - The full path as per column 2 of the remote info
@@ -20,7 +23,7 @@ CLUSTER_QUEUE=casava
 #   {cell}          - col 3 - eg. testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b
 #   {run}           - col 1 - eg. 20190710_TEST_testrun
 SYNC_CMD="rsync -vrlptDR \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
-## Or this should be faster but only works for /mnt/lustre/prometion:
+## Or:
 # SYNC_CMD="ssh \${upstream_host} rsync -vrlptDR \${upstream_path}/./\${cell} /mnt/lustre/prometion/prom_runs/\${run}/"
 
 # If you want different sync commands for different upstream hosts then this is not yet supported.

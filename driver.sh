@@ -32,6 +32,9 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays
 #  to emulate eval{} statements in Perl. It does work but you have to be really careful
 #  on the syntax, and you have to check $? explicitly - trying to do it implicitly in
 #  the manner of ( foo ) || handle_error won't do what you expect.
+#
+#  Also note the non-standard $IFS setting. If you're not sure what this does, check the
+#  BASH manual.
 
 ###--->>> CONFIGURATION <<<---###
 
@@ -39,7 +42,7 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays
 # so allow the location to be set to, eg. /dev/null
 ENVIRON_SH="${ENVIRON_SH:-`dirname $BASH_SOURCE`/environ.sh}"
 
-# This file must provide FROM_LOCATION, TO_LOCATION if not already set.
+# This file must provide PROM_RUNS, FASTQDATA if not already set.
 if [ -e "$ENVIRON_SH" ] ; then
     pushd "`dirname $ENVIRON_SH`" >/dev/null
     source "`basename $ENVIRON_SH`"
@@ -216,27 +219,114 @@ action_new(){
     rt_runticket_manager --comment @<(echo "$_msg1") |& plog && log "DONE"
 }
 
+action_cell_ready(){
+    # This is the main event. Start processing and then report.
+    log "\_CELL_READY $RUNID. Time to process `twc $CELLSREADY` cells."
+    plog_start
+
+    for _c in $CELLSREADY ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
+    done
+
+    BREAK=1
+    _cellsready="$(tr $'\t' ',' <<<"$CELLSREADY")"
+
+    # This will be a no-op if the run isn't really complete
+    notify_run_complete
+
+    # Do we want an RT message for every cell? No, just a comment.
+    send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" |& plog
+
+    # Log the start in a way a script can easily read back (humans can check the main log!)
+    save_start_time
+
+    # As usual, the Snakefile controls the processing
+    plog "Preparing to process cell(s) $_cellsready into $RUN_OUTPUT"
+    set +e ; ( set -e
+      log "  Starting Snakefile.main on $RUNID."
+      # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
+      # and links back to ./rundata.
+      ( cd "$RUN_OUTPUT"
+        Snakefile.main --config cells="$CELLSREADY"
+      ) |& plog
+
+      # Now we can make the report, which may be interim or final. We should only
+      # ev er have one of these running at a time.
+      run_report "Processing completed for cells: $_cellsready." "" "maybe_complete" | plog && log DONE
+
+      for _c in $CELLSREADY ; do
+          ( cd "$RUN_OUTPUT" && mv pbpipeline/$(cell_to_tfn "$_c").started pbpipeline/$(cell_to_tfn "$_c").done )
+      done
+
+    ) |& plog ; [ $? = 0 ] || pipeline_fail Processing_Cells "$_cellsready"
+}
+
+
 SYNC_QUEUE=""
 action_sync_needed(){
     # Deferred action - add to the sync queue. No plogging just yet.
     # Note that if another run needs attention we may never actually get to process
     # the contents of the SYNC_QUEUE
     SYNC_QUEUE+="$RUNID"$'\t'
-    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (`wc -w <<<"$SYNC_QUEUE"` items in queue)."
+    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (`twc $SYNC_QUEUE` items in queue)."
 }
 
 action_processing_sync_needed(){
+    debug "\_PROCESSING_SYNC_NEEDED $RUNID. Calling action_sync_needed..."
+
     # Same as above
     action_sync_needed
 }
 
 action_incomplete(){
+    debug "\_INCOMPLETE $RUNID."
+
     # When there are cells with no .synced flag but also no upstream to fetch from
     # Maybe we can rescue the situation if files are added outside of the pipeline?
     # No BREAK here since there is the potential for sticking in a loop. Incomplete
     # cells that will never be completed should be aborted as soom as possible.
     plog_start
     check_for_ready_cells
+}
+
+action_syncing(){
+    debug "\_SYNCING $RUNID."
+}
+
+actionr_processing_syncing(){
+    debug "\_PROCESSING_SYNCING $RUNID."
+}
+
+action_processing(){
+    debug "\_PROCESSING $RUNID."
+}
+
+action_failed() {
+    # failed runs need attention from an operator, so log the situatuion
+    set +e
+    _reason=`cat pipeline/failed 2>/dev/null`
+    if [ -z "$_reason" ] ; then
+        # Get the last lane or sync failure message
+        _lastfail=`echo pipeline/*.failed`
+        _reason=`cat ${_lastfail##* } 2>/dev/null`
+    fi
+
+    log "\_FAILED $RUNID ($_reason)"
+}
+
+action_aborted() {
+    # aborted runs are not our concern
+    true
+}
+
+action_complete() {
+    # the pipeline already fully completed for this run - Yay! - nothing to be done ...
+    true
+}
+
+action_unknown() {
+    # this run is broken somehow ... nothing to be done...
+    log "\_skipping `pwd` because status is $STATUS"
 }
 
 # Not really an action but almost:
@@ -310,7 +400,8 @@ save_start_time(){
         >>"$RUN_OUTPUT"/pipeline/start_times
 }
 
-# Wrapper for ticket manager that sets the run and queue
+# Wrapper for ticket manager that sets the run and queue (note this refers
+# to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control this.)
 rt_runticket_manager(){
     rt_runticket_manager.py -r "$RUNID" -Q promrun "$@"
 }
@@ -330,15 +421,24 @@ notify_run_complete(){
     # As the number of cells in a run is open-ended, this may happen more than once, but only
     # once for any given number of cells.
 
-    # FIXME - this is still code from SMRTino
-    _cc=`wc -w <<<"$CELLS"`
-    _ca=`wc -w <<<"$CELLSABORTED"`
+    # TODO - still needs to trigger from cell_ready and be tested
+    _cc=`twc $CELLS`
+    _ca=`twc $CELLSABORTED`
+    _cr=`twc $CELLSREADY`
+    _cd=`twc $CELLSDONE`
+
+    # Have we actually synced all the cells?
+    if ! [ $(( $_ca + $_cr + $_cd )) -eq $_cc ] ; then
+        # No
+        return
+    fi
+
     if ! [ -e pipeline/notify_${_cc}_cells_complete.done ] ; then
 
         if [ $_ca -gt 0 ] ; then
-            _comment=$(( $_cc - $_ca))" cells have run. $_ca were aborted. Final report will follow soon."
+            _comment=$(( $_cc - $_ca))" cells have run. $_ca were aborted. Full report will follow soon."
         else
-            _comment="All $_cc cells have run on the instrument. Final report will follow soon."
+            _comment="All $_cc cells have run on the instrument. Full report will follow soon."
         fi
         if rt_runticket_manager --subject processing --reply "$_comment" ; then
             touch pipeline/notify_${_cc}_cells_complete.done
@@ -347,6 +447,9 @@ notify_run_complete(){
 }
 
 run_report() {
+
+    # FIXME - this is just copied from SMRTino
+
     # Makes a report. Will not exit on error. I'm assuming all substantial processing
     # will have been done by Snakefile.process_cells so this should be quick.
 
@@ -403,6 +506,8 @@ run_report() {
 }
 
 send_summary_to_rt() {
+    # FIXME - this is just copied from SMRTino
+
     # Sends a summary to RT. It is assumed that pipeline/report_upload_url.txt is
     # in place and can be read. In the initial cut, we'll simply list the
     # SMRT cells on the run, as I'm not sure how soon I get to see the XML meta-data?
@@ -473,15 +578,13 @@ get_run_status() { # run_dir
   _runstatus="$(run_status.py "$1" <<<"$UPSTREAM_INFO")" || \
         run_status.py "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
-  # Ugly, but I can't think of a better way...
-  RUNID=`grep ^RunID: <<<"$_runstatus"` ;                          RUNID=${RUNID#*: }
-  INSTRUMENT=`grep ^Instrument: <<<"$_runstatus"` ;                INSTRUMENT=${INSTRUMENT#*: }
-  CELLS=`grep ^Cells: <<<"$_runstatus"` ;                          CELLS=(${CELLS#*: })
-  CELLSPENDING=`grep ^CellsPending: <<<"$_runstatus"` ;            CELLSPENDING=(${CELLSPENDING#*: })
-  CELLSREADY=`grep ^CellsReady: <<<"$_runstatus" || echo ''` ;     CELLSREADY=${CELLSREADY#*: }
-  CELLSABORTED=`grep ^CellsAborted: <<<"$_runstatus" || echo ''` ; CELLSABORTED=${CELLSABORTED#*: }
-  STATUS=`grep ^PipelineStatus: <<<"$_runstatus"` ;                STATUS=${STATUS#*: }
-  UPSTREAM=`grep ^Upstream: <<<"$_runstatus"` ;                    UPSTREAM=${UPSTREAM#*: }
+  # Capture the various parts into variables (see test/grs.sh)
+  for _v in RUNID/RunID INSTRUMENT/Instrument \
+            CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSABORTED/CellsAborted \
+            STATUS/PipelineStatus UPSTREAM/Upstream ; do
+    _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
+    eval "${_v%/*}"='"$_line"'
+  done
 
   # Resolve output location
   RUN_OUTPUT="$(readlink -f "$run/pipeline/output" || true)"
