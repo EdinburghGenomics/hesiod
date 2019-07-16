@@ -16,6 +16,9 @@ FASTQDATA=~/test_promethion/prom_fastqdata
 RT_SYSTEM=none
 CLUSTER_QUEUE=global
 
+# Log to the terminal
+MAINLOG=/dev/stdout
+
 # Provide a sync command as a template that may access:
 #   {upstream}      - The full path as per column 2 of the remote info
 #   {upstream_host} - eg prom@promethion

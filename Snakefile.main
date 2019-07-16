@@ -27,14 +27,18 @@ snakerun_drmaa "$0" "$@"
 
 import yaml
 from snakemake.utils import format
+from pprint import pformat
 from glob import glob
 import subprocess
 
-TOOLBOX = 'env PATH="{}:$PATH"'.format(os.environ['TOOLBOX'])
+logger = snakemake.logging.logger
+
+TOOLBOX = format('env PATH="{os.environ[TOOLBOX]}:$PATH"')
+PIGZ    = 'pigz'
 
 for p in os.environ['PATH'].split(':'):
     if os.path.abspath(p) == os.path.dirname(os.path.abspath(workflow.snakefile)):
-        break:
+        break
 else:
     # The directory containing this file should be in the PATH
     os.environ['PATH'] += ':' + os.path.dirname(workflow.snakefile)
@@ -48,11 +52,14 @@ def scan_cells():
         Then get a list of all the files per cell.
         TODO - can we avoid doing this if --allowed-rules is specified?
     """
-    cells = [ '/'.join(fs.split('/')[-3:-1]) for fs in glob("{}/*/*/final_summary.txt".format(RUNDIR)) ]
+    all_done = [ '/'.join(fs.split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/final_summary.txt")) ]
+
+    if not all_done:
+        logger.error("No complete cells found")
 
     if 'cells' in config:
         cells = [ s for s in all_done if s in config['cells'].split('\t') ]
-    else
+    else:
         cells = all_done
 
     res = { c: dict() for c in cells }
@@ -61,30 +68,73 @@ def scan_cells():
         for category in 'fastq_pass fast5_pass fastq_fail fast5_fail'.split():
             filetype = category.split('_')[0]
             d[category] = [ f[len(RUNDIR) + 1:]
-                            for f in glob(format"{RUNDIR}/{c}/{category}/*.{filetype}") ]
+                            for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
 
     return res
 
-SC = scan_cells()
-if 'logging' in globals():
+# Prevent re-scanning for every cluster job
+if '--allowed-rules' in sys.argv:
+    SC = dict()
+else:
+    SC = scan_cells()
+
+if 'logger' in globals():
     # Make a dict that just shows the counts
-    sc_counts = { c : { category: "{} files".format(len(filelist))
+    sc_counts = { c : { category: "<{} files>".format(len(filelist))
                         for category, filelist in d.items() }
                   for c, d in SC.items() }
 
-    logging.info("SC = {!r}".format(sc_counts))
+    logger.info("SC = " + pformat(sc_counts, width=140))
 
-# Aggregate for all cells
-ALL_FASTQ_PASS = [ format("{c}/{category}/{f}") for c, d in SC.items() for f in d['fastq_pass'] ]
-ALL_FAST5_PASS = [ format("{c}/{category}/{f}") for c, d in SC.items() for f in d['fast5_pass'] ]
-ALL_FASTQ_FAIL = [ format("{c}/{category}/{f}") for c, d in SC.items() for f in d['fastq_fail'] ]
-ALL_FAST5_FAIL = [ format("{c}/{category}/{f}") for c, d in SC.items() for f in d['fast5_fail'] ]
-ALL_FILES = [ format("{c}/{category}/{f}") for c, d in SC.items() for category, files in d.items() for f in files ]
+# Aggregate by category for all cells
+ALL_FASTQ_PASS = [ f for c, d in SC.items() for category in ['fastq_pass'] for f in d[category] ]
+ALL_FAST5_PASS = [ f for c, d in SC.items() for category in ['fast5_pass'] for f in d[category] ]
+ALL_FASTQ_FAIL = [ f for c, d in SC.items() for category in ['fastq_fail'] for f in d[category] ]
+ALL_FAST5_FAIL = [ f for c, d in SC.items() for category in ['fast5_fail'] for f in d[category] ]
+ALL_FILES = [ f for c, d in SC.items() for category in d for f in d[category] ]
 
-# Main driver rule. Forces compression by requesting the .gz.md5 files
-def one_cell_info:
+# Main target is one yml file (of metadata) per cell. A little bit like statfrombam.yml in the
+# project QC pipelines.
+localrules: main, one_cell_info
+rule main:
+    input:
+        yaml     = [ c + '.info.yml' for c in SC ]
+
+# Per-cell driver rule.
+rule one_cell_info:
     output: "{cell}.info.yml"
     input:
-        all_md5 = [ f + '.gz.md5' for f in ALL_FILES ],
-        blob_plots = "{}{}/{}.png" for c in SC,
+        all_md5  = [format("md5sums/{f}.gz.md5") for f in ALL_FILES ],
+        all_gz   = [format("{f}.gz") for f in ALL_FILES ],
+        blobs    = ["blob/fastq_pass.plots.yml"],
+        nanoplot = ["nanoplot/whatever"]
+    shell:
+        "touch {output}"
+
+# gzipper that uses pigz and compresses from RUNDIR to CWD
+# md5summer that keeps the file path out of the .md5 file
+# I made these a single rule to reduce the number of submitted jobs, with
+# the assuption we'll always be doing both, and "group:" in Snakemake is currently
+# broken with DRMAA :-(
+rule gzip_md5sum_fastx:
+    output:
+        gz  = "{foo}.fast{x,.}.gz",
+        md5 = "md5sums/{foo}.fast{x,.}.gz.md5"
+    input:  RUNDIR + "/{foo}.fast{x}"
+    threads: 2
+    shell:
+       r"""{PIGZ} -vnT -p{threads} -c -9 -b512 {input} > {output.gz}
+           ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
+        """
+
+rule blobs:
+    output: "blob/fastq_pass.plots.yml"
+    shell:
+        "touch {output}"
+
+rule nanoplot:
+    output: "nanoplot/whatever"
+    shell:
+        "touch {output}"
+
 

@@ -1,0 +1,5 @@
+# Settings for all Snakemake rules on GSEG. Add any new rules to this file
+# if they need more than the standard single processor.
+__default__              : {slurm_opts: '--mincpus=1'}
+blast_chunk              : {slurm_opts: '--mem=24000 --mincpus=6'}
+diamond_chunk            : {slurm_opts: '--mem=24000 --mincpus=8'}

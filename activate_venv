@@ -1,0 +1,49 @@
+#!/bin/bash
+
+# Bootstrap a new VEnv in ./_py3_venv suitable for running Hesiod.
+# The idea is that we make a new VEnv for each version released and so
+# we really can roll back to an old version and get the exact same
+# behaviour.
+# Note that unlike Illuminatus I'm going to install snakemake into
+# the VEnv. I'll likely make the same change for Illuminatus soon.
+
+if [[ "$0" == "$BASH_SOURCE" ]] ; then
+    echo "You need to source this file, not run it."
+    exit 1
+fi
+
+activate_venv() {
+    #We need to ensure -u is not set but then put the old value back.
+    reset=`set +o | grep -w nounset` ; set +o nounset
+    source ./_py3_venv/bin/activate
+    eval $reset
+}
+
+if [ -e ./_py3_venv/bin/activate ] ; then
+
+    # We already got one!
+    activate_venv
+
+else
+    echo "Bootstrapping new VEnv from toolbox/python3"
+    ( set -e ;
+        "${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/python3 -mvenv ./_py3_venv
+        activate_venv
+
+        pip3 install --upgrade pip
+        pip3 install pyyaml==3.13
+        pip3 install Rt==1.0.11
+        pip3 install pystache==0.5.4
+
+        # Hesiod uses snakemake and drmaa
+        pip install snakemake==5.5.3
+        pip install drmaa==0.7.9
+    )
+    if [ $? = 0 ] ; then
+        # We need this since we quit the subshell
+        activate_venv
+    else
+        echo "Provisioning VEnv Failed!"
+        false
+    fi
+fi

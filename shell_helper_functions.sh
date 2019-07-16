@@ -66,38 +66,22 @@ snakerun_drmaa() {
     [ -e cluster.yml ] || cat_cluster_yml > cluster.yml
 
     echo
-    if is_new_cluster ; then
-        echo "Running $snakefile in `pwd -P` on the GSEG cluster"
-        __SNAKE_THREADS="${SNAKE_THREADS:-100}"
 
-        mkdir -p ./slurm_output
-        set -x
-        snakemake \
-             -s "$snakefile" -j $__SNAKE_THREADS -p -T --rerun-incomplete \
-             ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yml \
-             --jobname "{rulename}.snakejob.{jobid}.sh" \
-             --drmaa " -p ${CLUSTER_QUEUE} {cluster.slurm_opts} \
-                       -e slurm_output/{rule}.snakejob.{jobid}.%A.err \
-                       -o slurm_output/{rule}.snakejob.{jobid}.%A.out \
-                     " \
-             "$@"
+    echo "Running $snakefile in `pwd -P` on the GSEG cluster"
+    __SNAKE_THREADS="${SNAKE_THREADS:-100}"
 
-    else
-        echo "Running $snakefile in `pwd -P` on the old cluster"
-        __SNAKE_THREADS="${SNAKE_THREADS:-20}"
+    mkdir -p ./slurm_output
+    set -x
+    snakemake \
+         -s "$snakefile" -j $__SNAKE_THREADS -p --rerun-incomplete \
+         ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yml \
+         --jobname "{rulename}.snakejob.{jobid}.sh" \
+         --drmaa " -p ${CLUSTER_QUEUE} {cluster.slurm_opts} \
+                   -e slurm_output/{rule}.snakejob.%A.err \
+                   -o slurm_output/{rule}.snakejob.%A.out \
+                 " \
+         "$@"
 
-        mkdir -p ./sge_output
-        set -x
-        snakemake \
-             -s "$snakefile" -j $__SNAKE_THREADS -p -T --rerun-incomplete \
-             ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yml \
-             --jobname "{rulename}.{jobid}.sh" \
-             --drmaa " -q qc -cwd -v SNAKE_PRERUN='$SNAKE_PRERUN' -p -10 -V \
-                       -pe {cluster.pe} -l h_vmem={cluster.mem} {cluster.extra} \
-                       -o sge_output -e sge_output \
-                     " \
-             "$@"
-    fi
 }
 
 snakerun_single() {
