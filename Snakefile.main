@@ -94,7 +94,7 @@ def parse_cell_name(cell):
                 cell = cell )
 
     # Now shred the filename.
-    mo = re.match(r'([0-9A-Z-]+)/(\d{6})_(\d+)_([0-9A-Z-]+)_([0-9a-f]{8})$', cell)
+    mo = re.match(r'([0-9A-Z-]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
     if mo:
         for n, x in enumerate("library date number slot cellid checksum".split()):
             res[x] = mo.group(n+1)
@@ -142,7 +142,7 @@ rule one_cell:
         cell_files = SC[wildcards.cell]
         ci = parse_cell_name(wildcards.cell)
 
-        with open(str(output)) as ofh:
+        with open(str(output), "w") as ofh:
             print("Run: {}".format(ci['run']), file=ofh)
             print("Cell: {}".format(ci['cell']), file=ofh)
 
@@ -155,7 +155,7 @@ rule one_cell:
 
             for pf in "pass fail".split():
                 # We already confirmed the fastq and fast5 counts match
-                print("Files in {}: {}".format(pf, cell_files[format('fastq_{pf}')]), file=ofh)
+                print("Files in {}: {}".format(pf, len(cell_files[format('fastq_{pf}')])), file=ofh)
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file
