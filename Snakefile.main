@@ -28,13 +28,18 @@ snakerun_drmaa "$0" "$@"
 import yaml
 from snakemake.utils import format
 from pprint import pformat
-from glob import glob
 import subprocess
+
+def glob():
+    """Regular glob() is useful but we want consistent sort order."""
+    from glob import glob
+    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))) )
+glob = glob()
 
 logger = snakemake.logging.logger
 
 TOOLBOX = format('env PATH="{os.environ[TOOLBOX]}:$PATH"')
-PIGZ    = 'pigz'
+PIGZ    = 'pigz -nT -9 -b512'
 
 for p in os.environ['PATH'].split(':'):
     if os.path.abspath(p) == os.path.dirname(os.path.abspath(workflow.snakefile)):
@@ -72,11 +77,7 @@ def scan_cells():
 
     return res
 
-# Prevent re-scanning for every cluster job
-if '--allowed-rules' in sys.argv:
-    SC = dict()
-else:
-    SC = scan_cells()
+SC = scan_cells()
 
 if 'logger' in globals():
     # Make a dict that just shows the counts
@@ -87,27 +88,30 @@ if 'logger' in globals():
     logger.info("SC = " + pformat(sc_counts, width=140))
 
 # Aggregate by category for all cells
-ALL_FASTQ_PASS = [ f for c, d in SC.items() for category in ['fastq_pass'] for f in d[category] ]
-ALL_FAST5_PASS = [ f for c, d in SC.items() for category in ['fast5_pass'] for f in d[category] ]
-ALL_FASTQ_FAIL = [ f for c, d in SC.items() for category in ['fastq_fail'] for f in d[category] ]
-ALL_FAST5_FAIL = [ f for c, d in SC.items() for category in ['fast5_fail'] for f in d[category] ]
-ALL_FILES = [ f for c, d in SC.items() for category in d for f in d[category] ]
+# TODO - remove???
+ALL_FASTQ_PASS = { c: [ f for category in ['fastq_pass'] for f in d[category] ] for c, d in SC.items() }
+ALL_FAST5_PASS = { c: [ f for category in ['fast5_pass'] for f in d[category] ] for c, d in SC.items() }
+ALL_FASTQ_FAIL = { c: [ f for category in ['fastq_fail'] for f in d[category] ] for c, d in SC.items() }
+ALL_FAST5_FAIL = { c: [ f for category in ['fast5_fail'] for f in d[category] ] for c, d in SC.items() }
+ALL_FILES = { c: [ f for category in d for f in d[category] ] for c, d in SC.items() }
 
 # Main target is one yml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
-localrules: main, one_cell_info
+localrules: main, one_cell
 rule main:
     input:
         yaml     = [ c + '.info.yml' for c in SC ]
 
 # Per-cell driver rule.
-rule one_cell_info:
+rule one_cell:
     output: "{cell}.info.yml"
     input:
-        all_md5  = [format("md5sums/{f}.gz.md5") for f in ALL_FILES ],
-        all_gz   = [format("{f}.gz") for f in ALL_FILES ],
-        blobs    = ["blob/fastq_pass.plots.yml"],
-        nanoplot = ["nanoplot/whatever"]
+        fast5_gz   = lambda wc: [format("{f}.gz")             for f in SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail']],
+        fast5_md5  = lambda wc: [format("md5sums/{f}.gz.md5") for f in SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail']],
+        fastq_gz   = ["{cell}/all_pass_reads.fastq.gz",             "{cell}/all_fail_reads.fastq.gz"],
+        fastq_md5  = ["md5sums/{cell}/all_pass_reads.fastq.gz.md5", "md5sums/{cell}/all_fail_reads.fastq.gz.md5"],
+        blobs      = ["blob/fastq_pass.plots.yml"],
+        nanoplot   = ["nanoplot/whatever"],
     shell:
         "touch {output}"
 
@@ -116,16 +120,53 @@ rule one_cell_info:
 # I made these a single rule to reduce the number of submitted jobs, with
 # the assuption we'll always be doing both, and "group:" in Snakemake is currently
 # broken with DRMAA :-(
-rule gzip_md5sum_fastx:
+rule gzip_md5sum_fast5:
     output:
-        gz  = "{foo}.fast{x,.}.gz",
-        md5 = "md5sums/{foo}.fast{x,.}.gz.md5"
-    input:  RUNDIR + "/{foo}.fast{x}"
+        gz  = "{foo}.fast5.gz",
+        md5 = "md5sums/{foo}.fast5.gz.md5"
+    input: RUNDIR + "/{foo}.fast5"
     threads: 2
     shell:
-       r"""{PIGZ} -vnT -p{threads} -c -9 -b512 {input} > {output.gz}
+       r"""{PIGZ} -v -p{threads} -c {input} > {output.gz}
            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
         """
+
+# This one concatenates and zips and sums the fastq. The fastq are smapller so one file is OK
+rule concat_gzip_md5sum_fastq:
+    output:
+        gz   = "{cell}/all_{pf}_reads.fastq.gz",
+        md5  = "md5sums/{cell}/all_{pf}_reads.fastq.gz.md5",
+        fofn = "{cell}/all_{pf}_reads.list"
+    input:
+        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
+    threads: 6
+    run:
+        # Here we run the risk of blowing out the command line lenght limit, so avoid
+        # that.
+        with open(output.fofn, "w") as fh:
+            for fname in input.fastq: print(fname, file=fh)
+
+        shell(r"xargs -d '\n' cat <{output.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
+
+        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+
+# Alternatively I could tar the files. Note that to cat the files in a single stream I can do:
+# $ tar -xaOf all_pass_fastq.tar.gz
+rule concat_tar_md5sum_fastq:
+    output:
+        tar  = "{cell}/all_{pf}_fastq.tar.gz",
+        md5  = "md5sums/{cell}/all_{pf}_reads_fastq.tar.gz.md5",
+        fofn = "{cell}/all_{pf}_reads.list"
+    input:
+        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
+    threads: 6
+    run:
+        with open(output.fofn, "w") as fh:
+            for fname in input.fastq: print(fname, file=fh)
+
+        shell(r"tar -cT {output.fofn} --xform='s,.*/\(.*/\),\1,' | {PIGZ} -p{threads} -c  > {output.tar}")
+
+        shell(r"( cd `dirname {output.tar}` && md5sum `basename {output.tar}` ) > {output.md5}")
 
 rule blobs:
     output: "blob/fastq_pass.plots.yml"
