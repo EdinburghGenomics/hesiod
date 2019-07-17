@@ -168,6 +168,31 @@ rule concat_tar_md5sum_fastq:
 
         shell(r"( cd `dirname {output.tar}` && md5sum `basename {output.tar}` ) > {output.md5}")
 
+def find_sequencing_summary(wc):
+    """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
+       sequencing_summary subdirectory (old style). Either way there should be only one.
+    """
+    found = glob(format("{RUNDIR}/{wc.cell}/*_sequencing_summary.txt")) + \
+            glob(format("{RUNDIR}/{wc.cell}/sequencing_summary/*_sequencing_summary.txt"))
+
+    assert len(found) == 1, ( "There should be exactly one sequencing_summary.txt per cell"
+                              " - found {}.".format(len(found)) )
+
+    return found
+
+rule gzip_sequencing_summary:
+    output:
+        link = "{cell}/sequencing_summary.txt.gz"
+    input:
+        summary = find_sequencing_summary
+    threads: 2
+    run:
+        # First copy the file, preserving the name. Then link.
+        gzfile = "{}/{}.gz".format(wildcards.cell, os.path.basename(str(input.summary)))
+
+        shell(r"{PIGZ} -p{threads} -c <{input.summary} >{gzfile}")
+        shell(r"cd {wildcards.cell} && ln -sn `basename {gzfile}` `basename {output.link}`")
+
 rule blobs:
     output: "blob/fastq_pass.plots.yml"
     shell:
