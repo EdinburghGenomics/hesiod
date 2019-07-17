@@ -70,14 +70,40 @@ def scan_cells():
     res = { c: dict() for c in cells }
 
     for c, d in res.items():
-        for category in 'fastq_pass fast5_pass fastq_fail fast5_fail'.split():
-            filetype = category.split('_')[0]
-            d[category] = [ f[len(RUNDIR) + 1:]
-                            for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
+        for pf in "pass fail".split():
+            for filetype in "fastq fast5".split():
+                category = format("{filetype}_{pf}")
+                d[category] = [ f[len(RUNDIR) + 1:]
+                                for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
+
+    # Sanity-check that the file counts match!
+    for c, d in res.items():
+        for pf in "pass fail".split():
+            assert len(d[format("fastq_{pf}")]) == len(d[format("fast5_{pf}")]), \
+                    format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf})")
 
     return res
 
+# Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
 SC = scan_cells()
+LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
+
+def parse_cell_name(cell):
+    """Things we get from parsing wildcards.cell"""
+    res = dict( run = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0],
+                cell = cell )
+
+    # Now shred the filename.
+    mo = re.match(r'([0-9A-Z-]+)/(\d{6})_(\d+)_([0-9A-Z-]+)_([0-9a-f]{8})$', cell)
+    if mo:
+        for n, x in enumerate("library date number slot cellid checksum".split()):
+            res[x] = mo.group(n+1)
+    else:
+        # Not good, but we'll try
+        res['library'] = cell.split('/')[0]
+        res['cellid'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
+
+    return res
 
 if 'logger' in globals():
     # Make a dict that just shows the counts
@@ -87,33 +113,49 @@ if 'logger' in globals():
 
     logger.info("SC = " + pformat(sc_counts, width=140))
 
-# Aggregate by category for all cells
-# TODO - remove???
-ALL_FASTQ_PASS = { c: [ f for category in ['fastq_pass'] for f in d[category] ] for c, d in SC.items() }
-ALL_FAST5_PASS = { c: [ f for category in ['fast5_pass'] for f in d[category] ] for c, d in SC.items() }
-ALL_FASTQ_FAIL = { c: [ f for category in ['fastq_fail'] for f in d[category] ] for c, d in SC.items() }
-ALL_FAST5_FAIL = { c: [ f for category in ['fast5_fail'] for f in d[category] ] for c, d in SC.items() }
-ALL_FILES = { c: [ f for category in d for f in d[category] ] for c, d in SC.items() }
-
 # Main target is one yml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
+# TODO - added aggregated stats per lib
 localrules: main, one_cell
 rule main:
     input:
-        yaml     = [ c + '.info.yml' for c in SC ]
+        yaml     = expand("{cell}/cell_info.yml", cell=SC),
+
 
 # Per-cell driver rule.
 rule one_cell:
-    output: "{cell}.info.yml"
+    output: "{cell}/cell_info.yml"
     input:
-        fast5_gz   = lambda wc: [format("{f}.gz")             for f in SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail']],
-        fast5_md5  = lambda wc: [format("md5sums/{f}.gz.md5") for f in SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail']],
-        fastq_gz   = ["{cell}/all_pass_reads.fastq.gz",             "{cell}/all_fail_reads.fastq.gz"],
-        fastq_md5  = ["md5sums/{cell}/all_pass_reads.fastq.gz.md5", "md5sums/{cell}/all_fail_reads.fastq.gz.md5"],
-        blobs      = ["blob/fastq_pass.plots.yml"],
-        nanoplot   = ["nanoplot/whatever"],
-    shell:
-        "touch {output}"
+        fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
+        fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
+        fastq_gz   = lambda wc: expand( "{cell}/{ci[run]}_{ci[library]}_{ci[cellid]}_{pf}.fastq.gz",
+                                            cell = [wc.cell],
+                                            ci = [parse_cell_name(wc.cell)],
+                                            pf = "pass fail".split() ),
+        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{ci[run]}_{ci[library]}_{ci[cellid]}_{pf}.fastq.gz.md5",
+                                            cell = [wc.cell],
+                                            ci = [parse_cell_name(wc.cell)],
+                                            pf = "pass fail".split() ),
+        blobs      = "blob/fastq_pass.plots.yml",
+        nanoplot   = "nanoplot/{cell}/NanoStats.yml",
+    run:
+        cell_files = SC[wildcards.cell]
+        ci = parse_cell_name(wildcards.cell)
+
+        with open(str(output)) as ofh:
+            print("Run: {}".format(ci['run']), file=ofh)
+            print("Cell: {}".format(ci['cell']), file=ofh)
+
+            print("Library: '{}'".format( ci.get('library')), file=ofh)
+            print("Date: '{}'".format(    ci.get('date')), file=ofh)
+            print("Number: {}".format(    ci.get('number')), file=ofh)
+            print("Slot: {}".format(      ci.get('slot')), file=ofh)
+            print("CellID: {}".format(    ci.get('cellid')), file=ofh)
+            print("Checksum: '{}'".format(ci.get('checksum')), file=ofh)
+
+            for pf in "pass fail".split():
+                # We already confirmed the fastq and fast5 counts match
+                print("Files in {}: {}".format(pf, cell_files[format('fastq_{pf}')]), file=ofh)
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file
@@ -131,12 +173,13 @@ rule gzip_md5sum_fast5:
            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
         """
 
-# This one concatenates and zips and sums the fastq. The fastq are smapller so one file is OK
+# This one concatenates and zips and sums the fastq. The fastq are smaller so one file is OK
+# The name for the file is as per doc/filename_convention.txt but this rule doesn't care
 rule concat_gzip_md5sum_fastq:
     output:
-        gz   = "{cell}/all_{pf}_reads.fastq.gz",
-        md5  = "md5sums/{cell}/all_{pf}_reads.fastq.gz.md5",
-        fofn = "{cell}/all_{pf}_reads.list"
+        gz   = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
+        md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
+        fofn = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
     input:
         fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
     threads: 6
@@ -152,11 +195,12 @@ rule concat_gzip_md5sum_fastq:
 
 # Alternatively I could tar the files. Note that to cat the files in a single stream I can do:
 # $ tar -xaOf all_pass_fastq.tar.gz
+# But most users won't got that :-(
 rule concat_tar_md5sum_fastq:
     output:
-        tar  = "{cell}/all_{pf}_fastq.tar.gz",
-        md5  = "md5sums/{cell}/all_{pf}_reads_fastq.tar.gz.md5",
-        fofn = "{cell}/all_{pf}_reads.list"
+        tar  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz",
+        md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz.md5",
+        fofn = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
     input:
         fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
     threads: 6
@@ -198,9 +242,20 @@ rule blobs:
     shell:
         "touch {output}"
 
+# Make a nanoplot report form the sequencing summary and also do a quick conversion on
+# the stats, which come out as unstructured text.
 rule nanoplot:
-    output: "nanoplot/whatever"
+    output: "nanoplot/{cell}/NanoStats.txt"
+    input:  "{cell}/sequencing_summary.txt.gz"
     shell:
-        "touch {output}"
+       r"""ap="$(readlink -f {input})"
+           cd "$(dirname {output})"
+           rm -f *.png *.html *.log
+           NanoPlot --summary "$ap"
+        """
 
-
+localrules: nanostats
+rule nanostats:
+    output: "nanoplot/{cell}/NanoStats.yml"
+    input:  "nanoplot/{cell}/NanoStats.txt"
+    shell: r"parse_nanostats.py <{input} >{output}"

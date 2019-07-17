@@ -38,6 +38,9 @@ else
         # Hesiod uses snakemake and drmaa
         pip install snakemake==5.5.3
         pip install drmaa==0.7.9
+
+        # Here’s the big one
+        NanoPlot==1.26.1
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell

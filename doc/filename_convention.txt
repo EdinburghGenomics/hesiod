@@ -1,0 +1,15 @@
+Urmi compressed all the reads into a file named:
+
+all_pass_reads.fastq.gz
+
+I think we should continue our standard that every data file we deliver is uniquely
+identifiable by name even if it is removed from the context of the directory.
+
+To this end, I propose:
+
+{run}_{lib}_{cellid}_{pf}
+
+cellid is like PAD53013
+pf is pass or fail
+
+Much like Illumina. Not like PacBio.
