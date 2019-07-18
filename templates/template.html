@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="$lang$" xml:lang="$lang$"$if(dir)$ dir="$dir$"$endif$>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+$for(author-meta)$
+  <meta name="author" content="$author-meta$" />
+$endfor$
+$if(date-meta)$
+  <meta name="dcterms.date" content="$date-meta$" />
+$endif$
+$if(keywords)$
+  <meta name="keywords" content="$for(keywords)$$keywords$$sep$, $endfor$" />
+$endif$
+  <title>$if(title-prefix)$$title-prefix$ – $endif$$pagetitle$</title>
+
+  <!-- Favicon for Hesiod. See hesiod_favicon.png -->
+  <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,
+iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAAABGdBTUEAALGPC/xhBQAAAMNQTFRFUAIAFRYUGBkXGRsYGxwaHR8cHyAeIiQhJiglKy0qLzEu
+MjQxNzg2Ojw6PkA9Q0RCRkhFSkxJT1BOU1VSVlhVXF5bYWNgZWdkaGpnbG5rb3FucnRxd3h1e316gIJ/g4WCiIqHjY+MkJKPk5WSlpiVmpyZn6Geo6Wipaek
+qKqnqqyprK6rr7GusrSxtri1ubu4vL67wMK+wsTBxMfDx8nGyszIzM7LztDN09bS2dvY3+He5Obj6ezo8fTw9vj0+fv4/v/8xk39BQAAAAF0Uk5TAEDm2GYA
+AAABYktHRACIBR1IAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAB3RJTUUH4wcSDgwrHqMbzgAAAxNJREFUOMtNk+mSqzgMhY0dwhI3a9ghLGEJBDAEcJbuJLz/
+U11neubW6IfLrvOVfKSSAABrjh3fcqK4qrN8LC7z43WbHusPpa8VMHl9ebqh84IVFAVd5oJMlJ4G+nre6OXNiFfiIVk0PUfz3GyhtCoJPezb+/fzhy73dQUP
+WxMh0rvmPExMX+55Sc4RobcbZa/bG/xIMpKg6h+L+kwWuvzckiiJx/56pfRKr3fwMDHC0IjLpicX+hu1fWpuyz/XHhx0Ee2g5ATZiQzTLzAf3ZKMM70w08Df
+IqRB1fLc07nvmvFjZByUfCL9RD5AKUj8DuKoSI9ZUrbDdZzo2BgN6YZ2XuYRPFUVCUgzkjCNA68PtP1pHM8mPiT5PM/LBQTCBokIcTxvZgniOCSH9djlRlN3
+EyXzBFwZIglBQUJc7Bu7LVY8dx6kw0IInaqeAE/6QtJGqEdbaYZGceg1KdpOahdSXLtzcQSJpSIsYdXQQkKvgZmXl5l2et2SvplJU4LR4JBkGElkZ9NMh+Oh
+Yu3qfYyPbbPQ7gK6WEYinze5VU79ssx0YsWdE0MO3WEk3QiuuSluRTtxcN21Y99fh7LOHdOUnex2cOMSvB3MY0Eztrt6qtLCbChJPcv3wqqxTdNPwNrtbA6L
+kON0Nzp4gZaSxj3EaRDuzYKEA3inOkSfkfF3Ys1qv9XpKcpOg+W4Bb10D/DKJITQTs9CXhCwVpO5TbJ4mBNHz/uR3MGaIZ5TNUsREBJFESfVMQu7S+ngIMrq
+9BusLb+Bsokh67aCU00KWZTtHhuRjd1yBeuNWYACO8S9JaumECeHMPXCIDBsu2JDu6Ya8wB5fhd0lzbRkWApEY7Gpa2fb6aDtcAMQBtkhm1NzgXP7aFldKe0
+/P6sDQPe5uaTQv5yT9Wx72Pm5ivsJtNZfwGwPqLPzODIS1Kvrqs6t/M2O0f/Jvjs3kNAm60YyHhr2cXx6Nd5Fdr+fwk+n+g8hJDjBbYBvuKGSeCp6euv/iGw
+pIhQxjrcKFA/5LqWrf/TGZEqeIMEgWPDK5uao+bPv/ofyHp4G+jaONQAAAAASUVORK5CYII=">
+
+  <style type="text/css">
+$if(quotes)$
+      q { quotes: "“" "”" "‘" "’"; }
+$endif$
+  </style>
+$if(highlighting-css)$
+  <style type="text/css">
+$highlighting-css$
+  </style>
+$endif$
+$for(css)$
+  <link rel="stylesheet" href="$css$">
+$endfor$
+$if(math)$
+  $math$
+$endif$
+  <!--[if lt IE 9]>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv-printshiv.min.js"></script>
+  <![endif]-->
+$for(header-includes)$
+  $header-includes$
+$endfor$
+</head>
+<body>
+$for(include-before)$
+$include-before$
+$endfor$
+$if(title)$
+<header>
+<!-- Our logo -->
+<a style="float: right!important" href="http://genomics.ed.ac.uk" target="_blank"><img
+style="border: 0;" src="data:image/png;base64,
+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"></a>
+<h1 class="title">$title$</h1>
+<!-- We're abusing author and date but that's OK -->
+<p class="subtitle">$author$, on $date$</p>
+</header>
+$endif$
+$if(toc)$
+<nav id="$idprefix$TOC">
+$toc$
+</nav>
+$endif$
+$body$
+$for(include-after)$
+$include-after$
+$endfor$
+</body>
+</html>
+

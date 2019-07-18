@@ -447,11 +447,8 @@ notify_run_complete(){
 }
 
 run_report() {
-
-    # FIXME - this is just copied from SMRTino
-
     # Makes a report. Will not exit on error. I'm assuming all substantial processing
-    # will have been done by Snakefile.process_cells so this should be quick.
+    # will have been done already so this should be quick.
 
     # usage: run_report [rt_prefix] [report_fudge_status] [rt_set_status]
 
@@ -474,7 +471,10 @@ run_report() {
     plog </dev/null
     _plog="${per_run_log}"
 
-    ( cd "$RUN_OUTPUT" ; Snakefile.report -F --config rep_status="$_rep_status" -- report_main ) 2>&1
+    # FIXME - not sure if I want to run the report directly off the processing
+    # step or have a separate call? Just now it's the former.
+    #Snakefile.main -F --config rep_status="$_rep_status" -- report_main 2>&1
+    true
 
     # Snag that return value
     _retval=$(( $? + ${_retval:-0} ))
@@ -485,7 +485,7 @@ run_report() {
     # so if the upload fails it needs to be removed.
     rm -f pipeline/report_upload_url.txt
     if [ $_retval = 0 ] ; then
-        upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
+        upload_report.sh 2>&1 >pipeline/report_upload_url.txt || \
             { log "Upload error. See $_plog" ;
               rm -f pipeline/report_upload_url.txt ; }
     fi

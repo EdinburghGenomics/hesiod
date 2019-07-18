@@ -1,0 +1,25 @@
+We need to disseminate these files.
+
+If we decide to always use 'experiment' to mean 'project' then finding the files
+to send is pretty easy.
+
+But we've not made that decision. We could use 'experiment' like 'run' - ie.
+for all the cells loaded in a batch, which is kinda what I expect.
+
+I feel that we should definitely fix the convention that the first component of
+the cell name is the library, and the library starts with the project number. That
+way I can avoid worrying about 'experiment'.
+
+Problem is - would we ever multiplex multiple projects on a cell. How would that work?
+Within a single project we just have a pool name and that's fine. But not for multiple.
+Ask the lab!
+
+I can have a projects_ready.txt file in any case, so I'll be able to scan for runs.
+For now I can just write this the naive way. get_files_for_project will link both the
+fastq and the fast5 dirs, but only the passed.
+Modified version of pbflags etc should work.
+Disseminate results will need to grow yet more tentacles. Oh well.
+
+And all of this assumes we're not demultiplexing, but we'll come to that.
+
+First job - put in projects_ready.txt

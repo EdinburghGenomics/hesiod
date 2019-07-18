@@ -18,6 +18,7 @@ source "`dirname $0`"/shell_helper_functions.sh
 # The TOOLBOX setting gets passed down to jobs that run on SLURM. The PATH setting
 # does not, as SLURM resets that env var.
 export TOOLBOX="$(find_toolbox)"
+export TEMPLATES="$(find_templates)"
 export PATH="${PATH}:$(dirname "$0")"
 
 snakerun_drmaa "$0" "$@"
@@ -25,10 +26,13 @@ snakerun_drmaa "$0" "$@"
 "exit""" ### End of shell script part
 #!/usr/bin/env snakemake
 
-import yaml
-from snakemake.utils import format
+from collections import OrderedDict
 from pprint import pformat
-import subprocess
+import shutil
+
+import yaml, yamlloader
+from snakemake.utils import format
+
 
 def glob():
     """Regular glob() is useful but we want consistent sort order."""
@@ -87,23 +91,96 @@ def scan_cells():
 # Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
 SC = scan_cells()
 LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
+RUN = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0]
 
 def parse_cell_name(cell):
     """Things we get from parsing wildcards.cell"""
-    res = dict( run = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0],
-                cell = cell )
+    res = OrderedDict()
+    res['Run'] = RUN
+    res['Cell'] = cell
 
     # Now shred the filename.
     mo = re.match(r'([0-9A-Z-]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
     if mo:
-        for n, x in enumerate("library date number slot cellid checksum".split()):
+        for n, x in enumerate("Library Date Number Slot CellID Checksum".split()):
             res[x] = mo.group(n+1)
     else:
         # Not good, but we'll try
-        res['library'] = cell.split('/')[0]
-        res['cellid'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
+        res['Library'] = cell.split('/')[0]
+        res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
 
     return res
+
+def save_out_plist(yaml_files, out_file):
+        plist = set()
+        for y in yaml_files:
+            with open(y) as yfh:
+                lib = yaml.safe_load(yfh)['Library']
+                # FIXME - not sure this is the right place for getting the project ID,
+                # or the right thing to do when the regex fails.
+                mo =  re.match(r"([0-9]{5})[A-Z]{2}", lib)
+                if mo:
+                    plist.add(mo.group(1))
+                else:
+                    plist.add(lib)
+        with open(out_file, "w") as ofh:
+            print( *sorted(plist), file=ofh, sep='\n' )
+
+def save_out_report(base_path, cells):
+    """Assemble the reports - for now just a directory of reports from NanoPlot but this
+       will change soon.
+    """
+    # FIXME - this should be part of the rule deps not a glob+copy. Also the file name choice
+    # is arbitrary.
+    # TODO - and of course this code should be in a separate Python script
+    # TODO - and it should be made from a template
+    for cell in cells:
+        ci = parse_cell_name(cell)
+        src_rep = format("nanoplot/{cell}/NanoPlot-report.html")
+        dest_rep = format("NanoPlot_{ci[Library]}_{ci[CellID]}-report.html")
+        shutil.copy(src_rep, os.path.join(base_path, dest_rep))
+
+    # Add a report.html
+    from datetime import datetime
+
+    pan = "{}/report.{}cells.pan".format(base_path, len(cells))
+    with open(pan, 'w') as repfh:
+        P = lambda *a: print(*a, file=repfh)
+
+        P("% Promethion run {}".format(RUN))
+        P("% Hesiod version {}".format("devel"))
+        P("% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")))
+
+        P()
+        P("# About this run (experiment? project?)")
+        P()
+        P('<dl class="dl-horizontal">')
+        P('<dt>RunID</dt> <dd>{}</dd>'.format(RUN))
+        P('<dt>Instrument</dt> <dd>Promethion 1</dd>')
+        P('<dt>CellCount</dt> <dd>{}</dd>'.format(len(SC)))
+        P('<dt>LibraryCount</dt> <dd>{}</dd>'.format(len(LIBS)))
+        P('<dt>StartTime</dt> <dd>something</dd>')
+        P('<dt>LastCellTime</dt> <dd>something</dd>')
+        P('</dl>')
+
+        for cell in cells:
+            ci = parse_cell_name(cell)
+            P()
+            P("## Cell {}".format(cell))
+            P()
+            P(":::::: {.bs-callout}")
+            P()
+            P('<dl class="dl-horizontal">')
+            for k, v in ci.items():
+                P('<dt>{}</dt> <dd>{}</dd>'.format(k,v))
+            P('</dl>')
+            P()
+            P(format("[NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)"))
+
+            P()
+            P("*~~~*")
+
+    return pan
 
 if 'logger' in globals():
     # Make a dict that just shows the counts
@@ -111,16 +188,37 @@ if 'logger' in globals():
                         for category, filelist in d.items() }
                   for c, d in SC.items() }
 
-    logger.info("SC = " + pformat(sc_counts, width=140))
+    logger.info( "RUN {}, SC =\n{}".format(RUN, pformat(sc_counts, width=140)) )
 
 # Main target is one yml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
 # TODO - added aggregated stats per lib
+# NB - I think we need to run this with -f to ensure all the .yml files are always created
+# and the report is always refreshed.
 localrules: main, one_cell
 rule main:
     input:
         yaml     = expand("{cell}/cell_info.yml", cell=SC),
+    output:
+        plist    = "projects_ready.txt",
+        rep      = "all_reports/report.html"
+    params:
+        templates = os.environ.get('TEMPLATES', '.')
+    run:
+        # After generating all YAML, all projects are ready.
+        save_out_plist(input.yaml, str(output.plist))
 
+        panrep = save_out_report(os.path.dirname(output.rep), SC)
+        shell(r'''
+            {TOOLBOX} pandoc -f markdown \
+                                --template={params.templates}/template.html \
+                                --include-in-header={params.templates}/javascript.js.html \
+                                --include-in-header={params.templates}/local.css.html \
+                                --toc --toc-depth=4 \
+                                -o {panrep}.html {panrep}
+        ''')
+
+        shell("ln -snr {panrep}.html {output.rep}")
 
 # Per-cell driver rule.
 rule one_cell:
@@ -128,11 +226,11 @@ rule one_cell:
     input:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
-        fastq_gz   = lambda wc: expand( "{cell}/{ci[run]}_{ci[library]}_{ci[cellid]}_{pf}.fastq.gz",
+        fastq_gz   = lambda wc: expand( "{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz",
                                             cell = [wc.cell],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{ci[run]}_{ci[library]}_{ci[cellid]}_{pf}.fastq.gz.md5",
+        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz.md5",
                                             cell = [wc.cell],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
@@ -142,20 +240,14 @@ rule one_cell:
         cell_files = SC[wildcards.cell]
         ci = parse_cell_name(wildcards.cell)
 
+        # Add pass/fail counts
+        for pf in "pass fail".split():
+            # We already confirmed the fastq and fast5 counts match
+            ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+
+        # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
         with open(str(output), "w") as ofh:
-            print("Run: {}".format(ci['run']), file=ofh)
-            print("Cell: {}".format(ci['cell']), file=ofh)
-
-            print("Library: '{}'".format( ci.get('library')), file=ofh)
-            print("Date: '{}'".format(    ci.get('date')), file=ofh)
-            print("Number: {}".format(    ci.get('number')), file=ofh)
-            print("Slot: {}".format(      ci.get('slot')), file=ofh)
-            print("CellID: {}".format(    ci.get('cellid')), file=ofh)
-            print("Checksum: '{}'".format(ci.get('checksum')), file=ofh)
-
-            for pf in "pass fail".split():
-                # We already confirmed the fastq and fast5 counts match
-                print("Files in {}: {}".format(pf, len(cell_files[format('fastq_{pf}')])), file=ofh)
+            yaml.dump(ci, ofh, Dumper=yamlloader.ordereddict.CSafeDumper)
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file

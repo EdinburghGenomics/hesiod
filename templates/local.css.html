@@ -1,0 +1,68 @@
+<!-- This file is getting pasted into the HTML header so the CSS needs to be wrapped
+     in <style> tags. Put any overrides in here. Imports of CSS that go with datatables
+     etc. belong in the javascript.js.html file -->
+
+<style type="text/css">
+
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+
+    div.dt-buttons {
+        float: right;
+        padding-left: 8px;
+    }
+
+    img {
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 5px;
+    }
+
+    /* Special tweaks for special tables */
+    div#blob_plot_table img {
+        width: 100%;
+    }
+    div#dup_plot_table img {
+        margin-left: 60pt;
+    }
+    div.flex p {
+        display: flex;
+    }
+
+    /* Bootstrap does not give us a page border or quite enough header padding */
+    body {
+        padding: 16pt;
+    }
+
+    /* This */
+    blockquote {
+        font-size: 16px;
+        font-style: italic;
+        font-family: monospace;
+        background: #fffece;
+    }
+
+    /* Pandoc uses h1 for both the page title and level 1 headings */
+    h1:not(.title) {
+        font-size: 28px;
+        padding: 2px;
+        margin: 34px 0px 10px 0px;
+        background: CadetBlue;
+    }
+    h2:not(.title) {
+        font-size: 24px;
+        color: #053177;
+    }
+    h3:not(.title) {
+        font-style: italic;
+        font-size: 20px;
+        color: #053177;
+    }
+
+    /* For [data]tables */
+    table.display { font-family: monospace; }
+    table.display thead th { padding: 0px 16px; }
+
+</style>

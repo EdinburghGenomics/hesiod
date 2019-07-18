@@ -31,7 +31,8 @@ else
         activate_venv
 
         pip3 install --upgrade pip
-        pip3 install pyyaml==3.13
+        pip3 install pyyaml==5.1.1
+        pip3 install yamlloader==0.5.5
         pip3 install Rt==1.0.11
         pip3 install pystache==0.5.4
 
