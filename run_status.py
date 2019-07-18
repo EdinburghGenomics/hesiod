@@ -331,7 +331,7 @@ if __name__ == '__main__':
     L.basicConfig(level=L.WARNING, stream=sys.stderr)
 
     # Load the remote cell list from STDIN
-    if 'N' in opts:
+    if not 'I' in opts:
         remote_info = {}
     else:
         remote_info = parse_remote_cell_info()

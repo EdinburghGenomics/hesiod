@@ -575,8 +575,8 @@ get_run_status() { # run_dir
   # We're passing this info to the state functions via global variables.
 
   # This construct allows error output to be seen in the log.
-  _runstatus="$(run_status.py "$1" <<<"$UPSTREAM_INFO")" || \
-        run_status.py "$1" <<<"$UPSTREAM_INFO" | log 2>&1
+  _runstatus="$(run_status.py -I "$1" <<<"$UPSTREAM_INFO")" || \
+        run_status.py -I "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
   # Capture the various parts into variables (see test/grs.sh)
   for _v in RUNID/RunID INSTRUMENT/Instrument \
