@@ -9,12 +9,14 @@ set -euo pipefail
 # Normal report destination is web1.genepool.private:/var/runinfo/hesiod_reports
 
 # See where to get the report from (by default, right here)
+# The run name could theoretically be different from the 'true' run name but we want the report
+# location to match the direcotry name where the run is stored.
 cd "${1:-.}"
 runname="`basename $PWD`"
 
 # Confirm we do have all_reports/report.html
-if ! [ -L all_reports/report.html ] && [ -e all_reports/report.html ] ; then
-    echo "No such file all_reports/report.html or it is not a link."
+if [ ! -L all_reports/report.html ] || [ ! -e all_reports/report.html ] ; then
+    echo "No such file all_reports/report.html or it is not a link." >&2
     false
 fi
 
@@ -31,7 +33,7 @@ dest="${REPORT_DESTINATION}"
 # Note the proxy setting in my ~/.ssh/config which lets both ssh
 # and rsync run through monitor transparently. Really we should have direct access to the
 # DMZ machines.
-echo "Uploading report for $runname to $dest..." >&2
+echo "Uploading report for $runname to $dest/..." >&2
 rsync -drvlOt all_reports $dest/$runname/ >&2
 #rsync -drvLOt all_reports/img $dest/$runname/all_reports/ >&2
 

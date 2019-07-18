@@ -169,16 +169,16 @@ def save_out_report(base_path, cells):
             P("## Cell {}".format(cell))
             P()
             P(":::::: {.bs-callout}")
-            P()
             P('<dl class="dl-horizontal">')
             for k, v in ci.items():
                 P('<dt>{}</dt> <dd>{}</dd>'.format(k,v))
             P('</dl>')
             P()
             P(format("[NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)"))
+            P("::::::")
 
-            P()
-            P("*~~~*")
+        P()
+        P("*~~~*")
 
     return pan
 

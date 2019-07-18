@@ -229,36 +229,42 @@ action_cell_ready(){
     done
 
     BREAK=1
-    _cellsready="$(tr $'\t' ',' <<<"$CELLSREADY")"
+    _cellsready=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
 
     # This will be a no-op if the run isn't really complete
-    notify_run_complete
+    # If this fails, we need to continue.
+    ( notify_run_complete ) || true
 
-    # Do we want an RT message for every cell? No, just a comment.
-    send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" |& plog
-
-    # Log the start in a way a script can easily read back (humans can check the main log!)
-    save_start_time
+    # Do we want an RT message for every cell? Well, just a comment, and again it may fail
+    ( send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true
 
     # As usual, the Snakefile controls the processing
     plog "Preparing to process cell(s) $_cellsready into $RUN_OUTPUT"
     set +e ; ( set -e
       log "  Starting Snakefile.main on $RUNID."
+
+      # Log the start in a way a script can easily read back (humans can check the main log!)
+      save_start_time
+
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       ( cd "$RUN_OUTPUT"
-        Snakefile.main --config cells="$CELLSREADY"
+        Snakefile.main -f --config cells="$CELLSREADY"
       ) |& plog
 
+    ) |& plog ; [ $? = 0 ] || pipeline_fail Processing_Cells "$_cellsready"
+
+
+    set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
-      # ev er have one of these running at a time.
-      run_report "Processing completed for cells: $_cellsready." "" "maybe_complete" | plog && log DONE
+      # ever have one of these running at a time.
+      run_report "Processing completed for cells $_cellsready." "" "maybe_complete" | plog && log DONE
 
       for _c in $CELLSREADY ; do
-          ( cd "$RUN_OUTPUT" && mv pbpipeline/$(cell_to_tfn "$_c").started pbpipeline/$(cell_to_tfn "$_c").done )
+          mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
       done
 
-    ) |& plog ; [ $? = 0 ] || pipeline_fail Processing_Cells "$_cellsready"
+    ) |& plog ; [ $? = 0 ] || pipeline_fail Reporting "$_cellsready"
 }
 
 
@@ -397,7 +403,7 @@ twc(){
 
 save_start_time(){
     ( echo -n "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
-        >>"$RUN_OUTPUT"/pipeline/start_times
+        >>pipeline/start_times
 }
 
 # Wrapper for ticket manager that sets the run and queue (note this refers
@@ -409,11 +415,17 @@ rt_runticket_manager(){
 check_for_ready_cells(){
     # After a sync completes, check if any cells are now ready for processing and
     # if so write the {cell}.synced files
+    _count=0
     for cell in $CELLSPENDING ; do
-        if [ -e "$cell/final_summary.txt" ] ; then 
+        if [ -e "$cell/final_summary.txt" ] ; then
+            _count=$(( $_count + 1 ))
             touch_atomic "pipeline/$(cell_to_tfn "$cell").synced"
         fi
     done
+
+    if [ $_count -gt 0 ] ; then
+        log "$_count cells on this run are now ready for processing."
+    fi
 }
 
 notify_run_complete(){
@@ -484,8 +496,9 @@ run_report() {
     # Note that the code relies on checking the existence of this file to see if the upload worked,
     # so if the upload fails it needs to be removed.
     rm -f pipeline/report_upload_url.txt
+    log "Uploading report"
     if [ $_retval = 0 ] ; then
-        upload_report.sh 2>&1 >pipeline/report_upload_url.txt || \
+        upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
             { log "Upload error. See $_plog" ;
               rm -f pipeline/report_upload_url.txt ; }
     fi
@@ -548,13 +561,10 @@ pipeline_fail() {
 
         _failure="$stage"
     else
-        # Failure of a cell or cells
-        for c in $2 ; do
-            _cell_tfn="$(cell_to_tfn "$c")"
-            echo "$stage on `date`" > "pipeline/${_cell_tfn}.failed"
-        done
+        # Failure of a specific cell or cells
+        echo "$stage on `date` for cells $2" > pipeline/failed
 
-        _failure="$stage for cells [$2]"
+        _failure="$stage for cells $2"
     fi
 
     # Send an alert to RT.
@@ -580,7 +590,7 @@ get_run_status() { # run_dir
 
   # Capture the various parts into variables (see test/grs.sh)
   for _v in RUNID/RunID INSTRUMENT/Instrument \
-            CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSABORTED/CellsAborted \
+            CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellDone CELLSABORTED/CellsAborted \
             STATUS/PipelineStatus UPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
     eval "${_v%/*}"='"$_line"'
