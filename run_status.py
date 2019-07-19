@@ -200,16 +200,12 @@ class RunStatus:
         # Is anything being processed just now?
         processing_now = any( s in [self.CELL_PROCESSING] for s in all_cell_statuses )
 
-        # Are we OK to rsync? I'm going to assume that if rsync.failed then we are allowed to
-        # try again. If not, then the presence of rsync.failed when no cell is ready to process
+        # Are we OK to rsync? I'm going to assume that if sync.failed then we are allowed to
+        # try again. If not, then the presence of sync.failed when no cell is ready to process
         # or processing should lead to state=failed
-        sync_in_progress = ( self._exists_pipeline( 'rsync.started' ) and
-                             not self._exists_pipeline( 'rsync.done' ) and
-                             not self._exists_pipeline( 'rsync.failed' ) )
-
-        if self._is_stalled() and not processing_now:
-            # Not sure if we are having stalled state yet, but if so...
-            return "stalled"
+        sync_in_progress = ( self._exists_pipeline( 'sync.started' ) and
+                             not self._exists_pipeline( 'sync.done' ) and
+                             not self._exists_pipeline( 'sync.failed' ) )
 
         if sync_needed and processing_now:
             if sync_in_progress:
@@ -226,6 +222,10 @@ class RunStatus:
             return "syncing"
         elif sync_needed:
             return "sync_needed"
+
+        if self._is_stalled():
+            # Not sure if we are having stalled state yet, but if so...
+            return "stalled"
 
         if any( s in [self.CELL_INCOMPLETE] for s in all_cell_statuses ):
             return "incomplete"
