@@ -299,7 +299,7 @@ action_syncing(){
     debug "\_SYNCING $RUNID."
 }
 
-actionr_processing_syncing(){
+action_processing_syncing(){
     debug "\_PROCESSING_SYNCING $RUNID."
 }
 
@@ -343,14 +343,16 @@ do_sync(){
     log "\_DO_SYNC $RUNID."
     plog_start
 
-    # assertion
-    if ! [[ "$STATUS" =~ sync_needed ]] ; then
+    # assertion - status should have been set already
+    if ! [[ "$STATUS" =~ syncing ]] ; then
         log "Error - unexpected status $STATUS in do_sync"
         return
     fi
 
     # Loop through cells
     while read run upstream cell ; do
+
+        plog "Checking status of cell $cell"
 
         _cell_tfn="$(cell_to_tfn "$cell")"
         if ! [ -e "pipeline/${_cell_tfn}.synced" -o \
@@ -597,7 +599,7 @@ get_run_status() { # run_dir
   done
 
   # Resolve output location
-  RUN_OUTPUT="$(readlink -f "$run/pipeline/output" || true)"
+  RUN_OUTPUT="$(readlink -f "$1/pipeline/output" || true)"
 }
 
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
@@ -701,9 +703,12 @@ if [ -n "${SYNC_QUEUE:-}" ] ; then
     log ">> Processing SYNC_QUEUE"
     _nn=1
     for RUNID in $SYNC_QUEUE ; do
-        touch_atomic "$PROM_RUNS/$RUNID/pipeline/sync.started"
-        # If some calls to touch_atomic fail this will be bad. But trying to auto-recify the
-        # situation could well be worse.
+        # Not using touch_atomic since it's possible sync.started and sync.failed are both
+        # present.
+        rm -f "$PROM_RUNS/$RUNID/pipeline/sync."{done,failed}
+        touch "$PROM_RUNS/$RUNID/pipeline/sync.started"
+
+        # This must be set for plog to operate
         RUN_OUTPUT="$(readlink -f "$PROM_RUNS/$RUNID/pipeline/output")"
 
         plog ">>> $0 preparing to sync at `date`. This run is #$_nn in the queue."
@@ -712,6 +717,7 @@ if [ -n "${SYNC_QUEUE:-}" ] ; then
 
     for RUNID in $SYNC_QUEUE ; do
         get_run_status "$PROM_RUNS/$RUNID"
+
         { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_sync
         } || log "Error while trying to run Rsync on $PROM_RUNS/$RUNID"
         popd >/dev/null
