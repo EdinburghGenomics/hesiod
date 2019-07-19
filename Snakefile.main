@@ -61,15 +61,18 @@ def scan_cells():
         Then get a list of all the files per cell.
         TODO - can we avoid doing this if --allowed-rules is specified?
     """
-    all_done = [ '/'.join(fs.split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/final_summary.txt")) ]
-
-    if not all_done:
-        logger.error("No complete cells found")
-
     if 'cells' in config:
-        cells = [ s for s in all_done if s in config['cells'].split('\t') ]
+        cells = config['cells'].split('\t')
+
+        for c in cells:
+            assert glob(format("{RUNDIR}/{c}/fastq_pass/")), format("Invalid cell (no fastq_pass): {c}")
     else:
-        cells = all_done
+        # Look for cells with a final_summary.txt
+        cells = [ '/'.join(fs.split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/final_summary.txt")) ]
+
+    if not cells:
+        # Not a fatal error if some specific rule is being invoked.
+        logger.error("List of cells to process is empty")
 
     res = { c: dict() for c in cells }
 
@@ -190,15 +193,16 @@ if 'logger' in globals():
 
     logger.info( "RUN {}, SC =\n{}".format(RUN, pformat(sc_counts, width=140)) )
 
-# Main target is one yml file (of metadata) per cell. A little bit like statfrombam.yml in the
+# Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
 # TODO - added aggregated stats per lib
-# NB - I think we need to run this with -f to ensure all the .yml files are always created
+# NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
 localrules: main, one_cell
 rule main:
     input:
-        yaml     = expand("{cell}/cell_info.yml", cell=SC),
+        yaml     = expand("{cell}/cell_info.yaml", cell=SC),
+        minionqc = "minionqc/combinedQC/summary.yaml"
     output:
         plist    = "projects_ready.txt",
         rep      = "all_reports/report.html"
@@ -222,7 +226,7 @@ rule main:
 
 # Per-cell driver rule.
 rule one_cell:
-    output: "{cell}/cell_info.yml"
+    output: "{cell}/cell_info.yaml"
     input:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
@@ -234,8 +238,9 @@ rule one_cell:
                                             cell = [wc.cell],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        blobs      = "blob/fastq_pass.plots.yml",
-        nanoplot   = "nanoplot/{cell}/NanoStats.yml",
+        blobs      = "blob/fastq_pass.plots.yaml",
+        nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
+        minionqc   = "minionqc/{cell}/summary.yaml",
     run:
         cell_files = SC[wildcards.cell]
         ci = parse_cell_name(wildcards.cell)
@@ -268,6 +273,7 @@ rule gzip_md5sum_fast5:
 # This one concatenates and zips and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
 rule concat_gzip_md5sum_fastq:
+    priority: 100
     output:
         gz   = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
         md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
@@ -287,8 +293,10 @@ rule concat_gzip_md5sum_fastq:
 
 # Alternatively I could tar the files. Note that to cat the files in a single stream I can do:
 # $ tar -xaOf all_pass_fastq.tar.gz
-# But most users won't got that :-(
+# But most users won't get that :-(
+# TODO - remove this. We won't be doing it.
 rule concat_tar_md5sum_fastq:
+    priority: 100
     output:
         tar  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz",
         md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz.md5",
@@ -330,7 +338,7 @@ rule gzip_sequencing_summary:
         shell(r"cd {wildcards.cell} && ln -sn `basename {gzfile}` `basename {output.link}`")
 
 rule blobs:
-    output: "blob/fastq_pass.plots.yml"
+    output: "blob/fastq_pass.plots.yaml"
     shell:
         "touch {output}"
 
@@ -348,6 +356,32 @@ rule nanoplot:
 
 localrules: nanostats
 rule nanostats:
-    output: "nanoplot/{cell}/NanoStats.yml"
+    output: "nanoplot/{cell}/NanoStats.yaml"
     input:  "nanoplot/{cell}/NanoStats.txt"
     shell: r"parse_nanostats.py <{input} >{output}"
+
+# MinIONQC (which, despite, the name, is also good for Promethion) makes all the outputs at once,
+# so here's a funny rule.
+localrules: minionqc # For now.
+rule minionqc:
+    output:
+        combined = "minionqc/combinedQC/summary.yaml",
+        per_cell = expand("minionqc/{cell}/summary.yaml", cell=SC),
+    input:
+        expand("{cell}/sequencing_summary.txt.gz", cell=SC)
+    threads: 2
+    run:
+        # Remove old
+        shell("rm -rf minionqc/combinedQC minionqc/_links")
+        for d in output.per_cell:
+            shell('rm -rf "$(dirname {d})"')
+
+        # Gather files in a directory
+        shell("mkdir -p minionqc/_links")
+        for f in input:
+            shell('mkdir -p minionqc/_links/"$(dirname {f})"')
+            shell('ln -snr {f} minionqc/_links/{f}')
+
+        # Run it
+        shell('{TOOLBOX} minionqc -o minionqc -i minionqc/_links -p {threads}')
+

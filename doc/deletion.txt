@@ -1,0 +1,9 @@
+The files in prom_runs will build up fast. I think it makes sense to remove them once
+the files are packed, tarred and md5summed. The directory itself needs to be left in place
+(ie. at least the pipeline bit) so that it will not be re-synced.
+
+Will this upset Snakemake that source files have vanished? Maybe, but we can easily fix that.
+
+As for deletion from prom:/data, assuming we continue writing there, I think we should push
+a list of runs to delete. Then there will be a desktop icon to actually do the deletion.
+Yes.

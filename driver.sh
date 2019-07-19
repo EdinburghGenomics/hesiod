@@ -252,7 +252,7 @@ action_cell_ready(){
         Snakefile.main -f --config cells="$CELLSREADY"
       ) |& plog
 
-    ) |& plog ; [ $? = 0 ] || pipeline_fail Processing_Cells "$_cellsready"
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }
 
 
     set +e ; ( set -e
@@ -264,7 +264,7 @@ action_cell_ready(){
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
       done
 
-    ) |& plog ; [ $? = 0 ] || pipeline_fail Reporting "$_cellsready"
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready" ; return ; }
 }
 
 
@@ -370,7 +370,7 @@ do_sync(){
 
             # Run the SYNC_CMD - TODO, work out the logging and error behaviour
             eval echo "Running: $SYNC_CMD" | plog
-            eval $SYNC_CMD |&plog || { touch pipeline/sync.failed ; }
+            eval $SYNC_CMD |&plog || { touch pipeline/sync.failed ; return ; }
         else
             plog "Cell $cell is already synced and/or complete"
         fi
@@ -417,6 +417,10 @@ rt_runticket_manager(){
 check_for_ready_cells(){
     # After a sync completes, check if any cells are now ready for processing and
     # if so write the {cell}.synced files
+
+    # If for some reason you need to manually force all cells to be synced:
+    # $ for d in */20* ; do touch pipeline/`basename $d`.synced ; done
+
     _count=0
     for cell in $CELLSPENDING ; do
         if [ -e "$cell/final_summary.txt" ] ; then

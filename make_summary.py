@@ -13,7 +13,7 @@ glob = glob()
 """ Makes a summary (in text format) for a run, mostly for the benefit of RT.
 
     This wants to be able to run before any processing happens, unlike the reports.
-    Unlike make_report, this does not want to be supplied with a list of .yml files,
+    Unlike make_report, this does not want to be supplied with a list of .yaml files,
     but rather it will scan for available data.
 """
 

@@ -9,8 +9,8 @@ function is_new_cluster(){
 }
 
 ## Dump out the right cluster config
-function cat_cluster_yml(){
-    cat "`dirname $0`"/cluster.`is_new_cluster && echo slurm || echo sge`.yml
+function cat_cluster_yaml(){
+    cat "`dirname $0`"/cluster.slurm.yaml
 }
 
 find_toolbox() {
@@ -63,7 +63,7 @@ snakerun_drmaa() {
     fi
 
     # Spew out cluster.yaml
-    [ -e cluster.yml ] || cat_cluster_yml > cluster.yml
+    [ -e cluster.yaml ] || cat_cluster_yaml > cluster.yaml
 
     echo
 
@@ -74,7 +74,7 @@ snakerun_drmaa() {
     set -x
     snakemake \
          -s "$snakefile" -j $__SNAKE_THREADS -p --rerun-incomplete \
-         ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yml \
+         ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yaml \
          --jobname "{rulename}.snakejob.{jobid}.sh" \
          --drmaa " -p ${CLUSTER_QUEUE} {cluster.slurm_opts} \
                    -e slurm_output/{rule}.snakejob.%A.err \
@@ -116,6 +116,6 @@ if [ "$0" = "$BASH_SOURCE" ] ; then
 
     echo
     echo "Here is the cluster config..."
-    cat_cluster_yml
+    cat_cluster_yaml
 fi
 
