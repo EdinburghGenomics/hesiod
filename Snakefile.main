@@ -238,7 +238,8 @@ rule one_cell:
                                             cell = [wc.cell],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        blobs      = "blob/fastq_pass.plots.yaml",
+        blobs      = lambda wc: expand( "blob/{cell}/plots.yml",
+                                            cell = [wc.cell] ),
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
@@ -337,11 +338,6 @@ rule gzip_sequencing_summary:
         shell(r"{PIGZ} -p{threads} -c <{input.summary} >{gzfile}")
         shell(r"cd {wildcards.cell} && ln -sn `basename {gzfile}` `basename {output.link}`")
 
-rule blobs:
-    output: "blob/fastq_pass.plots.yaml"
-    shell:
-        "touch {output}"
-
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
 rule nanoplot:
@@ -369,7 +365,7 @@ rule minionqc:
         per_cell = expand("minionqc/{cell}/summary.yaml", cell=SC),
     input:
         expand("{cell}/sequencing_summary.txt.gz", cell=SC)
-    threads: 2
+    threads: 6
     run:
         # Remove old
         shell("rm -rf minionqc/combinedQC minionqc/_links")
@@ -384,4 +380,161 @@ rule minionqc:
 
         # Run it
         shell('{TOOLBOX} minionqc -o minionqc -i minionqc/_links -p {threads}')
+
+# Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
+# Y-axis scale. This change needs to be ported back to SMRTino.
+# BLAST S sequences in C chunks
+BLOB_SUBSAMPLE = 10000
+BLOB_CHUNKS = 100
+BLOB_LEVELS = "phylum order species".split()
+BLOB_PARTS  = "pass".split()
+
+# This is how I want to pass my plots into compile_cell_info.py
+# Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for
+# each, and arranges the plots into 2 (1?) rows of 3 columns as we wish to
+# display them.
+localrules: list_blob_plots
+rule list_blob_plots:
+    output: "blob/{cell}/plots.yml"
+    input:
+        png = lambda wc: expand( "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
+                      cell = wc.cell,
+                      pf = BLOB_PARTS,
+                      ci = [parse_cell_name(wc.cell)],
+                      taxlevel = BLOB_LEVELS,
+                      extn = "cov0 read_cov.cov0".split(),
+                      thumb = ['.__thumb', ''] ),
+        sample = lambda wc: expand( "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta",
+                      cell = wc.cell,
+                      pf = BLOB_PARTS,
+                      ci = [parse_cell_name(wc.cell)],
+                      ss = [BLOB_SUBSAMPLE] ),
+    run:
+        # We want to know how big the subsample actually was, as it may be <BLOB_SUBSAMPLE, so check
+        # the FASTA
+        counts = [ l.split()[0] for l in
+                   shell("grep -Ho '^>' {input.sample} | uniq -c", iterable=True) ]
+
+        # I need to emit the plots in order in pairs. Unfortunately expand() won't quite
+        # cut it here in preserving order but I can make a nested list comprehension.
+        plots = [ dict(title = 'Taxonomy for {pf} reads ({c} sequences) by {l}'.format(
+                                                                            pf = s,
+                                                                            c = counts[n],
+                                                                            l = ', '.join(BLOB_LEVELS) ),
+                       files = [ [ "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
+                                                                            cell = wildcards.cell,
+                                                                            ci = parse_cell_name(wc.cell),
+                                                                            pf = s,
+                                                                            taxlevel = taxlevel,
+                                                                            extn = extn )
+                                    for taxlevel in BLOB_LEVELS ]
+                                 for extn in "read_cov.cov0 cov0".split() ]
+
+                      ) for n, s in enumerate(BLOB_PARTS) ]
+        with open(output[0], 'w') as ofh:
+            print(yaml.safe_dump(plots), file=ofh)
+
+# Convert to FASTA and subsample and munge the headers
+rule fastq_to_subsampled_fasta:
+    output: "blob/{foo}+sub{n}.fasta"
+    input: "{foo}.fastq.gz"
+    shell:
+        "{PIGZ} -d -c {input} | {TOOLBOX} seqtk sample - {wildcards.n} | sed 's,/,_,g' > {output}"
+
+# Makes a .complexity file for our FASTA file
+# {foo} will be blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta
+rule fasta_to_complexity:
+    output: "{foo}.complexity"
+    input: "{foo}.fasta"
+    params:
+        level = 10
+    shell:
+        "{TOOLBOX} dustmasker -level {params.level} -in {input} -outfmt fasta 2>/dev/null | count_dust.py > {output}"
+
+# Combine all the 100 blast reports into one
+rule merge_blast_reports:
+    output: "{foo}.blast"
+    input: [ "{{foo}}.blast_part_{:04d}".format(n) for n in range(BLOB_CHUNKS) ]
+    shell:
+        "cat {input} > {output}"
+
+# BLAST a chunk. Note the 'blast_nt' wrapper determines the database to search.
+rule blast_chunk:
+    output: temp("{foo}.blast_part_{chunk}")
+    input: "{foo}.fasta_part_{chunk}"
+    threads: 4
+    params:
+        evalue = '1e-50',
+        outfmt = '6 qseqid staxid bitscore'
+    shell:
+        """{TOOLBOX} blast_nt -query {input} -outfmt '{params.outfmt}' \
+           -evalue {params.evalue} -max_target_seqs 1 -out {output}.tmp -num_threads {threads}
+           mv {output}.tmp {output}
+        """
+
+# Split the FASTA in a fixed number of chunks. All files must be made, even if empty
+# {foo} is blob/{cell}.subreads or blob/{cell}.scraps
+rule split_fasta_in_chunks:
+    output:
+        parts = [ temp("{{foo}}.fasta_part_{:04d}".format(n)) for n in range(BLOB_CHUNKS) ],
+        list = "{foo}.fasta_parts"
+    input: "{foo}.fasta"
+    params:
+        chunksize = BLOB_SUBSAMPLE // BLOB_CHUNKS
+    shell:
+        """awk 'BEGIN {{n_seq=0;n_file=0;}} \
+                  /^>/ {{if(n_seq%{params.chunksize}==0){{ \
+                         file=sprintf("{wildcards.foo}.fasta_part_%04d", n_file); n_file++; \
+                         print file >> "{output.list}"; \
+                       }} \
+                       print >> file; n_seq++; next; \
+                  }} \
+                  {{ print >> file; }}' {input}
+           touch {output.parts}
+        """
+
+# Makes a blob db per FASTA using the complexity file as a COV file.
+# {foo} is {cell}.subreads or {cell}.scraps
+rule blob_db:
+    output:
+        json = "blob/{foo}.blobDB.json",
+    input:
+        blast_results = "blob/{{foo}}+sub{}.blast".format(BLOB_SUBSAMPLE),
+        reads_sample  = "blob/{{foo}}+sub{}.fasta".format(BLOB_SUBSAMPLE),
+        cov           = "blob/{{foo}}+sub{}.complexity".format(BLOB_SUBSAMPLE)
+    shadow: 'shallow'
+    shell:
+        """mkdir blob_tmp
+           {TOOLBOX} blobtools create -i {input.reads_sample} -o blob_tmp/{wildcards.foo} \
+               -t {input.blast_results} -c {input.cov}
+           ls -l blob_tmp
+           mv blob_tmp/{wildcards.foo}.blobDB.json {output.json}
+        """
+
+# Run the blob plotting command once per set per tax level. Produce a single
+# stats file and a pair of png files
+rule blob_plot_png:
+    output:
+        plotc = ["blob/{foo}.{taxlevel}.cov0.png",          "blob/{foo}.{taxlevel}.cov0.__thumb.png"],
+        plotr = ["blob/{foo}.{taxlevel}.read_cov.cov0.png", "blob/{foo}.{taxlevel}.read_cov.cov0.__thumb.png"],
+        stats = "blob/{foo}.{taxlevel}.blobplot.stats.txt"
+    input:
+        json = "blob/{foo}.blobDB.json"
+    params:
+        thumbsize = "320x320"
+    shadow: 'shallow'
+    shell:
+        """ mkdir blob_tmp
+            export BLOB_COVERAGE_LABEL=Non-Dustiness
+            {TOOLBOX} blobtools blobplot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
+            ls -l blob_tmp
+            mv blob_tmp/{wildcards.foo}.*.stats.txt {output.stats}
+            mv blob_tmp/{wildcards.foo}.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
+            mv blob_tmp/{wildcards.foo}.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
+            {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize} {output.plotc[1]}
+            {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize} {output.plotr[1]}
+        """
+
+
+## End of BLOB plotter rules ##
 

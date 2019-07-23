@@ -5,3 +5,4 @@ blast_chunk              : {slurm_opts: '--mem=24000 --mincpus=6'}
 diamond_chunk            : {slurm_opts: '--mem=24000 --mincpus=8'}
 concat_gzip_md5sum_fastq : {slurm_opts: '--mem=24000 --mincpus=6'}
 concat_tar_md5sum_fastq  : {slurm_opts: '--mem=24000 --mincpus=6'}
+minionqc                 : {slurm_opts: '--mem=24000 --mincpus=6'}

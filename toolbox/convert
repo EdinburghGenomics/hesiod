@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Wrapper for GM convert. I could equally have just made this a symlink
+# the the IM convert binary.
+
+exec /lustre/software/graphicsmagick/GraphicsMagick-1.3.28/bin/gm convert "$@"

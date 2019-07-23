@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# BLAST on the NT database. To use a different DB, just provide a toolbox
+# with an edited script.
+
+exec /lustre/software/blast+/ncbi-blast-2.6.0+/bin/blastn  \
+    -task dc-megablast -db /lustre/references/blastdb/nt-20190719/nt "$@"
