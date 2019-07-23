@@ -28,17 +28,11 @@ snakerun_drmaa "$0" "$@"
 
 from collections import OrderedDict
 from pprint import pformat
-import shutil
 
 import yaml, yamlloader
 from snakemake.utils import format
 
-
-def glob():
-    """Regular glob() is useful but we want consistent sort order."""
-    from glob import glob
-    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))) )
-glob = glob()
+from hesiod import glob, parse_cell_name
 
 logger = snakemake.logging.logger
 
@@ -95,24 +89,6 @@ def scan_cells():
 SC = scan_cells()
 LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
 RUN = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0]
-
-def parse_cell_name(cell):
-    """Things we get from parsing wildcards.cell"""
-    res = OrderedDict()
-    res['Run'] = RUN
-    res['Cell'] = cell
-
-    # Now shred the filename.
-    mo = re.match(r'([0-9A-Z-]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
-    if mo:
-        for n, x in enumerate("Library Date Number Slot CellID Checksum".split()):
-            res[x] = mo.group(n+1)
-    else:
-        # Not good, but we'll try
-        res['Library'] = cell.split('/')[0]
-        res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
-
-    return res
 
 def save_out_plist(yaml_files, out_file):
         plist = set()
@@ -212,7 +188,9 @@ rule main:
         # After generating all YAML, all projects are ready.
         save_out_plist(input.yaml, str(output.plist))
 
-        panrep = save_out_report(os.path.dirname(output.rep), SC)
+        panrep = "{}/report.{}cells.pan".format(os.path.dirname(output.rep), len(input.yaml))
+        shell("make_report.py -o {panrep} --minionqc {input.minionqc} {input.yaml}")
+
         shell(r'''
             {TOOLBOX} pandoc -f markdown \
                                 --template={params.templates}/template.html \
@@ -238,8 +216,7 @@ rule one_cell:
                                             cell = [wc.cell],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        blobs      = lambda wc: expand( "blob/{cell}/plots.yml",
-                                            cell = [wc.cell] ),
+        blobs      = "blob/{cell}/plots.yml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
@@ -250,6 +227,11 @@ rule one_cell:
         for pf in "pass fail".split():
             # We already confirmed the fastq and fast5 counts match
             ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+
+        # Link to other reports
+        ci['_blobs'] = str(input.blobs)
+        ci['_nanoplot'] = str(input.nanoplot)
+        ci['_minionqc'] = str(input.minionqc)
 
         # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
         with open(str(output), "w") as ofh:

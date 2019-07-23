@@ -30,7 +30,7 @@ def emit():
         frac = 0.0 if total == 0 else (upper / total)
         # With vanilla blobtools you need to cram the values into the log scale
         # print("{}\t1\t{:.3f}".format(contig, 10**(5*(frac-0.5))))
-        # With the patched version you can avoid this:
+        # With the patched version you can avoid this.
         print("{}\t1\t{:.3f}".format(contig, frac))
 
 for l in sys.stdin:
