@@ -44,7 +44,7 @@ def format_report(all_info, pipedata, run_status, aborted_list):
     for cell, ci in all_info.items():
         P()
         P( "## Cell {}".format(cell) )
-        p()
+        P()
         P( ":::::: {.bs-callout}" )
         P( '<dl class="dl-horizontal">' )
 
@@ -56,13 +56,13 @@ def format_report(all_info, pipedata, run_status, aborted_list):
         P()
 
         # Embed some files from MinionQC
-        minqc_base = os.path.dirname(ci['_minionqc']
+        minqc_base = os.path.dirname(ci['_minionqc'])
         for f in ['length_histogram.png', 'length_vs_q.png', 'yield_over_time.png']:
             res.append('\n### {}\n'.format(f))
             res.append("<div class='flex'>")
             res.append(" ".join(
-                    "[plot](img/mqc_{ci[Library]}_{ci[CellID]}_{f}){{.thumbnail}}".format(ci=ci, f=f))
-                    for [True]
+                    "[plot](img/minqc_{ci[Library]}_{ci[CellID]}_{f}){{.thumbnail}}".format(ci=ci, f=f)
+                    for _ in [1]
                 ))
             res.append("</div>")
 
@@ -74,6 +74,7 @@ def format_report(all_info, pipedata, run_status, aborted_list):
         # same otherwise)
         if '_blobs' in ci:
             for plot_group in load_yaml(ci['_blobs']):
+
                 res.append('\n### {}\n'.format(plot_group['title']))
 
                 # plot_group['files'] will be a a list of lists, so plot
@@ -99,12 +100,10 @@ def main(args):
     all_info = dict()
     # Basic basic basic
     for y in args.yamls:
+        yaml_info = load_yaml(y)
 
-        with open(y) as yfh:
-            yaml_info = load_yaml(yfh)
-
-            # Sort by cell ID - all YAML must have this.
-            assert yaml_info.get('Cell'), "All yamls must have a Cell ID"
+        # Sort by cell ID - all YAML must have this.
+        assert yaml_info.get('Cell'), "All yamls must have a Cell ID"
 
         all_info[yaml_info['Cell']] = yaml_info
 
@@ -136,21 +135,32 @@ def main(args):
 
 def copy_files(all_info, base_path):
     """ We need to copy the NanoPlot, MinionQC, Blob reports into here.
+        Base path will normally be wherever the report is being made.
     """
+    os.makedirs(os.path.join(base_path, "img") , exist_ok=True)
+
     for cell, ci in sorted(all_info.items()):
 
         if '_blobs' in ci:
-            pass
+            blob_base = os.path.dirname(ci['_blobs'])
+
+            for png in glob(blob_base + '/*.png'):
+                dest_png = os.path.basename(png)
+                shutil.copy(png, os.path.join(base_path, "img", dest_png))
 
         if '_nanoplot' in ci:
             nano_base = os.path.dirname(ci['_nanoplot'])
 
-            src_rep = "{nano_base}/NanoPlot-report.html".format(cell=cell)
+            src_rep = "{nb}/NanoPlot-report.html".format(nb=nano_base)
             dest_rep = "NanoPlot_{ci[Library]}_{ci[CellID]}-report.html".format(ci=ci)
             shutil.copy(src_rep, os.path.join(base_path, dest_rep))
 
         if '_minionqc' in ci:
-            pass
+            min_base = os.path.dirname(ci['_minionqc'])
+
+            for png in glob(min_base + '/*.png'):
+                dest_png = "minqc_{ci[Library]}_{ci[CellID]}_{f}".format(ci=ci, f=os.path.basename(png))
+                shutil.copy(png, os.path.join(base_path, "img", dest_png))
 
 def get_pipeline_metadata(pipe_dir):
     """ Read the files in the pipeline directory to find out some stuff about the

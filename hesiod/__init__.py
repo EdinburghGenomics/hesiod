@@ -37,8 +37,15 @@ def parse_cell_name(cell):
 
 # YAML convenience functions that use the ordered loader/saver
 # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
-def load_yaml(yfh):
-    return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+def load_yaml(filename):
+    """Load YAML from a file (not a file handle)."""
+    with open(filename) as yfh:
+        return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 
-def dump_yaml(foo, yfh=None):
-    return yaml.dump(foo, yfh, Dumper=yamlloader.ordereddict.CSafeDumper)
+def dump_yaml(foo, filename=None):
+    """Return YAML string or dump to a file (not a file handle)."""
+    if filename:
+        with open(filename, 'w') as yfh:
+            return yaml.dump(foo, yfh, Dumper=yamlloader.ordereddict.CSafeDumper)
+    else:
+        return yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper)

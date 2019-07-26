@@ -90,15 +90,14 @@ RUN = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0]
 def save_out_plist(yaml_files, out_file):
         plist = set()
         for y in yaml_files:
-            with open(y) as yfh:
-                lib = load_yaml(yfh)['Library']
-                # FIXME - not sure this is the right place for getting the project ID,
-                # or the right thing to do when the regex fails.
-                mo =  re.match(r"([0-9]{5})[A-Z]{2}", lib)
-                if mo:
-                    plist.add(mo.group(1))
-                else:
-                    plist.add(lib)
+            lib = load_yaml(y)['Library']
+            # FIXME - not sure this is the right place for getting the project ID,
+            # or the right thing to do when the regex fails.
+            mo =  re.match(r"([0-9]{5})[A-Z]{2}", lib)
+            if mo:
+                plist.add(mo.group(1))
+            else:
+                plist.add(lib)
         with open(out_file, "w") as ofh:
             print( *sorted(plist), file=ofh, sep='\n' )
 
@@ -177,8 +176,7 @@ rule one_cell:
         ci['_nanoplot'] = str(input.nanoplot)
         ci['_minionqc'] = str(input.minionqc)
 
-        with open(str(output), "w") as ofh:
-            dump_yaml(ci, ofh)
+        dump_yaml(ci, str(output))
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file
@@ -306,12 +304,11 @@ rule minionqc:
         # Remove old files
         shell("rm -rf minionqc/combinedQC minionqc/_links")
         for pc in output.per_cell:
-            libdir, celldir, = str(pc).split['/'][-3:-1]
-            shell('rm -rf minionqc/{libdir}')
+            libdir, celldir = str(pc).split('/')[-3:-1]
+            shell('rm -rf minionqc/{libdir}/{celldir}')
             shell('rm -rf minionqc/{celldir}')
 
         # Gather files in a directory
-        shell("mkdir -p minionqc/_links")
         for f in input:
             shell('mkdir -p minionqc/_links/"$(dirname {f})"')
             shell('ln -snr {f} minionqc/_links/{f}')
@@ -322,7 +319,7 @@ rule minionqc:
         # Due to the way minionqc decides on output dir names, we have to make
         # a correction like so:
         for pc in output.per_cell:
-            libdir, celldir, = str(pc).split['/'][-3:-1]
+            libdir, celldir = str(pc).split('/')[-3:-1]
             shell('mv -vt minionqc/{libdir} minionqc/{celldir}')
 
         # Finally, make thumbnails for everything
@@ -386,8 +383,8 @@ rule list_blob_plots:
                                  for extn in "read_cov.cov0 cov0".split() ]
 
                       ) for n, s in enumerate(BLOB_PARTS) ]
-        with open(output[0], 'w') as ofh:
-            print(dump_yaml(plots, ofh))
+
+        print(dump_yaml(plots, str(output)))
 
 # Convert to FASTA and subsample and munge the headers
 rule fastq_to_subsampled_fasta:
