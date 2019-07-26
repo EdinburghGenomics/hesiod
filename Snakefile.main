@@ -25,14 +25,11 @@ snakerun_drmaa "$0" "$@"
 
 "exit""" ### End of shell script part
 #!/usr/bin/env snakemake
-
-from collections import OrderedDict
 from pprint import pformat
 
-import yaml, yamlloader
 from snakemake.utils import format
 
-from hesiod import glob, parse_cell_name
+from hesiod import glob, parse_cell_name, dump_yaml, load_yaml
 
 logger = snakemake.logging.logger
 
@@ -94,7 +91,7 @@ def save_out_plist(yaml_files, out_file):
         plist = set()
         for y in yaml_files:
             with open(y) as yfh:
-                lib = yaml.safe_load(yfh)['Library']
+                lib = load_yaml(yfh)['Library']
                 # FIXME - not sure this is the right place for getting the project ID,
                 # or the right thing to do when the regex fails.
                 mo =  re.match(r"([0-9]{5})[A-Z]{2}", lib)
@@ -104,62 +101,6 @@ def save_out_plist(yaml_files, out_file):
                     plist.add(lib)
         with open(out_file, "w") as ofh:
             print( *sorted(plist), file=ofh, sep='\n' )
-
-def save_out_report(base_path, cells):
-    """Assemble the reports - for now just a directory of reports from NanoPlot but this
-       will change soon.
-    """
-    # FIXME - this should be part of the rule deps not a glob+copy. Also the file name choice
-    # is arbitrary.
-    # TODO - and of course this code should be in a separate Python script
-    # TODO - and it should be made from a template
-    for cell in cells:
-        ci = parse_cell_name(cell)
-        src_rep = format("nanoplot/{cell}/NanoPlot-report.html")
-        dest_rep = format("NanoPlot_{ci[Library]}_{ci[CellID]}-report.html")
-        shutil.copy(src_rep, os.path.join(base_path, dest_rep))
-
-    # Add a report.html
-    from datetime import datetime
-
-    pan = "{}/report.{}cells.pan".format(base_path, len(cells))
-    with open(pan, 'w') as repfh:
-        P = lambda *a: print(*a, file=repfh)
-
-        P("% Promethion run {}".format(RUN))
-        P("% Hesiod version {}".format("devel"))
-        P("% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")))
-
-        P()
-        P("# About this run (experiment? project?)")
-        P()
-        P('<dl class="dl-horizontal">')
-        P('<dt>RunID</dt> <dd>{}</dd>'.format(RUN))
-        P('<dt>Instrument</dt> <dd>Promethion 1</dd>')
-        P('<dt>CellCount</dt> <dd>{}</dd>'.format(len(SC)))
-        P('<dt>LibraryCount</dt> <dd>{}</dd>'.format(len(LIBS)))
-        P('<dt>StartTime</dt> <dd>something</dd>')
-        P('<dt>LastCellTime</dt> <dd>something</dd>')
-        P('</dl>')
-
-        for cell in cells:
-            ci = parse_cell_name(cell)
-            P()
-            P("## Cell {}".format(cell))
-            P()
-            P(":::::: {.bs-callout}")
-            P('<dl class="dl-horizontal">')
-            for k, v in ci.items():
-                P('<dt>{}</dt> <dd>{}</dd>'.format(k,v))
-            P('</dl>')
-            P()
-            P(format("[NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)"))
-            P("::::::")
-
-        P()
-        P("*~~~*")
-
-    return pan
 
 if 'logger' in globals():
     # Make a dict that just shows the counts
@@ -208,22 +149,25 @@ rule one_cell:
     input:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
-        fastq_gz   = lambda wc: expand( "{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz",
+        fastq_gz   = lambda wc: expand( "{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz",
                                             cell = [wc.cell],
+                                            run = [RUN],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz.md5",
+        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz.md5",
                                             cell = [wc.cell],
+                                            run = [RUN],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
         blobs      = "blob/{cell}/plots.yml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
-        cell_files = SC[wildcards.cell]
         ci = parse_cell_name(wildcards.cell)
+        ci['Run'] = RUN
 
         # Add pass/fail counts
+        cell_files = SC[wildcards.cell]
         for pf in "pass fail".split():
             # We already confirmed the fastq and fast5 counts match
             ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
@@ -233,9 +177,8 @@ rule one_cell:
         ci['_nanoplot'] = str(input.nanoplot)
         ci['_minionqc'] = str(input.minionqc)
 
-        # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
         with open(str(output), "w") as ofh:
-            yaml.dump(ci, ofh, Dumper=yamlloader.ordereddict.CSafeDumper)
+            dump_yaml(ci, ofh)
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file
@@ -325,12 +268,18 @@ rule gzip_sequencing_summary:
 rule nanoplot:
     output: "nanoplot/{cell}/NanoStats.txt"
     input:  "{cell}/sequencing_summary.txt.gz"
-    shell:
-       r"""ap="$(readlink -f {input})"
-           cd "$(dirname {output})"
-           rm -f *.png *.html *.log
-           NanoPlot --summary "$ap"
-        """
+    params:
+        thumbsize = "320x320"
+    run:
+        ap = os.path.realpath(input[0])
+        shell(r'cd "$(dirname {output})" ; rm -f *.png *.html *.log')
+        shell(r'cd "$(dirname {output})" ; NanoPlot --summary {ap}')
+
+        # Finally, make thumbnails for everything
+        for apng in glob("nanoplot/*/*.png") + glob("nanoplot/*/*/*.png"):
+            if not apng.endswith('.__thumb.png'):
+                athumb = apng[:-4] + '.__thumb.png'
+                shell("{TOOLBOX} convert {apng} -resize {params.thumbsize} {athumb}")
 
 localrules: nanostats
 rule nanostats:
@@ -340,19 +289,26 @@ rule nanostats:
 
 # MinIONQC (which, despite, the name, is also good for Promethion) makes all the outputs at once,
 # so here's a funny rule.
-localrules: minionqc # For now.
+
+# This was breaking when submitted to the cluster. It turns out I had it using /tmp and that was full,
+# but the error was being masked. Annoying.
+
 rule minionqc:
     output:
         combined = "minionqc/combinedQC/summary.yaml",
         per_cell = expand("minionqc/{cell}/summary.yaml", cell=SC),
     input:
         expand("{cell}/sequencing_summary.txt.gz", cell=SC)
+    params:
+        thumbsize = "320x320"
     threads: 6
     run:
-        # Remove old
+        # Remove old files
         shell("rm -rf minionqc/combinedQC minionqc/_links")
-        for d in output.per_cell:
-            shell('rm -rf "$(dirname {d})"')
+        for pc in output.per_cell:
+            libdir, celldir, = str(pc).split['/'][-3:-1]
+            shell('rm -rf minionqc/{libdir}')
+            shell('rm -rf minionqc/{celldir}')
 
         # Gather files in a directory
         shell("mkdir -p minionqc/_links")
@@ -361,7 +317,20 @@ rule minionqc:
             shell('ln -snr {f} minionqc/_links/{f}')
 
         # Run it
-        shell('{TOOLBOX} minionqc -o minionqc -i minionqc/_links -p {threads}')
+        shell('{TOOLBOX} minionqc -o minionqc -i minionqc/_links -p {threads} >&2')
+
+        # Due to the way minionqc decides on output dir names, we have to make
+        # a correction like so:
+        for pc in output.per_cell:
+            libdir, celldir, = str(pc).split['/'][-3:-1]
+            shell('mv -vt minionqc/{libdir} minionqc/{celldir}')
+
+        # Finally, make thumbnails for everything
+        for apng in glob("minionqc/*/*.png") + glob("minionqc/*/*/*.png"):
+            if not apng.endswith('.__thumb.png'):
+                athumb = apng[:-4] + '.__thumb.png'
+                shell("{TOOLBOX} convert {apng} -resize {params.thumbsize} {athumb}")
+
 
 # Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
 # Y-axis scale. This change needs to be ported back to SMRTino.
@@ -379,21 +348,24 @@ localrules: list_blob_plots
 rule list_blob_plots:
     output: "blob/{cell}/plots.yml"
     input:
-        png = lambda wc: expand( "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
+        png = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
                       cell = wc.cell,
                       pf = BLOB_PARTS,
+                      run = [RUN],
                       ci = [parse_cell_name(wc.cell)],
                       taxlevel = BLOB_LEVELS,
                       extn = "cov0 read_cov.cov0".split(),
                       thumb = ['.__thumb', ''] ),
-        sample = lambda wc: expand( "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta",
+        sample = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta",
                       cell = wc.cell,
                       pf = BLOB_PARTS,
+                      run = [RUN],
                       ci = [parse_cell_name(wc.cell)],
                       ss = [BLOB_SUBSAMPLE] ),
     run:
         # We want to know how big the subsample actually was, as it may be <BLOB_SUBSAMPLE, so check
         # the FASTA
+        wc = wildcards
         counts = [ l.split()[0] for l in
                    shell("grep -Ho '^>' {input.sample} | uniq -c", iterable=True) ]
 
@@ -403,9 +375,10 @@ rule list_blob_plots:
                                                                             pf = s,
                                                                             c = counts[n],
                                                                             l = ', '.join(BLOB_LEVELS) ),
-                       files = [ [ "blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
-                                                                            cell = wildcards.cell,
+                       files = [ [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
+                                                                            cell = wc.cell,
                                                                             ci = parse_cell_name(wc.cell),
+                                                                            run = [RUN],
                                                                             pf = s,
                                                                             taxlevel = taxlevel,
                                                                             extn = extn )
@@ -414,14 +387,18 @@ rule list_blob_plots:
 
                       ) for n, s in enumerate(BLOB_PARTS) ]
         with open(output[0], 'w') as ofh:
-            print(yaml.safe_dump(plots), file=ofh)
+            print(dump_yaml(plots, ofh))
 
 # Convert to FASTA and subsample and munge the headers
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
     shell:
-        "{PIGZ} -d -c {input} | {TOOLBOX} seqtk sample - {wildcards.n} | sed 's,/,_,g' > {output}"
+       r"""{PIGZ} -d -c {input} | \
+             {TOOLBOX} seqtk seq -ACNU - |\
+             {TOOLBOX} seqtk sample - {wildcards.n} |\
+             sed 's,/,_,g' > {output}
+        """
 
 # Makes a .complexity file for our FASTA file
 # {foo} will be blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta
@@ -434,11 +411,12 @@ rule fasta_to_complexity:
         "{TOOLBOX} dustmasker -level {params.level} -in {input} -outfmt fasta 2>/dev/null | count_dust.py > {output}"
 
 # Combine all the 100 blast reports into one
+# I'm filtering out repeated rows to reduce the size of the BLOB DB
 rule merge_blast_reports:
     output: "{foo}.blast"
     input: [ "{{foo}}.blast_part_{:04d}".format(n) for n in range(BLOB_CHUNKS) ]
     shell:
-        "cat {input} > {output}"
+        'LC_ALL=C ; ( for i in {input} ; do sort -u -k1,2 "$i" ; done ) > {output}'
 
 # BLAST a chunk. Note the 'blast_nt' wrapper determines the database to search.
 rule blast_chunk:
@@ -487,10 +465,10 @@ rule blob_db:
     shadow: 'shallow'
     shell:
         """mkdir blob_tmp
-           {TOOLBOX} blobtools create -i {input.reads_sample} -o blob_tmp/{wildcards.foo} \
+           {TOOLBOX} blobtools create -i {input.reads_sample} -o blob_tmp/tmp \
                -t {input.blast_results} -c {input.cov}
            ls -l blob_tmp
-           mv blob_tmp/{wildcards.foo}.blobDB.json {output.json}
+           mv blob_tmp/tmp.blobDB.json {output.json}
         """
 
 # Run the blob plotting command once per set per tax level. Produce a single
@@ -509,10 +487,10 @@ rule blob_plot_png:
         """ mkdir blob_tmp
             export BLOB_COVERAGE_LABEL=Non-Dustiness
             {TOOLBOX} blobtools blobplot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
-            ls -l blob_tmp
-            mv blob_tmp/{wildcards.foo}.*.stats.txt {output.stats}
-            mv blob_tmp/{wildcards.foo}.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
-            mv blob_tmp/{wildcards.foo}.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
+            tree blob_tmp
+            mv blob_tmp/tmp.*.stats.txt {output.stats}
+            mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
+            mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
             {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize} {output.plotc[1]}
             {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize} {output.plotr[1]}
         """

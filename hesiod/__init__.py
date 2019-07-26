@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import os
+import os, re
+from collections import OrderedDict
+import yaml, yamlloader
 
 # Some utility functions/constants for use in Hesiod.
 hesiod_version = 'unknown'
@@ -19,7 +21,6 @@ glob = glob()
 def parse_cell_name(cell):
     """Things we get from parsing wildcards.cell"""
     res = OrderedDict()
-    res['Run'] = RUN
     res['Cell'] = cell
 
     # Now shred the filename.
@@ -33,3 +34,11 @@ def parse_cell_name(cell):
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
 
     return res
+
+# YAML convenience functions that use the ordered loader/saver
+# yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
+def load_yaml(yfh):
+    return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+
+def dump_yaml(foo, yfh=None):
+    return yaml.dump(foo, yfh, Dumper=yamlloader.ordereddict.CSafeDumper)

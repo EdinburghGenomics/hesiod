@@ -5,7 +5,8 @@
 # we really can roll back to an old version and get the exact same
 # behaviour.
 # Note that unlike Illuminatus I'm going to install snakemake into
-# the VEnv. I'll likely make the same change for Illuminatus soon.
+# the VEnv. I'll likely make the same change for Illuminatus soon, but
+# see doc/snakemake_be_careful.txt.
 
 if [[ "$0" == "$BASH_SOURCE" ]] ; then
     echo "You need to source this file, not run it."
@@ -36,12 +37,12 @@ else
         pip3 install Rt==1.0.11
         pip3 install pystache==0.5.4
 
-        # Hesiod uses snakemake and drmaa
+        # snakemake and drmaa
         pip install snakemake==5.5.3
         pip install drmaa==0.7.9
 
         # Here’s the big one
-        NanoPlot==1.26.1
+        pip install NanoPlot==1.26.1
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell

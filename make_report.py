@@ -9,7 +9,7 @@ import yaml, yamlloader
 import shutil
 import base64
 
-from hesiod import hesiod_version, glob, parse_cell_name
+from hesiod import hesiod_version, glob, parse_cell_name, load_yaml
 
 def format_report(all_info, pipedata, run_status, aborted_list):
     """Makes the report as a list of strings (lines)
@@ -23,10 +23,12 @@ def format_report(all_info, pipedata, run_status, aborted_list):
     instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
     libs = sorted(set([ i['Cell'].split('/')[0] for i in all_info.values() ]))
 
+    # Header
     P( "% Promethion run {}".format(",".join(runs)),
        "% Hesiod version {}".format(pipedata['version']),
        "% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")) )
 
+    # Run metadata
     P()
     P( "# About this run (experiment? project?)")
     P()
@@ -45,12 +47,45 @@ def format_report(all_info, pipedata, run_status, aborted_list):
         p()
         P( ":::::: {.bs-callout}" )
         P( '<dl class="dl-horizontal">' )
+
+        # Basic cell metadata
         for k, v in ci.items():
             if not k.startswith("_"):
                 P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(v)))
         P( '</dl>' )
         P()
+
+        # Embed some files from MinionQC
+        minqc_base = os.path.dirname(ci['_minionqc']
+        for f in ['length_histogram.png', 'length_vs_q.png', 'yield_over_time.png']:
+            res.append('\n### {}\n'.format(f))
+            res.append("<div class='flex'>")
+            res.append(" ".join(
+                    "[plot](img/mqc_{ci[Library]}_{ci[CellID]}_{f}){{.thumbnail}}".format(ci=ci, f=f))
+                    for [True]
+                ))
+            res.append("</div>")
+
+
+        # Link to the NanoPlot report (for now - should embed thumbnails)
         P( "[NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)".format(ci=ci) )
+
+        # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
+        # same otherwise)
+        if '_blobs' in ci:
+            for plot_group in load_yaml(ci['_blobs']):
+                res.append('\n### {}\n'.format(plot_group['title']))
+
+                # plot_group['files'] will be a a list of lists, so plot
+                # each list a s a row.
+                for plot_row in plot_group['files']:
+                    res.append("<div class='flex'>")
+                    res.append(" ".join(
+                            "[plot](img/{f}){{.thumbnail}}".format(f=os.path.basename(p))
+                            for p in plot_row
+                        ))
+                    res.append("</div>")
+
         P( "::::::" )
 
     P()
@@ -66,7 +101,7 @@ def main(args):
     for y in args.yamls:
 
         with open(y) as yfh:
-            yaml_info = yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+            yaml_info = load_yaml(yfh)
 
             # Sort by cell ID - all YAML must have this.
             assert yaml_info.get('Cell'), "All yamls must have a Cell ID"
@@ -100,14 +135,22 @@ def main(args):
         copy_files(all_info, copy_dest)
 
 def copy_files(all_info, base_path):
-    """ For now, copy the NanoPlot reports into here.
+    """ We need to copy the NanoPlot, MinionQC, Blob reports into here.
     """
     for cell, ci in sorted(all_info.items()):
-        ci = parse_cell_name(cell)
 
-        src_rep = "nanoplot/{cell}/NanoPlot-report.html".format(cell=cell)
-        dest_rep = "NanoPlot_{ci[Library]}_{ci[CellID]}-report.html".format(ci=ci)
-        shutil.copy(src_rep, os.path.join(base_path, dest_rep))
+        if '_blobs' in ci:
+            pass
+
+        if '_nanoplot' in ci:
+            nano_base = os.path.dirname(ci['_nanoplot'])
+
+            src_rep = "{nano_base}/NanoPlot-report.html".format(cell=cell)
+            dest_rep = "NanoPlot_{ci[Library]}_{ci[CellID]}-report.html".format(ci=ci)
+            shutil.copy(src_rep, os.path.join(base_path, dest_rep))
+
+        if '_minionqc' in ci:
+            pass
 
 def get_pipeline_metadata(pipe_dir):
     """ Read the files in the pipeline directory to find out some stuff about the
@@ -165,6 +208,8 @@ def parse_args(*args):
                                 formatter_class = ArgumentDefaultsHelpFormatter )
     argparser.add_argument("yamls", nargs='*',
                             help="Supply a list of info.yml files to compile into a report.")
+    argparser.add_argument("--minionqc", default=None,
+                           help="Add minionqc combined stats")
     argparser.add_argument("-p", "--pipeline", default="rundir/pipeline",
                             help="Directory to scan for pipeline meta-data.")
     argparser.add_argument("-s", "--status", default=None,

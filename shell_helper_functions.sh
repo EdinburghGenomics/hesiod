@@ -48,6 +48,9 @@ find_snakefile() {
     fi
 }
 
+
+### SEE doc/snakemake_be_careful.txt
+
 snakerun_drmaa() {
     CLUSTER_QUEUE="${CLUSTER_QUEUE:-casava}"
 
@@ -65,17 +68,23 @@ snakerun_drmaa() {
     # Spew out cluster.yaml
     [ -e cluster.yaml ] || cat_cluster_yaml > cluster.yaml
 
+    # Ensure Snakemake uses the right wrapper script.
+    # In particular this sets TMPDIR
+    _jobscript="`find_toolbox`/snakemake_jobscript.sh"
+
     echo
 
     echo "Running $snakefile in `pwd -P` on the GSEG cluster"
-    __SNAKE_THREADS="${SNAKE_THREADS:-100}"
+    _snake_threads="${SNAKE_THREADS:-100}"
 
     mkdir -p ./slurm_output
     set -x
     snakemake \
-         -s "$snakefile" -j $__SNAKE_THREADS -p --rerun-incomplete \
+         -s "$snakefile" -j $_snake_threads -p --rerun-incomplete \
          ${EXTRA_SNAKE_FLAGS:-} --keep-going --cluster-config cluster.yaml \
+         --resources nfscopy=1 --local-cores 10 --latency-wait 10 \
          --jobname "{rulename}.snakejob.{jobid}.sh" \
+         --jobscript "$_jobscript" \
          --drmaa " -p ${CLUSTER_QUEUE} {cluster.slurm_opts} \
                    -e slurm_output/{rule}.snakejob.%A.err \
                    -o slurm_output/{rule}.snakejob.%A.out \
