@@ -343,6 +343,13 @@ do_sync(){
     # See doc/syncing.txt
     # Called per run, and needs to sync all cells for which there is a remote
     # in $UPSTREAM_INFO but no {cell}.synced
+
+    # If break was set, abort any other syncs
+    if [ "$BREAK" != 0 ] ; then
+        log "\_DO_SYNC $RUNID - aborting as BREAK=$BREAK"
+        touch pipeline/sync.failed ; return
+    fi
+
     log "\_DO_SYNC $RUNID"
     plog_start
 
@@ -371,9 +378,17 @@ do_sync(){
             fi
             upstream_path="${upstream#*:}"
 
-            # Run the SYNC_CMD - TODO, work out the logging and error behaviour
+            # Run the SYNC_CMD - if the return code is 130 or 20 then abort all
+            # pending ops (presume Ctrl+C was pressed) else if there is an error
+            # proceed to the next run.
             eval echo "Running: $SYNC_CMD" | plog
-            eval $SYNC_CMD |&plog || { touch pipeline/sync.failed ; return ; }
+            if eval $SYNC_CMD |&plog ; then
+                true
+            elif [ $? = 130 -o $? = 20 ] ; then
+                touch pipeline/sync.failed ; BREAK=1 ; return
+            else
+                touch pipeline/sync.failed ; return
+            fi
         else
             plog "Cell $cell is already synced and/or complete"
         fi
@@ -669,11 +684,10 @@ if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
     # spend 2 hours processing then start working on a new run. On the other hand, we don't
     # want a problem run to gum up the pipeline if every instance of the script tries to process
     # it, fails, and then exits.
-    # Negated test is needed to play nicely with 'set -e'
-    ! [ "$BREAK" = 1 ] || break
+    [ "$BREAK" = 0 ] || break
 done ; fi
 
-if [ "$BREAK" = 1 ] ; then
+if [ "$BREAK" != 0 ] ; then
     wait ; exit
 fi
 
@@ -706,6 +720,7 @@ if [ -n "$UPSTREAM" ] ; then
 fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
+BREAK=0
 if [ -n "${SYNC_QUEUE:-}" ] ; then
     log ">> Processing SYNC_QUEUE"
     _nn=1
