@@ -343,7 +343,7 @@ do_sync(){
     # See doc/syncing.txt
     # Called per run, and needs to sync all cells for which there is a remote
     # in $UPSTREAM_INFO but no {cell}.synced
-    log "\_DO_SYNC $RUNID."
+    log "\_DO_SYNC $RUNID"
     plog_start
 
     # assertion - status should have been set already
@@ -580,7 +580,7 @@ pipeline_fail() {
     # Note that after calling 'plog' we can query '$per_run_log' since all shell vars are global.
     plog "Attempting to notify error to RT"
     if rt_runticket_manager --subject failed --reply "$_failure. See log in $per_run_log" |& plog ; then
-        log "FAIL $_failure on $RUNID. See $per_run_log"
+        log "FAIL $_failure on $RUNID; see $per_run_log"
     else
         # RT failure. Complain to STDERR in the hope this will generate an alert mail via CRON
         msg="FAIL $_failure on $RUNID, and also failed to report the error via RT. See $per_run_log"
