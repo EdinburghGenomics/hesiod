@@ -187,8 +187,20 @@ class RunStatus:
         # Now look at the cells. If all are non-aborted cells are complete we're done.
         all_cell_statuses = self.get_cells().values()
 
+        # Are we OK to rsync? I'm going to assume that if sync.failed then we are allowed to
+        # try again. If not, then the presence of sync.failed when no cell is ready to process
+        # or processing should lead to state=failed
+        sync_in_progress = ( self._exists_pipeline( 'sync.started' ) and
+                             not self._exists_pipeline( 'sync.done' ) and
+                             not self._exists_pipeline( 'sync.failed' ) )
+
         if all( s in [self.CELL_PROCESSED, self.CELL_ABORTED] for s in all_cell_statuses):
-            return "complete"
+            if sync_in_progress:
+                # This happens when new cells are being synced but then you inspect
+                # the status without supplying the upstream info.
+                return "syncing"
+            else:
+                return "complete"
 
         # Is anything needing processed? We kick off processing in preference to sync.
         if any( v in [self.CELL_READY] for v in all_cell_statuses ):
@@ -199,13 +211,6 @@ class RunStatus:
 
         # Is anything being processed just now?
         processing_now = any( s in [self.CELL_PROCESSING] for s in all_cell_statuses )
-
-        # Are we OK to rsync? I'm going to assume that if sync.failed then we are allowed to
-        # try again. If not, then the presence of sync.failed when no cell is ready to process
-        # or processing should lead to state=failed
-        sync_in_progress = ( self._exists_pipeline( 'sync.started' ) and
-                             not self._exists_pipeline( 'sync.done' ) and
-                             not self._exists_pipeline( 'sync.failed' ) )
 
         if sync_needed and processing_now:
             if sync_in_progress:

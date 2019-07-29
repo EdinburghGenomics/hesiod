@@ -22,7 +22,7 @@ CLUSTER_QUEUE=casava
 #   {run}           - col 1 - eg. 20190710_TEST_testrun
 SYNC_CMD="rsync -vrlptDR \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
 ## Or this should be faster but only works for /mnt/lustre/prometion:
-# SYNC_CMD="ssh \${upstream_host} rsync -vrlptDR \${upstream_path}/./\${cell} /mnt/lustre/prometion/prom_runs/\${run}/"
+# SYNC_CMD="ssh \${upstream_host} rsync -vrlptDR \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
 
 # If you want different sync commands for different upstream hosts then this is not yet supported.
 # I'm imagining if we get another Promethion we'll just set it up the same.
