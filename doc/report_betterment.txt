@@ -1,0 +1,11 @@
+I now (29/7) have Hesiod making a nice report, so before showing it around what do I want
+to fix?
+
+1) Ensure it's uploaded to web1
+2) Fix the Blob plots which are not linked - done
+3) Add overall plots from MinionQC
+4) Add some plots from Nanoplot into the main report - done
+5) Fix the date format - done
+6) Check start times are actually being recorded - done
+7) Add NanoStats - done
+8) Fix order of cells - done

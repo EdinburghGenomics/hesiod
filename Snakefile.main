@@ -158,7 +158,7 @@ rule one_cell:
                                             run = [RUN],
                                             ci = [parse_cell_name(wc.cell)],
                                             pf = "pass fail".split() ),
-        blobs      = "blob/{cell}/plots.yml",
+        blobs      = "blob/{cell}/plots.yaml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
@@ -343,7 +343,7 @@ BLOB_PARTS  = "pass".split()
 # display them.
 localrules: list_blob_plots
 rule list_blob_plots:
-    output: "blob/{cell}/plots.yml"
+    output: "blob/{cell}/plots.yaml"
     input:
         png = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
                       cell = wc.cell,
@@ -375,7 +375,7 @@ rule list_blob_plots:
                        files = [ [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
                                                                             cell = wc.cell,
                                                                             ci = parse_cell_name(wc.cell),
-                                                                            run = [RUN],
+                                                                            run = RUN,
                                                                             pf = s,
                                                                             taxlevel = taxlevel,
                                                                             extn = extn )
@@ -384,7 +384,7 @@ rule list_blob_plots:
 
                       ) for n, s in enumerate(BLOB_PARTS) ]
 
-        print(dump_yaml(plots, str(output)))
+        dump_yaml(plots, str(output))
 
 # Convert to FASTA and subsample and munge the headers
 rule fastq_to_subsampled_fasta:
