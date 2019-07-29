@@ -258,13 +258,16 @@ action_cell_ready(){
     set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
       # ever have one of these running at a time.
-      run_report "Processing completed for cells $_cellsready." "" "maybe_complete" | plog && log DONE
+      upload_report "Processing completed for cells $_cellsready." "" "maybe_complete" | plog && log DONE
 
       for _c in $CELLSREADY ; do
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
       done
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready" ; return ; }
+
+    # Attempt deletion but don't fret if it fails
+    del_remote_cells.sh "`cat pipeline/upstream`" $CELLSREADY 2>&1 || true
 }
 
 
@@ -464,11 +467,11 @@ notify_run_complete(){
     fi
 }
 
-run_report() {
+upload_report() {
     # Makes a report. Will not exit on error. I'm assuming all substantial processing
     # will have been done already so this should be quick.
 
-    # usage: run_report [rt_prefix] [report_fudge_status] [rt_set_status]
+    # usage: upload_report [rt_prefix] [report_fudge_status] [rt_set_status]
 
     # rt_prefix is mandatory and should be descriptive
     # A blank report_fudge_status will cause the status to be determined from the

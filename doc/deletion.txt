@@ -7,3 +7,12 @@ Will this upset Snakemake that source files have vanished? Maybe, but we can eas
 As for deletion from prom:/data, assuming we continue writing there, I think we should push
 a list of runs to delete. Then there will be a desktop icon to actually do the deletion.
 Yes.
+
+Thinking about that, we have to be a bit careful, as a run (experiment) can be fully processed
+and then we add more cells at any time. So I could push a list of completed cells?
+
+Then the script would check that the run has nothing beyond the completed cells before trashing it.
+
+I'll write to $UPSTREAM/run/cells_processed.txt
+
+
