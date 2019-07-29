@@ -1,0 +1,7 @@
+I'm going to release version 0.1.0 and set it going.
+
+I'll do all the runs on the machine first. There are 12 of these.
+
+Than I'll do the ones in prom_runs_old/ as local runs.
+
+
