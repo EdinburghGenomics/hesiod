@@ -233,7 +233,7 @@ action_cell_ready(){
 
     # This will be a no-op if the run isn't really complete
     # If this fails, we need to continue.
-    ( notify_run_complete ) || true
+    ( notify_run_complete ) |&plog || true
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true

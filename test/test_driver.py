@@ -26,7 +26,8 @@ PROGS_TO_MOCK = {
     "rsync" : None,
     "Snakefile.main" : None,
     "rt_runticket_manager.py" : "echo STDERR rt_runticket_manager.py >&2",
-    "upload_report.sh" : "echo STDERR upload_report.sh >&2"
+    "upload_report.sh" : "echo STDERR upload_report.sh >&2",
+    "del_remote_cells.sh" : "echo STDERR del_remote_cells.sh >&2"
 }
 
 class T(unittest.TestCase):
@@ -306,11 +307,7 @@ class T(unittest.TestCase):
         # A new ticket should have been made, but with an error
         expected_calls = self.bm.empty_calls()
         expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject failed'
-                                                     ' --reply New_Run_Setup. See log in ???']
-
-        # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
-        self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
-                                    r'See log in.*', 'See log in ???', self.bm.last_calls['rt_runticket_manager.py'][0] )
+                                                     ' --reply New_Run_Setup. See log in /dev/stdout']
 
         # And nothing should be written to the fastqdata dir
         self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
@@ -342,6 +339,39 @@ class T(unittest.TestCase):
                                     rsync_first_bit + " =a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb=",
                                     rsync_first_bit + " =another test/20000101_0000_3-C1-C1_PAD00000_cccccccc=" ]
         self.assertEqual(self.bm.last_calls, expected_calls)
+
+
+    def test_run_complete(self):
+        """Same run as above, but skip past the syncing part.
+           When the pipeline runs again it should notify the run as complete and kick off
+           processing and do all the other stuff.
+        """
+        self.copy_run('20000101_TEST_testrun2')
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
+
+        self.bm_rundriver()
+        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+
+        # Doctor non-deterministic calls to rt_runticket_manager.py
+        for i, c in enumerate(self.bm.last_calls['rt_runticket_manager.py']):
+            self.bm.last_calls['rt_runticket_manager.py'][i] = re.sub( r'@\S+$', '@???', c )
+
+        expected_calls = self.bm.empty_calls()
+        expected_calls['Snakefile.main'] = [ "-f --config cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                             "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]
+        expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
+        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
+                                                      " All 2 cells have run on the instrument. Full report will follow soon.",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject maybe_complete --comment @???" ]
+        expected_calls['del_remote_cells.sh'] = [ "/DUMMY/PATH/20000101_TEST_testrun2 a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
+                                                                                    " a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"]
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+        # FIXME - we need to work out exactly what messages get sent to RT and when, and ensure all runs end with a
+        # "Finished pipeline" message when all cells are processed.
 
 if __name__ == '__main__':
     unittest.main()

@@ -194,6 +194,45 @@ class T(unittest.TestCase):
                                         "cells": set([ "11685BN0002L01_unsheare/XXX",
                                                        "11685BN0002L01_unsheare/YYY" ]) } })
 
+    def test_sync_in_progress(self):
+        """Test for bug noted on 30/7 - a run with sync in progress should appear in this state even if
+           there is no upstream info provided.
+        """
+        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+        self.assertEqual( run_info.get_status(), 'incomplete' )
+
+        # If I say that both cells on this run are done, but supply a third then it should be in
+        # sync_needed status.
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done")
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done")
+        run_info = RunStatus( os.path.join(self.current_run_dir) )
+        self.assertEqual( run_info.get_status(), 'complete' )
+
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                            upstream = { "20000101_TEST_testrun2": {
+                                            "loc": "xxx",
+                                            "cells": set([ "a test lib/20000101_0000_3-C1-C1_PAD00000_cccccccc" ]) } } )
+        self.assertEqual( run_info.get_status(), 'sync_needed' )
+
+        # Now for the real test - pretend I've started syncing
+        self.touch("pipeline/sync.started")
+
+        # Now the status should be syncing whether or not I provide the upstream
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                            upstream = { "20000101_TEST_testrun2": {
+                                            "loc": "xxx",
+                                            "cells": set([ "a test lib/20000101_0000_3-C1-C1_PAD00000_cccccccc" ]) } } )
+        self.assertEqual( run_info.get_status(), 'syncing' )
+
+        run_info = RunStatus( os.path.join(self.current_run_dir) )
+        self.assertEqual( run_info.get_status(), 'syncing' )
+
+
+    def test_silly_run_name(self):
+        """If there is a space in the run name it should be sanitized. Not sure if it's
+           possible to have funny characters in a Library name, but we should really avoid that.
+        """
+        pass
 
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
