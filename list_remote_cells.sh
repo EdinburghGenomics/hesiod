@@ -11,16 +11,17 @@ set -euo pipefail
 
 pattern='*/*/20??????_*_????????/fast?_????'
 
+# Prevent glob expansion in local shell
+set -o noglob
+
 if [[ -z "$UPSTREAM_LOC" ]] ; then
     # Nothing to do
     exit 0
 elif [[ "$UPSTREAM_LOC" =~ : ]] ; then
     # This works as long as there are no rogue spaces.
     ls_cmd="ssh ${UPSTREAM_LOC%%:*} cd ${UPSTREAM_LOC#*:} && ls -d $pattern"
-    # Prevent glob expansion in local shell
-    set -o noglob
 else
-    ls_cmd="eval cd ${UPSTREAM_LOC} && ls -d $pattern"
+    ls_cmd="eval cd ${UPSTREAM_LOC} && set +o noglob && ls -d $pattern"
 fi
 
 # UPSTREAM_NAME must be set
