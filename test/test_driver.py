@@ -358,8 +358,11 @@ class T(unittest.TestCase):
             self.bm.last_calls['rt_runticket_manager.py'][i] = re.sub( r'@\S+$', '@???', c )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [ "-f --config cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                             "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]
+        expected_calls['Snakefile.main'] = [ "-f --config"
+                                             " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",

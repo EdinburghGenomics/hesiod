@@ -48,24 +48,31 @@ RUNDIR = config.get('rundata', 'rundata')
 
 def scan_cells():
     """ Work out all the cells to process. Should be simple since the list is passed
-        in config['cells'] but I do want to be able to process all by default.
+        by driver.sh in config['cellsrady'] but I do want to be able to process all by default.
         Then get a list of all the files per cell.
         TODO - can we avoid doing this if --allowed-rules is specified?
     """
     if 'cells' in config:
+        # Believe what we are told
         cells = config['cells'].split('\t')
+    else:
+        # Look for valid cells
+        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_pass/")) ]
 
-        for c in cells:
-            assert glob(format("{RUNDIR}/{c}/fastq_pass/")), format("Invalid cell (no fastq_pass): {c}")
+    if 'cellsready' in config:
+        cellsready = config['cellsready'].split('\t')
+
+        for c in cellsready:
+            assert c in cells, format("Invalid cell (no fastq_pass): {c}")
     else:
         # Look for cells with a final_summary.txt
-        cells = [ '/'.join(fs.split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/final_summary.txt")) ]
+        cellsready = [ c for c in cells if os.path.exists(format("{RUNDIR}/{c}/final_summary.txt")) ]
 
-    if not cells:
+    if not cellsready:
         # Not a fatal error if some specific rule is being invoked.
         logger.error("List of cells to process is empty")
 
-    res = { c: dict() for c in cells }
+    res = { c: dict() for c in cellsready }
 
     for c, d in res.items():
         for pf in "pass fail".split():
@@ -80,10 +87,13 @@ def scan_cells():
             assert len(d[format("fastq_{pf}")]) == len(d[format("fast5_{pf}")]), \
                     format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf})")
 
-    return res
+    # Return the dict of stuff to process, and other counts we've calculated
+    return res, dict( cells = len(cells),
+                      cellsready = len(cellsready),
+                      cellsaborted = 0 )
 
 # Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
-SC = scan_cells()
+SC, COUNTS = scan_cells()
 LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
 RUN = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0]
 
@@ -129,7 +139,7 @@ rule main:
         save_out_plist(input.yaml, str(output.plist))
 
         panrep = "{}/report.{}cells.pan".format(os.path.dirname(output.rep), len(input.yaml))
-        shell("make_report.py -o {panrep} --minionqc {input.minionqc} {input.yaml}")
+        shell("make_report.py -o {panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
 
         shell(r'''
             {TOOLBOX} pandoc -f markdown \

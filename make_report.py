@@ -11,7 +11,10 @@ import base64
 
 from hesiod import hesiod_version, glob, parse_cell_name, load_yaml
 
-def format_report(all_info, pipedata, run_status, aborted_list=(), minionqc=None):
+def format_report( all_info, pipedata, run_status,
+                   aborted_list = (),
+                   minionqc = None,
+                   totalcells = None ):
     """Makes the report as a list of strings (lines)
     """
 
@@ -35,7 +38,7 @@ def format_report(all_info, pipedata, run_status, aborted_list=(), minionqc=None
     P( '<dl class="dl-horizontal">' )
     P( '<dt>RunID</dt> <dd>{}</dd>'.format(",".join(runs)) )
     P( '<dt>Instrument</dt> <dd>{}</dd>'.format(",".join(instr)) )
-    P( '<dt>CellCount</dt> <dd>{}</dd>'.format(len(all_info)) )
+    P( '<dt>CellCount</dt> <dd>{}</dd>'.format(len(all_info) if totalcells is None else totalcells) )
     P( '<dt>LibraryCount</dt> <dd>{}</dd>'.format(len(libs)) )
     P( '<dt>StartTime</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[0]) )
     P( '<dt>LastRunTime</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[-1]) )
@@ -168,11 +171,12 @@ def main(args):
     # And some more of that
     status_info = load_status_info(args.status, fudge=args.fudge_status)
 
-    rep = format_report(all_info,
-                        pipedata = pipedata,
-                        run_status = status_info,
-                        aborted_list = status_info.get('CellsAborted'),
-                        minionqc = args.minionqc)
+    rep = format_report( all_info,
+                         pipedata = pipedata,
+                         run_status = status_info,
+                         aborted_list = status_info.get('CellsAborted'),
+                         minionqc = args.minionqc,
+                         totalcells = args.totalcells )
 
     if (not args.out) or (args.out == '-'):
         print(*rep, sep="\n")
@@ -282,13 +286,15 @@ def parse_args(*args):
                                 formatter_class = ArgumentDefaultsHelpFormatter )
     argparser.add_argument("yamls", nargs='*',
                             help="Supply a list of info.yml files to compile into a report.")
-    argparser.add_argument("--minionqc", default=None,
+    argparser.add_argument("--minionqc",
                            help="Add minionqc combined stats")
+    argparser.add_argument("--totalcells",
+                            help="Manually set the total number of cells, if not all are yet reported.")
     argparser.add_argument("-p", "--pipeline", default="rundata/pipeline",
                             help="Directory to scan for pipeline meta-data.")
-    argparser.add_argument("-s", "--status", default=None,
+    argparser.add_argument("-s", "--status",
                             help="File containing status info on this run.")
-    argparser.add_argument("-f", "--fudge_status", default=None,
+    argparser.add_argument("-f", "--fudge_status",
                             help="Override the PipelineStatus shown in the report.")
     argparser.add_argument("-o", "--out",
                             help="Where to save the report. Defaults to stdout.")
