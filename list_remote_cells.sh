@@ -48,6 +48,9 @@ while read l ; do
         last_munged="${last_munged#${instrument}_}"
         last_munged="${cell_date}_${instrument}_${last_munged}"
 
+        # Finally remove any spaces
+        last_munged="$(tr -s ' ' '_*' <<<"$last_munged")"
+
         # Remember this name for all lines with this run name
         last_dir="$this_dir"
     fi

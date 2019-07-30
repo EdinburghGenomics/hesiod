@@ -68,6 +68,23 @@ class T(unittest.TestCase):
                                                        EXAMPLES + '/upstream1/testrun',
                                                        'testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n' ])
 
+    def test_silly_run_name(self):
+        """If there is a space in the run name it should be sanitized. Not sure if it's
+           possible to put funny characters in a Library name, but we should really avoid that.
+        """
+        bm = self.bm
+        self.environment['UPSTREAM_LOC'] = EXAMPLES + '/upstream_silly_names'
+        self.environment['UPSTREAM_NAME'] = 'TEST'
+
+        retval = bm.runscript(SCRIPT, env=self.environment)
+
+        self.assertEqual(retval, 0)
+        self.assertEqual(bm.last_stderr, '')
+        self.assertEqual(bm.last_stdout.split('\t'), [ '20190226_TEST_name_with_spaces',
+                                                       EXAMPLES + '/upstream_silly_names/name  with___spaces',
+                                                       'testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n' ])
+
+
     def test_ssh(self):
         """With a ':' in the UPSTREAM_LOC, ssh should be invoked
         """

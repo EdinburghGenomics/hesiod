@@ -228,12 +228,6 @@ class T(unittest.TestCase):
         self.assertEqual( run_info.get_status(), 'syncing' )
 
 
-    def test_silly_run_name(self):
-        """If there is a space in the run name it should be sanitized. Not sure if it's
-           possible to have funny characters in a Library name, but we should really avoid that.
-        """
-        pass
-
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
     """

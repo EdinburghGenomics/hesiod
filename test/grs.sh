@@ -1,6 +1,9 @@
 #!/bin/bash
 IFS=$'\t'
 
+# This script is about me tinkering with better ways to dissect the output of run_status.py
+# and get_remote_cells.sh in the shell. It's not part of the unit tests.
+
 export UPSTREAM_LOC=test/examples/upstream2
 export UPSTREAM_NAME=TEST
 UPSTREAM_INFO="$(./list_remote_cells.sh)"
