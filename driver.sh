@@ -380,9 +380,9 @@ do_sync(){
 
             # Run the SYNC_CMD - if the return code is 130 or 20 then abort all
             # pending ops (presume Ctrl+C was pressed) else if there is an error
-            # proceed to the next run.
+            # proceed to the next run. Note it is essential to redirect stdin!
             eval echo "Running: $SYNC_CMD" | plog
-            if eval $SYNC_CMD |&plog ; then
+            if eval $SYNC_CMD </dev/null |&plog ; then
                 true
             elif [ $? = 130 -o $? = 20 ] ; then
                 touch pipeline/sync.failed ; BREAK=1 ; return
