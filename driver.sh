@@ -178,6 +178,8 @@ action_new(){
         _msg1="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
     fi
 
+    # This is ignored when processing new runs from upstream, but causes the loop to halt when
+    # processing new local runs!? Ok, whatever.
     BREAK=1
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
