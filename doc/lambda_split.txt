@@ -1,0 +1,45 @@
+Random thought - what's with the fast5_skip reads? I assume I don't care about them.
+
+At present, all the _pass reads get concatenated together into one fastq.gz
+
+But I think I'd like to split them out into Lambda/non-Lambda
+
+And rather than throw away the Lambda alignment info I want to make the former
+into a BAM file.
+
+OK. Cool. I have some starter code from Murray to be going on with. He aligns with:
+
+"{minimap} --MD -R '@RG\tID:1\tSM:{wildcards.flowcell}\tPL:promethion' -a -x map-ont -t {threads} {input.ref} {input.fastq} > {output} 2> {log}"
+
+I can use my awk thing to divert reads to a FASTQ file. Does it work with the SAM output?
+No, largely because the SAM format (correctly) contains all of the reads, not just the aligned ones.
+
+So can I avoid printing the things or do I have to filter them out? Yes!  --sam-hit-only is an option.
+
+$ minimap2 -a --MD -R '@RG\tID:1\tSM:test/cell\tPL:promethion' --sam-hit-only -y --secondary=no -x map-ont phage_lambda.mmi test_1000.fastq > map_1000.sam
+
+And the SAM file wants to be converted to coord-sorted BAM, jah?
+
+... | {samtools} sort - -@ 4 -o {output}
+
+The testing was under /lustre/home/tbooth2/test_promethion/nanolyse_speed_test
+So we can put this all together into Snakefile.main and have much fun.
+
+awk script goes at top level
+toolbox links to minimap2
+
+alignment is run per-file
+gz files are concatenated
+bam files are merged (samtools merge)
+
+Since the BAM files will be small (lambda only) this should be ok
+
+So I need an output fastq_pass_tmp dir that will collect the fragements, and end results:
+
+{foo}_nolambda.fastq.gz
+{foo}_lambda.bam
+
+# OK, now I'll test this on
+/lustre/home/tbooth2/test_promethion/fastqdata/20190405_EGS1_11650KL/11608GE0009/20190425_1610_2-A7-D7_PAD41410_170cdbd3
+
+

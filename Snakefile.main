@@ -19,6 +19,7 @@ source "`dirname $0`"/shell_helper_functions.sh
 # does not, as SLURM resets that env var.
 export TOOLBOX="$(find_toolbox)"
 export TEMPLATES="$(find_templates)"
+export REFS="$(find_ref)"
 export PATH="${PATH}:$(dirname "$0")"
 
 snakerun_drmaa "$0" "$@"
@@ -152,22 +153,26 @@ rule main:
 
         shell("ln -snr {panrep}.html {output.rep}")
 
-# Per-cell driver rule.
+# Per-cell driver rule. In short:
+#  All fast5 files get individuallt compressed
+#  All _fail.fastq files get concatenated and compressed
+#  All _pass.fastq files get split into nolambda (concat and compress) and lambda (merged BAM)
+#  All of the files get an md5sum
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
-        fastq_gz   = lambda wc: expand( "{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz",
-                                            cell = [wc.cell],
-                                            run = [RUN],
-                                            ci = [parse_cell_name(wc.cell)],
-                                            pf = "pass fail".split() ),
-        fastq_md5  = lambda wc: expand( "md5sums/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.fastq.gz.md5",
-                                            cell = [wc.cell],
-                                            run = [RUN],
-                                            ci = [parse_cell_name(wc.cell)],
-                                            pf = "pass fail".split() ),
+        fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
+                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])],
+                                            pf = "nolambda fail".split() ),
+        fastq_md5  = lambda wc: expand( "md5sums/{base}_{pf}.fastq.gz.md5",
+                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])],
+                                            pf = "nolambda fail".split() ),
+        lambda_bam = lambda wc: expand( "{base}_lambda.bam",
+                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])] ),
+        lambda_md5 = lambda wc: expand( "md5sums/{base}_lambda.bam.md5",
+                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])] ),
         blobs      = "blob/{cell}/plots.yaml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
@@ -197,7 +202,8 @@ rule gzip_md5sum_fast5:
     output:
         gz  = "{foo}.fast5.gz",
         md5 = "md5sums/{foo}.fast5.gz.md5"
-    input: RUNDIR + "/{foo}.fast5"
+    input:
+        RUNDIR + "/{foo}.fast5"
     threads: 2
     shell:
        r"""{PIGZ} -v -p{threads} -c {input} > {output.gz}
@@ -225,26 +231,66 @@ rule concat_gzip_md5sum_fastq:
 
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
-# Alternatively I could tar the files. Note that to cat the files in a single stream I can do:
-# $ tar -xaOf all_pass_fastq.tar.gz
-# But most users won't get that :-(
-# TODO - remove this. We won't be doing it.
-rule concat_tar_md5sum_fastq:
+# We've decided to do the lambda mapping up front. Here's the rule to combine the filtered
+# fastq.gz files, by simply concatenating them rather than unzip/rezip.
+# Note this is specific to the pass reads. We don't split the fail reads (should we??)
+rule concat_md5sum_nolambda_fastq:
     priority: 100
     output:
-        tar  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz",
-        md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.tar.gz.md5",
-        fofn = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+        gz   = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
+        md5  = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
+        fofn = "{cell}/{all,[^/]+}_nolambda_fastq.list"
     input:
-        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
-    threads: 6
+        fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']]
+    run:
+        # Avoid blowing the command line limit by listing files in a file. This could be
+        # marked temporary but it's small and handy for debugging.
+        with open(output.fofn, "w") as fh:
+            for fname in input.fastq: print(fname, file=fh)
+
+        # Simply concatenate the gzipped files
+        shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
+
+        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+
+rule concat_md5sum_lambda_bam:
+    output:
+        bam  = "{cell}/{all,[^/]+}_lambda.bam",
+        md5  = "md5sums/{cell}/{all,[^/]+}_lambda.bam.md5",
+        fofn = "{cell}/{all,[^/]+}_lambda_bam.list"
+    input:
+        bam  = lambda wc: [format("fastq_pass_tmp/{f}.lambda.bam") for f in SC[wc.cell]['fastq_pass']]
+    threads: 4
     run:
         with open(output.fofn, "w") as fh:
             for fname in input.fastq: print(fname, file=fh)
 
-        shell(r"tar -cT {output.fofn} --xform='s,.*/\(.*/\),\1,' | {PIGZ} -p{threads} -c  > {output.tar}")
+        # samtools merge (files in fastq_pass_tmp should be pre-sorted)
+        shell("{TOOLBOX} samtools merge -@ {threads} -l5 -b {output.fofn} {output.bam}")
 
-        shell(r"( cd `dirname {output.tar}` && md5sum `basename {output.tar}` ) > {output.md5}")
+        shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
+
+# This rule produces the stuff in fastq_pass_tmp, and will normally be applied
+# to every individual fastq_pass file. It uses nested implicit FIFOs. I call it "bashception".
+# I'd like to fully clean out the temp dir as a separate op outside of Snakemake,
+# deleting it once a cell is done.
+rule map_lamba:
+    output:
+        fq  = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
+        bam = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam")
+    input:
+        RUNDIR + "/{foo}.fastq"
+    params:
+        ref = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
+        rg  = r'@RG\tID:1\tSM:{cell}\tPL:promethion'
+    threads: 8
+    shell:
+       r'''lambda_splitter.awk <{input} \
+              -v paf=<({TOOLBOX} minimap2 -t 1 -2 -a --MD -R {params.rg:q} --sam-hit-only -y
+                       --secondary=no -x map-ont {params.ref} {input} | tee >(
+                            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam} )
+              -v nolambda=>(gzip -c -p{threads} > {output.fq})
+        '''
 
 def find_sequencing_summary(wc):
     """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
@@ -345,7 +391,7 @@ rule minionqc:
 BLOB_SUBSAMPLE = 10000
 BLOB_CHUNKS = 100
 BLOB_LEVELS = "phylum order species".split()
-BLOB_PARTS  = "pass".split()
+BLOB_PARTS  = ["nolambda"]
 
 # This is how I want to pass my plots into compile_cell_info.py
 # Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for
