@@ -164,15 +164,15 @@ rule one_cell:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
-                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])],
+                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
                                             pf = "nolambda fail".split() ),
         fastq_md5  = lambda wc: expand( "md5sums/{base}_{pf}.fastq.gz.md5",
-                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])],
+                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
                                             pf = "nolambda fail".split() ),
         lambda_bam = lambda wc: expand( "{base}_lambda.bam",
-                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])] ),
+                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))] ),
         lambda_md5 = lambda wc: expand( "md5sums/{base}_lambda.bam.md5",
-                                            base = ["{}/{}_{}".format(wc.cell, RUN, parse_cell_name(wc.cell)['CellID'])] ),
+                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))] ),
         blobs      = "blob/{cell}/plots.yaml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
@@ -263,33 +263,37 @@ rule concat_md5sum_lambda_bam:
     threads: 4
     run:
         with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
+            for fname in input.bam: print(fname, file=fh)
 
         # samtools merge (files in fastq_pass_tmp should be pre-sorted)
-        shell("{TOOLBOX} samtools merge -@ {threads} -l5 -b {output.fofn} {output.bam}")
+        shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
 
         shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 
 # This rule produces the stuff in fastq_pass_tmp, and will normally be applied
 # to every individual fastq_pass file. It uses nested implicit FIFOs. I call it "bashception".
-# I'd like to fully clean out the temp dir as a separate op outside of Snakemake,
+# Note this type of construct is vulnerable to the kill-before-flush bug but it seems with
+# this arrangement we are OK.
+# I plan to fully clean out the temp dir as a separate op outside of Snakemake,
 # deleting it once a cell is done.
-rule map_lamba:
+rule map_lambda:
     output:
         fq  = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
         bam = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam")
     input:
-        RUNDIR + "/{foo}.fastq"
+        RUNDIR + "/{cell}/{f}.fastq"
     params:
-        ref = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
-        rg  = r'@RG\tID:1\tSM:{cell}\tPL:promethion'
+        ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
+        rg     = r'@RG\tID:1\tSM:{cell}\tPL:promethion',
+        mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
     threads: 8
     shell:
-       r'''lambda_splitter.awk <{input} \
-              -v paf=<({TOOLBOX} minimap2 -t 1 -2 -a --MD -R {params.rg:q} --sam-hit-only -y
-                       --secondary=no -x map-ont {params.ref} {input} | tee >(
-                            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam} )
-              -v nolambda=>(gzip -c -p{threads} > {output.fq})
+       r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
+                lambda_splitter.awk \
+                    -v paf=/dev/stdin \
+                    -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
+                    {input} ) | \
+           {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
         '''
 
 def find_sequencing_summary(wc):
