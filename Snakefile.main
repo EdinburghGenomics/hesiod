@@ -162,16 +162,10 @@ rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
         fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
-        fast5_md5  = lambda wc: expand("md5sums/{f}.gz.md5", f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
                                             pf = "nolambda fail".split() ),
-        fastq_md5  = lambda wc: expand( "md5sums/{base}_{pf}.fastq.gz.md5",
-                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
-                                            pf = "nolambda fail".split() ),
         lambda_bam = lambda wc: expand( "{base}_lambda.bam",
-                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))] ),
-        lambda_md5 = lambda wc: expand( "md5sums/{base}_lambda.bam.md5",
                                             base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))] ),
         blobs      = "blob/{cell}/plots.yaml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
@@ -215,9 +209,10 @@ rule gzip_md5sum_fast5:
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
-        gz   = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
-        md5  = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
-        fofn = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+        gz    = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
+        md5   = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
+        count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count",
+        fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
     input:
         fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
     threads: 6
@@ -229,17 +224,21 @@ rule concat_gzip_md5sum_fastq:
 
         shell(r"xargs -d '\n' cat <{output.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
+        # Base counter
+        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
 # We've decided to do the lambda mapping up front. Here's the rule to combine the filtered
 # fastq.gz files, by simply concatenating them rather than unzip/rezip.
-# Note this is specific to the pass reads. We don't split the fail reads (should we??)
+# Note this is specific to the pass reads. We don't partition the fail reads (should we??)
 rule concat_md5sum_nolambda_fastq:
     priority: 100
     output:
-        gz   = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
-        md5  = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
-        fofn = "{cell}/{all,[^/]+}_nolambda_fastq.list"
+        gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
+        md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
+        count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
+        fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list"
     input:
         fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']]
     run:
@@ -251,6 +250,10 @@ rule concat_md5sum_nolambda_fastq:
         # Simply concatenate the gzipped files
         shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
 
+        # Base counter
+        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+
+        # Summage
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
 rule concat_md5sum_lambda_bam:
