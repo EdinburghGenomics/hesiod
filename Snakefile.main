@@ -125,7 +125,7 @@ if 'logger' in globals():
 # TODO - added aggregated stats per lib
 # NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
-localrules: main, one_cell
+localrules: main, one_cell, pack_fast5
 rule main:
     input:
         yaml     = expand("{cell}/cell_info.yaml", cell=SC),
@@ -153,6 +153,17 @@ rule main:
 
         shell("ln -snr {panrep}.html {output.rep}")
 
+# I've split out the fast5 packing in order to allow me to re-run everything else without
+# doing this.
+rule pack_fast5:
+    input:
+        fast5_gz   = lambda wc: [ "{}.gz".format(f) for cell in SC
+                                                    for pf in 'fast5_pass fast5_fail'.split()
+                                                    for f in SC[cell][pf] ],
+        fast5_md5  = lambda wc: [ "md5sums/{}.gz.md5".format(f) for cell in SC
+                                                    for pf in 'fast5_pass fast5_fail'.split()
+                                                    for f in SC[cell][pf] ],
+
 # Per-cell driver rule. In short:
 #  All fast5 files get individuallt compressed
 #  All _fail.fastq files get concatenated and compressed
@@ -161,7 +172,6 @@ rule main:
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
-        fast5_gz   = lambda wc: expand("{f}.gz",             f=(SC[wc.cell]['fast5_pass'] + SC[wc.cell]['fast5_fail'])),
         fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
                                             pf = "nolambda fail".split() ),
@@ -239,7 +249,7 @@ rule concat_md5sum_nolambda_fastq:
         md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
         count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
         fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list",
-        fofn2 = temp("fastq_pass_tmp/{all,[^/]+}_nlfq_count.list")
+        fofn2 = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq_count.list")
     input:
         fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],
         count = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.count") for f in SC[wc.cell]['fastq_pass']]

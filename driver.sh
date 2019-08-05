@@ -62,8 +62,8 @@ export HESIOD_VERSION=$(cat "$(dirname $BASH_SOURCE)"/version.txt || echo unknow
 LOG_DIR="${LOG_DIR:-${HOME}/hesiod/logs}"
 RUN_NAME_REGEX="${RUN_NAME_REGEX:-.+_.+_.+}"
 
-BIN_LOCATION="${BIN_LOCATION:-$(dirname $0)}"
-PATH="$(readlink -m $BIN_LOCATION):$PATH"
+BIN_LOCATION="${BIN_LOCATION:-$(dirname "$BASH_SOURCE")}"
+#PATH="$(readlink -m $BIN_LOCATION):$PATH" # -- Needs to be done after VEnv activation
 MAINLOG="${MAINLOG:-${LOG_DIR}/hesiod_driver.`date +%Y%m%d`.log}"
 
 # 1) Sanity check these directories exist and complain to STDERR (triggering CRON
@@ -134,6 +134,9 @@ if [ "${py_venv}" != none ] ; then
     fi
     log 'VEnv ACTIVATED'
 fi
+
+# Now fix the PATH
+PATH="$(readlink -m $BIN_LOCATION):$PATH"
 
 ###--->>> ACTION CALLBACKS <<<---###
 
@@ -251,7 +254,7 @@ action_cell_ready(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       ( cd "$RUN_OUTPUT"
-        Snakefile.main -f --config cellsready="$CELLSREADY" cells="$CELLS"
+        Snakefile.main -f --config cellsready="$CELLSREADY" cells="$CELLS" -- pack_fast5 main
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }
