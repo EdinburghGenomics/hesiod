@@ -272,7 +272,10 @@ action_cell_ready(){
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready" ; return ; }
 
     # Attempt deletion but don't fret if it fails
-    del_remote_cells.sh "`cat pipeline/upstream`" $CELLSREADY 2>&1 || true
+    _upstream="`cat pipeline/upstream`"
+    log "Marking deletable cells on $_upstream."
+    plog "Marking cells as deletable on $_upstream: $CELLSREADY"
+    del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
 }
 
 
@@ -635,9 +638,10 @@ UPSTREAM_INFO=""
 UPSTREAM_LOCS=""
 for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
-
     UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
+
     # If this fails (network error or whatever) we still want to process local stuff
+    log ">> Looking for upstream runs in $UPSTREAM_LOC"
     UPSTREAM_INFO+="$(list_remote_cells.sh || true)"
 done
 unset UPSTREAM_LOC UPSTREAM_NAME

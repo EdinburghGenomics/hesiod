@@ -49,7 +49,7 @@ RUNDIR = config.get('rundata', 'rundata')
 
 def scan_cells():
     """ Work out all the cells to process. Should be simple since the list is passed
-        by driver.sh in config['cellsrady'] but I do want to be able to process all by default.
+        by driver.sh in config['cellsready'] but I do want to be able to process all by default.
         Then get a list of all the files per cell.
         TODO - can we avoid doing this if --allowed-rules is specified?
     """
@@ -64,7 +64,7 @@ def scan_cells():
         cellsready = config['cellsready'].split('\t')
 
         for c in cellsready:
-            assert c in cells, format("Invalid cell (no fastq_pass): {c}")
+            assert c in cells, format("Invalid cell (no fastq_pass or not listed in config[cells]): {c}")
     else:
         # Look for cells with a final_summary.txt
         cellsready = [ c for c in cells if os.path.exists(format("{RUNDIR}/{c}/final_summary.txt")) ]
@@ -82,16 +82,29 @@ def scan_cells():
                 d[category] = [ f[len(RUNDIR) + 1:]
                                 for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
 
-    # Sanity-check that the file counts match!
+    # Sanity-check that the file counts match. If not, that is an error. To bypass it exclude
+    # the bad cells.
     for c, d in res.items():
         for pf in "pass fail".split():
-            assert len(d[format("fastq_{pf}")]) == len(d[format("fast5_{pf}")]), \
-                    format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf})")
+            if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
+                exit( "Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
+                      sc_counts(res) )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
                       cellsready = len(cellsready),
                       cellsaborted = 0 )
+
+def sc_counts(sc_dict, width=140):
+    """ Make a printable summary of SC
+    """
+    # Make a dict that just shows the counts
+    sc_counts = { c : { category: "<{} files>".format(len(filelist))
+                        for category, filelist in d.items() }
+                  for c, d in sc_dict.items() }
+
+    return pformat(sc_counts, width=width)
+
 
 # Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
 SC, COUNTS = scan_cells()
@@ -113,12 +126,7 @@ def save_out_plist(yaml_files, out_file):
             print( *sorted(plist), file=ofh, sep='\n' )
 
 if 'logger' in globals():
-    # Make a dict that just shows the counts
-    sc_counts = { c : { category: "<{} files>".format(len(filelist))
-                        for category, filelist in d.items() }
-                  for c, d in SC.items() }
-
-    logger.info( "RUN {}, SC =\n{}".format(RUN, pformat(sc_counts, width=140)) )
+    logger.info( "RUN {}, SC =\n{}".format(RUN, sc_counts(SC)) )
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
