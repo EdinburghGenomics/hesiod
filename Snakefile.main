@@ -238,22 +238,27 @@ rule concat_md5sum_nolambda_fastq:
         gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
         md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
         count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
-        fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list"
+        fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list",
+        fofn2 = temp("fastq_pass_tmp/{all,[^/]+}_nlfq_count.list")
     input:
-        fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']]
+        fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],
+        count = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.count") for f in SC[wc.cell]['fastq_pass']]
     run:
         # Avoid blowing the command line limit by listing files in a file. This could be
         # marked temporary but it's small and handy for debugging.
         with open(output.fofn, "w") as fh:
             for fname in input.fastq: print(fname, file=fh)
 
+        with open(output.fofn2, "w") as fh:
+            for fname in input.count: print(fname, file=fh)
+
         # Simply concatenate the gzipped files
         shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
 
-        # Base counter
-        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+        # Combine base counts
+        shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
 
-        # Summage
+        # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
 rule concat_md5sum_lambda_bam:
@@ -282,7 +287,8 @@ rule concat_md5sum_lambda_bam:
 rule map_lambda:
     output:
         fq  = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam")
+        bam = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
+        count = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.count"),
     input:
         RUNDIR + "/{cell}/{f}.fastq"
     params:
@@ -297,6 +303,7 @@ rule map_lambda:
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
                     {input} ) | \
            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
+           {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.count}
         '''
 
 def find_sequencing_summary(wc):
@@ -492,8 +499,8 @@ rule blast_chunk:
            mv {output}.tmp {output}
         """
 
-# Split the FASTA in a fixed number of chunks. All files must be made, even if empty
-# {foo} is blob/{cell}.subreads or blob/{cell}.scraps
+# Split the FASTA in a fixed number of chunks. All files must be made, even if empty,
+# hence the final touch. Note this will 'split' a completely empty file if you ask it to.
 rule split_fasta_in_chunks:
     output:
         parts = [ temp("{{foo}}.fasta_part_{:04d}".format(n)) for n in range(BLOB_CHUNKS) ],
@@ -510,7 +517,7 @@ rule split_fasta_in_chunks:
                        print >> file; n_seq++; next; \
                   }} \
                   {{ print >> file; }}' {input}
-           touch {output.parts}
+           touch {output.parts} {output.list}
         """
 
 # Makes a blob db per FASTA using the complexity file as a COV file.

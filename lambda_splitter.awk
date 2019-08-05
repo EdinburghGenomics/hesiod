@@ -6,7 +6,7 @@
 # in.fq is a fastq file you want to partition
 # in.paf is an alignment file produced by minimap2. May also be BAM format as long as
 #        --sam-hit-only was used
-# lambda.fq  is where you want the mapped reads to go (in our case that map to lambda)
+# lambda.fq  is where you want the mapped reads to go (in our case, those that map to lambda)
 # nolambda.fq is where you want the unmapped reads to go (in our case the real stuff)
 
 # If you miss out lambda or nolambda then those reads will just be discarded.
