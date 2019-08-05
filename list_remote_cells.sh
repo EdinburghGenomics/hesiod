@@ -19,7 +19,7 @@ if [[ -z "$UPSTREAM_LOC" ]] ; then
     exit 0
 elif [[ "$UPSTREAM_LOC" =~ : ]] ; then
     # This works as long as there are no rogue spaces.
-    ls_cmd="ssh ${UPSTREAM_LOC%%:*} cd ${UPSTREAM_LOC#*:} && ls -d $pattern"
+    ls_cmd="ssh -T ${UPSTREAM_LOC%%:*} cd ${UPSTREAM_LOC#*:} && ls -d $pattern"
 else
     ls_cmd="eval cd ${UPSTREAM_LOC} && set +o noglob && ls -d $pattern"
 fi

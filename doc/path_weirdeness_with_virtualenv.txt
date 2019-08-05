@@ -1,0 +1,26 @@
+Note sent to Murray after funny behaviour trying to get friver.sh running
+on clinical cluster.
+
+Hi Murray,
+
+I think I've worked out what was going on with the PATH when running
+driver.sh the other day:
+
+   1. You have a Virtual Env active which has set the PATH in your
+      interactive shell
+   2. When the driver.sh script starts under 'bash -l' it inherits $PATH
+      but not the 'deactivate' alias
+   3. Your .bashrc re-activates the virtual env and saves the old PATH
+   4. My script tinkers with the PATH
+   5. My script activates the new virtual env, which first deactivates the
+      active one, restoring the old PATH (ie. from step 1) and clobbering
+      the changes, before adding its own.
+
+So that actually makes sense. The proper fix here is to not have "bash
+-l" as the executable, and we should probably fix our CRON setup to
+remove the need for it. In the short term I've just made sure all PATH
+manipulation in driver.sh is done after the virtual env activation.
+
+Cheers,
+
+TIM

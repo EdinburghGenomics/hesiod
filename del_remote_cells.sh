@@ -14,7 +14,7 @@ if [ "$upstream_loc" = LOCAL ] || [ -z "$upstream_loc" ] ; then
     cat_cmd="true"
 elif [[ "$upstream_loc" =~ : ]] ; then
     # Remote delete
-    cat_cmd="ssh ${upstream_loc%%:*} cat >> ${upstream_loc#*:}/cells_processed.txt"
+    cat_cmd="ssh -T ${upstream_loc%%:*} cat >> ${upstream_loc#*:}/cells_processed.txt"
 else
     # Local dir, then
     cat_cmd="eval cat >> ${upstream_loc#*:}/cells_processed.txt"

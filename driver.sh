@@ -298,12 +298,19 @@ action_processing_sync_needed(){
 action_incomplete(){
     debug "\_INCOMPLETE $RUNID."
 
-    # When there are cells with no .synced flag but also no upstream to fetch from
-    # Maybe we can rescue the situation if files are added outside of the pipeline?
+    # When there are cells with no .synced flag but also no upstream to fetch from.
+    # Possibly we are writing files directly into the run dir?
     # No BREAK here since there is the potential for sticking in a loop. Incomplete
     # cells that will never be completed should be aborted as soom as possible.
     plog_start
-    check_for_ready_cells
+
+    # There is one gotcha problem with this logic. If the sync fails due to upstream going
+    # down then it's possible the final_summary.txt file will be there even though the
+    # sync did not complete. And then with the upstream missing on the next run of the
+    # driver we end up here. Therefore only allow the check if no upstream scanning failed.
+    if [ -z "$UPSTREAM_FAILS" ] ; then
+        check_for_ready_cells
+    fi
 }
 
 action_syncing(){
@@ -636,13 +643,14 @@ get_run_status() { # run_dir
 export UPSTREAM_LOC UPSTREAM_NAME
 UPSTREAM_INFO=""
 UPSTREAM_LOCS=""
+UPSTREAM_FAILS=""
 for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
     UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
 
     # If this fails (network error or whatever) we still want to process local stuff
     log ">> Looking for upstream runs in $UPSTREAM_LOC"
-    UPSTREAM_INFO+="$(list_remote_cells.sh || true)"
+    UPSTREAM_INFO+="$(list_remote_cells.sh)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
 done
 unset UPSTREAM_LOC UPSTREAM_NAME
 

@@ -39,7 +39,7 @@ rsync -drvlOt all_reports $dest/$runname/ >&2
 
 # Add the index. We now have to make this a PHP script but at least the content is totally fixed.
 # This is very similar to what we have on Illuminatus (but not quite).
-ssh ${dest%%:*} "cat > ${dest#*:}/$runname/index.php" <<'END'
+ssh -T ${dest%%:*} "cat > ${dest#*:}/$runname/index.php" <<'END'
 <?php
     # Script added by upload_report.sh in Hesiod.
     # First resolve symlink. The subtlety here is that anyone saving the link will get a permalink,
