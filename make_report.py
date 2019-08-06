@@ -11,7 +11,8 @@ import base64
 
 from hesiod import hesiod_version, glob, parse_cell_name, load_yaml
 
-def format_report( all_info, pipedata, run_status,
+def format_report( all_info,
+                   pipedata,
                    aborted_list = (),
                    minionqc = None,
                    totalcells = None ):
@@ -36,12 +37,13 @@ def format_report( all_info, pipedata, run_status,
     P( "# About this run (experiment? project?)\n")
     P( "### Metadata\n")
     P( '<dl class="dl-horizontal">' )
-    P( '<dt>RunID</dt> <dd>{}</dd>'.format(",".join(runs)) )
+    P( '<dt>Run ID</dt> <dd>{}</dd>'.format(",".join(runs)) )
+    P( '<dt>Upstream Location</dt> <dd>{}</dd>'.format(pipedata['upstream']) )
     P( '<dt>Instrument</dt> <dd>{}</dd>'.format(",".join(instr)) )
-    P( '<dt>CellCount</dt> <dd>{}</dd>'.format(len(all_info) if totalcells is None else totalcells) )
-    P( '<dt>LibraryCount</dt> <dd>{}</dd>'.format(len(libs)) )
-    P( '<dt>StartTime</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[0]) )
-    P( '<dt>LastRunTime</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[-1]) )
+    P( '<dt>Cell Count</dt> <dd>{}</dd>'.format(len(all_info) if totalcells is None else totalcells) )
+    P( '<dt>Library Count</dt> <dd>{}</dd>'.format(len(libs)) )
+    P( '<dt>Start Time</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[0]) )
+    P( '<dt>Last Run Time</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[-1]) )
     P( '</dl>' )
 
     # Overview plots from minionqc/combinedQC
@@ -71,6 +73,17 @@ def format_report( all_info, pipedata, run_status,
                 P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(v)))
         P( '</dl>' )
         P()
+
+        # Stuff from the .count files that's been embedded in the YAML
+        for cdata in ci.get('_counts', []):
+            P( '<dl class="dl-horizontal">' )
+            P("### {}".format(escape(cdata['_label'])))
+            for k, v in cdata.items():
+                if not k.startswith("_"):
+                    P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(v)))
+            P( '</dl>' )
+            P()
+
 
         # Nanoplot stats
         if '_nanoplot' in ci:
@@ -168,13 +181,11 @@ def main(args):
     else:
         pipedata = dict(version=hesiod_version)
 
-    # And some more of that
-    status_info = load_status_info(args.status, fudge=args.fudge_status)
+    # FIXME - we're missing a pipeline status and list of aborted/pending cells?
 
     rep = format_report( all_info,
                          pipedata = pipedata,
-                         run_status = status_info,
-                         aborted_list = status_info.get('CellsAborted'),
+                         aborted_list = [],
                          minionqc = args.minionqc,
                          totalcells = args.totalcells )
 
@@ -232,7 +243,7 @@ def copy_files(all_info, base_path, minionqc=None):
 
 def get_pipeline_metadata(pipe_dir):
     """ Read the files in the pipeline directory to find out some stuff about the
-        pipeline. This is in addition to what we get from pb_run_status.
+        pipeline. This is similar to what we get from run_info.py.
     """
     # The start_times file reveals the versions applied
     starts = list()
@@ -245,6 +256,14 @@ def get_pipeline_metadata(pipe_dir):
         # Meh.
         pass
 
+    # The upstream location (the file should have one single line but be prepared for junk)
+    try:
+        with open(pipe_dir + '/upstream') as fh:
+            upstream = " ".join([l.strip() for l in fh])
+    except FileNotFoundError as e:
+        upstream = str(e)
+
+
     versions = set([ l.split('@')[0] for l in starts ])
     # Plus there's the current version
     versions.add(hesiod_version)
@@ -254,29 +273,13 @@ def get_pipeline_metadata(pipe_dir):
 
     return dict( version = '+'.join(sorted(versions)),
                  start_times = [ l.split('@')[1] for l in starts ],
+                 upstream = upstream,
                  rundir = rundir )
 
 def escape(in_txt, backwhack=re.compile(r'([][\`*_{}()#+-.!<>])')):
     """ HTML escaping is not the same as markdown escaping
     """
     return re.sub(backwhack, r'\\\1', str(in_txt))
-
-def load_status_info(sfile, fudge=None):
-    """ Parse the output of pb_run_status.py, either from a file or more likely
-        from a BASH <() construct - we don't care.
-        It's quasi-YAML format but I'll not use the YAML parser. Also I want to
-        preserve the order.
-    """
-    res = OrderedDict()
-    if sfile:
-        with open(sfile) as fh:
-            for line in fh:
-                k, v = line.split(':', 1)
-                res[k.strip()] = v.strip()
-    if fudge:
-        # Note this keeps the order or else adds the status on the end.
-        res['PipelineStatus'] = fudge
-    return res
 
 def parse_args(*args):
     description = """ Makes a report (in PanDoc format) for a run (aka an experiment), by compiling the info from the
@@ -292,8 +295,6 @@ def parse_args(*args):
                             help="Manually set the total number of cells, if not all are yet reported.")
     argparser.add_argument("-p", "--pipeline", default="rundata/pipeline",
                             help="Directory to scan for pipeline meta-data.")
-    argparser.add_argument("-s", "--status",
-                            help="File containing status info on this run.")
     argparser.add_argument("-f", "--fudge_status",
                             help="Override the PipelineStatus shown in the report.")
     argparser.add_argument("-o", "--out",

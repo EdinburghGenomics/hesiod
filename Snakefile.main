@@ -173,18 +173,26 @@ rule pack_fast5:
                                                     for f in SC[cell][pf] ],
 
 # Per-cell driver rule. In short:
-#  All fast5 files get individuallt compressed
+#  All fast5 files get individually compressed
 #  All _fail.fastq files get concatenated and compressed
 #  All _pass.fastq files get split into nolambda (concat and compress) and lambda (merged BAM)
 #  All of the files get an md5sum
+def cellname_to_base(c):
+    """Given a cell name, what base name do we choose for the output files?
+    """
+    return "{}/{}_{Library}_{CellID}".format(c, RUN, **parse_cell_name(c))
+
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
         fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
-                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))],
+                                            base = [cellname_to_base(wc.cell)],
+                                            pf = "nolambda fail".split() ),
+        counts     = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
+                                            base = [cellname_to_base(wc.cell)],
                                             pf = "nolambda fail".split() ),
         lambda_bam = lambda wc: expand( "{base}_lambda.bam",
-                                            base = ["{}/{}_{Library}_{CellID}".format(wc.cell, RUN, **parse_cell_name(wc.cell))] ),
+                                            base = [cellname_to_base(wc.cell)] ),
         blobs      = "blob/{cell}/plots.yaml",
         nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
         minionqc   = "minionqc/{cell}/summary.yaml",
@@ -192,11 +200,18 @@ rule one_cell:
         ci = parse_cell_name(wildcards.cell)
         ci['Run'] = RUN
 
-        # Add pass/fail counts
+        # Add pass/fail number of files
         cell_files = SC[wildcards.cell]
         for pf in "pass fail".split():
             # We already confirmed the fastq and fast5 counts match
             ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+
+        # Add info from the .count files
+        ci['_counts'] = []
+        for label, cf in zip(["Lambda-filtered passing reads", "All failed reads"], input.counts):
+            cdata = load_yaml(cf)
+            cdata['_label'] = label
+            ci['_counts'].append(cdata)
 
         # Link to other reports
         ci['_blobs'] = str(input.blobs)
@@ -451,8 +466,8 @@ rule list_blob_plots:
         # We want to know how big the subsample actually was, as it may be <BLOB_SUBSAMPLE, so check
         # the FASTA
         wc = wildcards
-        counts = [ l.split()[0] for l in
-                   shell("grep -Ho '^>' {input.sample} | uniq -c", iterable=True) ]
+        counts = [ next(shell("grep -o '^>' {f} | wc -l", iterable=True)).strip()
+                   for f in input.sample ]
 
         # I need to emit the plots in order in pairs. Unfortunately expand() won't quite
         # cut it here in preserving order but I can make a nested list comprehension.
@@ -540,6 +555,7 @@ rule split_fasta_in_chunks:
 
 # Makes a blob db per FASTA using the complexity file as a COV file.
 # {foo} is {cell}.subreads or {cell}.scraps
+# If reads_sample is empty this will generate an empty file
 rule blob_db:
     output:
         json = "blob/{foo}.blobDB.json",
@@ -549,15 +565,17 @@ rule blob_db:
         cov           = "blob/{{foo}}+sub{}.complexity".format(BLOB_SUBSAMPLE)
     shadow: 'shallow'
     shell:
-        """mkdir blob_tmp
+       r'''if [ ! -s {input.reads_sample} ] ; then touch {output.json} ; exit 0 ; fi
+           mkdir blob_tmp
            {TOOLBOX} blobtools create -i {input.reads_sample} -o blob_tmp/tmp \
                -t {input.blast_results} -c {input.cov}
            ls -l blob_tmp
            mv blob_tmp/tmp.blobDB.json {output.json}
-        """
+        '''
 
 # Run the blob plotting command once per set per tax level. Produce a single
 # stats file and a pair of png files
+# If blobDB.json is empty, make some empty images
 rule blob_plot_png:
     output:
         plotc = ["blob/{foo}.{taxlevel}.cov0.png",          "blob/{foo}.{taxlevel}.cov0.__thumb.png"],
@@ -569,16 +587,22 @@ rule blob_plot_png:
         thumbsize = "320x320"
     shadow: 'shallow'
     shell:
-        """ mkdir blob_tmp
-            export BLOB_COVERAGE_LABEL=Non-Dustiness
-            {TOOLBOX} blobtools blobplot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
-            tree blob_tmp
-            mv blob_tmp/tmp.*.stats.txt {output.stats}
-            mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
-            mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
-            {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize} {output.plotc[1]}
-            {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize} {output.plotr[1]}
-        """
+       r'''mkdir blob_tmp
+           if [ -s {input.json} ] ; then
+               export BLOB_COVERAGE_LABEL=Non-Dustiness
+               {TOOLBOX} blobtools blobplot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
+               tree blob_tmp
+               mv blob_tmp/tmp.*.stats.txt {output.stats}
+               mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
+               mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
+           else
+               echo "No data" > {output.stats}
+               {TOOLBOX} gm_label.sh {params.thumbsize} "No data to plot" {output.plotc[0]}
+               {TOOLBOX} gm_label.sh {params.thumbsize} "No data to plot" {output.plotr[0]}
+           fi
+           {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize} {output.plotc[1]}
+           {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize} {output.plotr[1]}
+        '''
 
 
 ## End of BLOB plotter rules ##
