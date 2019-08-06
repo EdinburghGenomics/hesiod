@@ -226,7 +226,7 @@ action_new(){
 
 action_cell_ready(){
     # This is the main event. Start processing and then report.
-    log "\_CELL_READY $RUNID. Time to process `twc $CELLSREADY` cells."
+    log "\_CELL_READY $RUNID. Time to process `twc $CELLSREADY` cells (`twc $CELLSDONE` already done)."
     plog_start
 
     for _c in $CELLSREADY ; do
@@ -234,7 +234,11 @@ action_cell_ready(){
     done
 
     BREAK=1
+    # Printable version of CELLSREADY
     _cellsready=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+
+    # Combined list of cells ready and done
+    _cells_ready_or_done="$(tjoin $'\t' "$CELLSREADY" "$CELLSDONE")"
 
     # This will be a no-op if the run isn't really complete
     # If this fails, we need to continue.
@@ -254,7 +258,7 @@ action_cell_ready(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       ( cd "$RUN_OUTPUT"
-        Snakefile.main -f --config cellsready="$CELLSREADY" cells="$CELLS" -- pack_fast5 main
+        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" -- pack_fast5 main
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }
@@ -434,6 +438,18 @@ twc(){
     # Count the number of words in a tab-separated string. This is
     # simple when IFS=$'\t'
     echo $#
+}
+
+tjoin(){
+    # Join all args with a given char. Empty arguments are excluded
+    _tjoin_char="$1" ; shift
+    _tjoin_res=""
+    for _tjoin_arg in "$@" ; do
+        _tjoin_res+="${_tjoin_char}${_tjoin_arg}"
+        _tjoin_res="${_tjoin_res#${_tjoin_char}}"
+        _tjoin_res="${_tjoin_res%${_tjoin_char}}"
+    done
+    echo "$_tjoin_res"
 }
 
 save_start_time(){

@@ -61,6 +61,7 @@ def scan_cells():
         cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_pass/")) ]
 
     if 'cellsready' in config:
+        # This should include the cells to be processed now AND those already processed.
         cellsready = config['cellsready'].split('\t')
 
         for c in cellsready:

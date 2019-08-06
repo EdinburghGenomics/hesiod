@@ -1,0 +1,20 @@
+In version 0.1.4 I pass a list of 'cells' and 'cellsready' into the Snakefile.
+
+CELLS (as reported by run_status.py) is all the cells in this run
+CELLSREADY (ditto) is all the cells now ready to process
+
+BUT...
+
+The report wants to collect up all the cells in the run, inlcuding the ones that were made
+before. And these are not listed in CELLSREADY, so they do not go into SC, so they do not
+go into the report and they get lost.
+
+Hmmmm.
+
+I could just add everything to SC, but then I'll need to differentiate between cells that
+are not yet ready and those already processed. How about I look for cells where there is
+already a cell_info.yml and just fold it into the report. This seems more like what I was after.
+Also I should be able to run with an empty cellsready and still get a report. Yeah.
+
+Er, no. That's going to get confusing and goes against the whole idea that Snakemake determines
+what to process. Let's add CELLDONE to CELLSREADY when calling the Snakefile from the driver.
