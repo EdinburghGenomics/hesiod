@@ -645,7 +645,7 @@ get_run_status() { # run_dir
 
   # Capture the various parts into variables (see test/grs.sh)
   for _v in RUNID/RunID INSTRUMENT/Instrument \
-            CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellDone CELLSABORTED/CellsAborted \
+            CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellsDone CELLSABORTED/CellsAborted \
             STATUS/PipelineStatus UPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
     eval "${_v%/*}"='"$_line"'
