@@ -84,12 +84,13 @@ def scan_cells():
                                 for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
 
     # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
-    # so maybe it's not an error?
+    # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so this
+    # is definitely a bad thing.
     for c, d in res.items():
         for pf in "pass fail".split():
             if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
-                logger.error( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
-                              sc_counts(res) )
+                raise RuntimeError( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
+                                    sc_counts(res) )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
