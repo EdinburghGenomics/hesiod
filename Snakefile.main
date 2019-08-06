@@ -82,13 +82,13 @@ def scan_cells():
                 d[category] = [ f[len(RUNDIR) + 1:]
                                 for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
 
-    # Sanity-check that the file counts match. If not, that is an error. To bypass it exclude
-    # the bad cells.
+    # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
+    # so maybe it's not an error?
     for c, d in res.items():
         for pf in "pass fail".split():
             if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
-                exit( "Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
-                      sc_counts(res) )
+                logger.error( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
+                              sc_counts(res) )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
@@ -203,8 +203,13 @@ rule one_cell:
         # Add pass/fail number of files
         cell_files = SC[wildcards.cell]
         for pf in "pass fail".split():
-            # We already confirmed the fastq and fast5 counts match
-            ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+            # Looks like we can't guarantee the counts in fastq and fast5 match?!
+            if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
+                ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+            else:
+                ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[format('fastq_{pf}')]),
+                                                                     len(cell_files[format('fast5_{pf}')]),
+                                                                     pf = pf )
 
         # Add info from the .count files
         ci['_counts'] = []
@@ -511,7 +516,8 @@ rule fasta_to_complexity:
         "{TOOLBOX} dustmasker -level {params.level} -in {input} -outfmt fasta 2>/dev/null | count_dust.py > {output}"
 
 # Combine all the 100 blast reports into one
-# I'm filtering out repeated rows to reduce the size of the BLOB DB
+# I'm filtering out repeated rows to reduce the size of the BLOB DB - there can
+# be a lot of repeats so this is worth running on the cluster.
 rule merge_blast_reports:
     output: "{foo}.blast"
     input: [ "{{foo}}.blast_part_{:04d}".format(n) for n in range(BLOB_CHUNKS) ]
