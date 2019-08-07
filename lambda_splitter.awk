@@ -17,24 +17,28 @@
 #     -v lambda=>(gzip -c > lambda_fullsize.fq.gz) \
 #     -v nolambda=>(gzip -c > nolambda_fullsize.fq.gz)
 
+function get_next_pafid(){
+    while(pafid != 0 || (getline pafline <paf) > 0) {
+        # We're still looking for the previous pattern?
+        if(pafid != 0) break
+        # pafline is a SAM header?
+        if(substr(pafline,1,1) == "@") continue
+        # Or we just read a real new line...
+        split(pafline, pafparts) ; pafid = "@"pafparts[1]
+        # Is this a new pattern to look for or the same as the old one?
+        if( pafid != lastpafid ) break
+        # Nope, try again
+        pafid = 0
+    }
+}
+
 BEGIN{ spool = 0 ; pafid = 0 }
 {
     if(spool != 0) {
         spool--
     }
     else {
-        while(pafid != 0 || (getline pafline <paf) > 0) {
-            # We're still looking for the last pattern?
-            if(pafid != 0) break
-            # pafline is a SAM header?
-            if(substr(pafline,1,1) == "@") continue
-            # Or we just read a real new line...
-            split(pafline, pafparts) ; pafid = "@"pafparts[1]
-            # Is this a new pattern to look for or the same as the old one?
-            if( pafid != lastpafid ) break
-            # Nope, try again
-            pafid = 0
-        }
+        get_next_pafid()
 
         # No more patterns? Spool forever!
         if(pafid == 0) {
@@ -57,5 +61,8 @@ BEGIN{ spool = 0 ; pafid = 0 }
     # Print to whatever dest file
     if(dest) print >>dest
 }
-# By the end, pafid should be empty
-END{ if(pafid != 0){ print "Error: pafid="pafid ; exit 1 } }
+# By the end, there should be no more new pafid values, but we MUST explicitly exhaust
+# the PAF/SAM file and check.
+END{ get_next_pafid()
+     if(pafid != 0){ print "Error: pafid="pafid > "/dev/stderr" ; exit 1 }
+}

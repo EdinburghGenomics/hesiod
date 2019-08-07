@@ -1,0 +1,90 @@
+I'm getting a problem on run 20190218_EGS1_11608GE0008.
+
+The lambda_split rule is failing.
+
+$ cd /lustre/promethion/prom_fastqdata/20190218_EGS1_11608GE0008
+$ ~tbooth2/workspace/hesiod/Snakefile.main -f -- fastq_pass_tmp/11608GE0008L02/20190218_1251_1-A7-D7_PAD29639_b1e8ea5f/fastq_pass/PAD29639_cc6044492e6ca0774bca80df0127eecedc681581_53.fastq.nlfq.count
+
+I'm going round in circles trying to fix this. What's the simplest version that I can get to exhibit the
+same failure? Need to be methodical and remove all the cruft!
+
+Let's copy the input files to ~/test_promethion/20190218_EGS1_11608GE0008_oddness and try.
+
+I'll have a minimal Snakefile too.
+
+OK, this setup reproduces the error. I get "non-zero exit status 141" which interestingly is more info than I get with the new Snakemake.
+
+Removed pigz from the equation - still code 141
+
+Removed samtools from the equation - still code 141
+
+Removed the readgroup setting just in case - still code 141
+
+Removed the base counting - still code 141
+
+Removed the FASTQ output entirely - still code 141
+
+So now it seems quite simple:
+
+1) Does my test case fail with the test_1000.fastq file from earlier?
+
+No, it works fine. (phew!)
+
+2) Can I get the same failure on the command line?
+
+$ minimap2 -t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont  phage_lambda.mmi test53.fastq | tee >( ./lambda_splitter.awk -v paf=/dev/stdin test53.fastq ) > test53.fastq.lambda.sam
+$ echo $?
+
+Yes, I get 141. OK, real progress. If I only run minimap then I get status 0.
+What if I remove the tee and just do a regular pipe?
+
+This seems to have boiled it down. This works:
+
+$ minimap2 -t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont  phage_lambda.mmi test53.fastq | ./lambda_splitter.awk -v paf=/dev/stdin test53.fastq
+
+This fails:
+
+$ minimap2 -t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont  phage_lambda.mmi test53.fastq | tee >( ./lambda_splitter.awk -v paf=/dev/stdin test53.fastq ) > /dev/null
+
+So what if we take minimap out of the equation?
+
+$ cat test53.fastq.lambda.sam | tee >( ./lambda_splitter.awk -v paf=/dev/stdin test53.fastq ) > /dev/null
+
+This works (code 0).
+
+OK, finally cracked it. The bug is in lambda_splitter.awk. This should read the entire SAM file and if any unmatched identifiers are left
+it should complain, but this wasn't happening. If the SAM file contained:
+
+A
+C
+D
+
+And the FASTQ file contained:
+
+A
+B
+E
+F
+
+Then you'd see an error since upon reading the B line, awk would read C as the next SAM hit and this is never seen.
+
+But if the SAM file contained:
+
+A
+C
+D
+D
+E
+E
+F
+F
+
+And the FASTQ file contained:
+
+A
+B
+C
+D
+
+Then we don't get an error since the last line in FASTQ matches the value of pafid and then AWK exits, never bothering to exhaust the SAM file,
+and hence we get a pipe error. Right. So I just need to fix lambda_splitter.awk and force it to read from the whole SAM file!

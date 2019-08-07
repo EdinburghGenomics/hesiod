@@ -326,8 +326,8 @@ rule concat_md5sum_lambda_bam:
 # deleting it once a cell is done.
 rule map_lambda:
     output:
-        fq  = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
+        fq    = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
+        bam   = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
         count = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.count"),
     input:
         RUNDIR + "/{cell}/{f}.fastq"
