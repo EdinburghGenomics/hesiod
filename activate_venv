@@ -28,7 +28,7 @@ if [ -e ./_py3_venv/bin/activate ] ; then
 else
     echo "Bootstrapping new VEnv from toolbox/python3"
     ( set -e ;
-        "${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/python3 -mvenv ./_py3_venv
+        "${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3 -mvenv ./_py3_venv
         activate_venv
 
         pip3 install --upgrade pip
@@ -36,6 +36,12 @@ else
         pip3 install yamlloader==0.5.5
         pip3 install Rt==1.0.11
         pip3 install pystache==0.5.4
+
+        # things needed for Blobtools
+        pip install docopt==0.6.2
+        pip install matplotlib==3.0.3
+        pip install pysam==0.15.2
+        pip install tqdm==4.32.2
 
         # snakemake and drmaa
         pip install snakemake==5.5.3

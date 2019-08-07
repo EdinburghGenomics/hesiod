@@ -1,7 +1,1 @@
-#!/bin/sh
-
-# Run the right blobtools with the right Python
-export PATH="/lustre/software/python/current/bin:$PATH"
-export PATH="/lustre/software/blobtools/current_patched2:$PATH"
-
-exec blobtools "$@"
+/lustre/software/blobtools/github_patched/blobtools
