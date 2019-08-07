@@ -24,7 +24,7 @@ def parse_cell_name(cell):
     res['Cell'] = cell
 
     # Now shred the filename.
-    mo = re.match(r'([0-9A-Z-]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
+    mo = re.match(r'([^/]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
     if mo:
         for n, x in enumerate("Library Date Number Slot CellID Checksum".split()):
             res[x] = mo.group(n+1)

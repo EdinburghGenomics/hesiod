@@ -205,7 +205,7 @@ rule one_cell:
         # Add pass/fail number of files
         cell_files = SC[wildcards.cell]
         for pf in "pass fail".split():
-            # Looks like we can't guarantee the counts in fastq and fast5 match?!
+            # Maybe we can't guarantee the counts in fastq and fast5 match?!
             if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
                 ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
             else:
