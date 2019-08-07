@@ -39,7 +39,8 @@ else
         pip3 install Rt==1.0.11
         pip3 install pystache==0.5.4
 
-        # things needed for Blobtools
+        # things needed for Blobtools - we are using
+        # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
         pip install docopt==0.6.2
         pip install matplotlib==3.0.3
         pip install pysam==0.15.2
