@@ -196,7 +196,7 @@ rule one_cell:
         lambda_bam = lambda wc: expand( "{base}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)] ),
         blobs      = "blob/{cell}/plots.yaml",
-        nanoplot   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ]
+        nanoplot   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
         ci = parse_cell_name(wildcards.cell)
