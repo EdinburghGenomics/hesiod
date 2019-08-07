@@ -58,4 +58,4 @@ BEGIN{ spool = 0 ; pafid = 0 }
     if(dest) print >>dest
 }
 # By the end, pafid should be empty
-END{ if(pafid != 0){ exit 1 } }
+END{ if(pafid != 0){ print "Error: pafid="pafid ; exit 1 } }
