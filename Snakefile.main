@@ -598,7 +598,7 @@ rule blob_plot_png:
        r'''mkdir blob_tmp
            if [ -s {input.json} ] ; then
                export BLOB_COVERAGE_LABEL=Non-Dustiness
-               {TOOLBOX} blobtools blobplot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
+               {TOOLBOX} blobtools plot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
                tree blob_tmp
                mv blob_tmp/tmp.*.stats.txt {output.stats}
                mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}

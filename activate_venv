@@ -28,7 +28,9 @@ if [ -e ./_py3_venv/bin/activate ] ; then
 else
     echo "Bootstrapping new VEnv from toolbox/bootstrap_python3"
     ( set -e ;
-        "${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3 -mvenv ./_py3_venv
+        # Best to resolve the symlink before bootstrapping the VEnv
+        _py3="${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3
+        "$(readlink -f "$_py3")" -mvenv ./_py3_venv
         activate_venv
 
         pip3 install --upgrade pip
