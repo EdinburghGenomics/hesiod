@@ -196,7 +196,7 @@ rule one_cell:
         lambda_bam = lambda wc: expand( "{base}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)] ),
         blobs      = "blob/{cell}/plots.yaml",
-        nanoplot   = "nanoplot/{cell}/NanoStats.yaml",
+        nanoplot   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ]
         minionqc   = "minionqc/{cell}/summary.yaml",
     run:
         ci = parse_cell_name(wildcards.cell)
@@ -222,7 +222,7 @@ rule one_cell:
 
         # Link to other reports
         ci['_blobs'] = str(input.blobs)
-        ci['_nanoplot'] = str(input.nanoplot)
+        ci['_nanoplot'] = str(input.nanoplot[0])
         ci['_minionqc'] = str(input.minionqc)
 
         dump_yaml(ci, str(output))
@@ -374,14 +374,16 @@ rule gzip_sequencing_summary:
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
 rule nanoplot:
-    output: "nanoplot/{cell}/NanoStats.txt"
+    output:
+        stats = "nanoplot/{cell}/NanoStats.txt",
+        rep   = "nanoplot/{cell}/NanoPlot-report.html"
     input:  "{cell}/sequencing_summary.txt.gz"
     params:
         thumbsize = "320x320"
     run:
         ap = os.path.realpath(input[0])
-        shell(r'cd "$(dirname {output})" ; rm -f *.png *.html *.log')
-        shell(r'cd "$(dirname {output})" ; NanoPlot --summary {ap}')
+        shell(r'cd "$(dirname {output.stats})" ; rm -f *.png *.html *.log')
+        shell(r'cd "$(dirname {output.stats})" ; NanoPlot --summary {ap}')
 
         # Finally, make thumbnails for everything
         for apng in glob("nanoplot/*/*.png") + glob("nanoplot/*/*/*.png"):
