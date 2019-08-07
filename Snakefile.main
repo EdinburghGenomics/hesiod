@@ -335,7 +335,7 @@ rule map_lambda:
         ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
         rg     = r'@RG\tID:1\tSM:{cell}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
-    threads: 8
+    threads: 6
     shell:
        r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
                 lambda_splitter.awk \
