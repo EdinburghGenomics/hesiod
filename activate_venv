@@ -26,7 +26,7 @@ if [ -e ./_py3_venv/bin/activate ] ; then
     activate_venv
 
 else
-    echo "Bootstrapping new VEnv from toolbox/python3"
+    echo "Bootstrapping new VEnv from toolbox/bootstrap_python3"
     ( set -e ;
         "${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3 -mvenv ./_py3_venv
         activate_venv
