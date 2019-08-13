@@ -51,7 +51,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     # Saves having to put 'export' on every line in the config.
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
-           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE
+           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE TOOLBOX
 fi
 
 # Tools may reliably use this to report the version of Hesiod being run right now.

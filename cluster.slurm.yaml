@@ -12,3 +12,5 @@ concat_md5sum_lambda_bam : {slurm_opts: '--mem=12000 --mincpus=4'}
 map_lambda               : {slurm_opts: '--mem=12000 --mincpus=4'}
 minionqc                 : {slurm_opts: '--exclusive --mem=0'}
 nanoplot                 : {slurm_opts: '--mem=12000 --mincpus=2'}
+samstats                 : {slurm_opts: '--mem=12000 --mincpus=2'}
+qualimap                 : {slurm_opts: '--mem=24000 --mincpus=8'}

@@ -187,17 +187,21 @@ def cellname_to_base(c):
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
-        fastq_gz   = lambda wc: expand( "{base}_{pf}.fastq.gz",
+        fastq_gz     = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
                                             pf = "nolambda fail".split() ),
-        counts     = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
+        counts       = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
                                             pf = "nolambda fail".split() ),
-        lambda_bam = lambda wc: expand( "{base}_lambda.bam",
+        lambda_bam   = lambda wc: expand( "{base}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)] ),
-        blobs      = "blob/{cell}/plots.yaml",
-        nanoplot   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
-        minionqc   = "minionqc/{cell}/summary.yaml",
+        lambda_stats = lambda wc: expand( "lambdaqc/{base}_lambda.bam.stats",
+                                            base = [cellname_to_base(wc.cell)] ),
+        lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_lambda.bam.qmap",
+                                            base = [cellname_to_base(wc.cell)] ),
+        blobs        = "blob/{cell}/plots.yaml",
+        nanoplot     = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
+        minionqc     = "minionqc/{cell}/summary.yaml",
     run:
         ci = parse_cell_name(wildcards.cell)
         ci['Run'] = RUN
@@ -231,7 +235,7 @@ rule one_cell:
 # md5summer that keeps the file path out of the .md5 file
 # I made these a single rule to reduce the number of submitted jobs, with
 # the assuption we'll always be doing both, and "group:" in Snakemake is currently
-# broken with DRMAA :-(
+# broken with DRMAA :-( ...But I fixed it in upstream now :-)
 rule gzip_md5sum_fast5:
     output:
         gz  = "{foo}.fast5.gz",
@@ -440,6 +444,27 @@ rule minionqc:
                 athumb = apng[:-4] + '.__thumb.png'
                 shell("{TOOLBOX} convert {apng} -resize {params.thumbsize} {athumb}")
 
+# Stats calculated on the lambda.bam files using samtools stat and qualimap
+rule samstats:
+    output: "lambdaqc/{cell}/{all,[^/]+}_lambda.bam.stats"
+    input:  "{cell}/{all,[^/]+}_lambda.bam"
+    threads: 4
+    shell:
+       r'''{TOOLBOX} samtools stats -d -@ {threads} {input} > {output}'''
+
+rule qualimap:
+    output:
+        txt  = "lambdaqc/{cell}/{all,[^/]+}_lambda.bam.qmap",
+        html = "lambdaqc/{cell}/{all,[^/]+}_lambda_qmap/qualimapReport.html"
+    input:  "{cell}/{all,[^/]+}_lambda.bam"
+    params:
+        windows = 5000
+    threads: 8
+    shell:
+       r'''_outdir=`dirname {output.html}`
+           {TOOLBOX} qualimap bamqc -bam {input} -nt {threads} -nw {params.windows} -outdir "$_outdir"
+           mv "$_outdir"/genome_results.txt {output.txt}
+        '''
 
 # Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
 # Y-axis scale. This change needs to be ported back to SMRTino.
