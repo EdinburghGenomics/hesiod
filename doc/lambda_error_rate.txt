@@ -1,0 +1,55 @@
+I tried some messing about with the stats calculated from the BAM files. The stuff with the repeat-dependent errors
+was a dead end but still interesting to see how these things can be calculated.
+
+
+So we now have aligned BAM files vs. Lambda.
+
+What can we do with them?
+
+We could calculate the average mapping score, based on one of the definitions here:
+
+http://lh3.github.io/2018/11/25/on-the-definition-of-sequence-identity
+
+BLAST identitity seems most reasonable. But is there anything Nanopore-specific we should
+be looking at?
+
+Eg. Accuracy at repeats
+
+For each locus in the reference, give it a number being the number of repeats. So
+
+ATCCGTCCCCG
+00010001230
+
+What do we get if we do this for Lambda?
+
+In Python3:
+
+>>> seq = ''.join( l.strip() for l in list( open('ref/phage_lambda.fa') )[1:] )
+>>> score = lambda i : 0 if (i == 0 or seq[i-1] != seq[i]) else score(i-1) + 1
+>>> scores = [ (l, score(i)) for i, l in enumerate(seq) ]
+
+So now I can to tot them up to get a tally (or rather, four tallys)
+
+>>> { base: [ len([ x for x in scores if x == (base, n) ]) for n in range(8) ] for base in 'ATCG' }
+
+( The 8 is found by trial and error - once we see a zero in the list we know there can't be any longer repeat. )
+
+So we could plot the number of point mismatches vs. this index and get a nice plot. A job for Seaborne most likely.
+
+At each alignment locus in the mapping, if there is a mismatch, tally it vs the locus repeat score above. We want
+the portion of mismatches per each score. But just this one fraction doesn't tell you much, so calculate it per read.
+Then we get a box-and-whisker plot. I think. Let's remind ourselfves about that and do a box-n-whisker plot in
+seaborne.
+
+I'll need a table with two columns:
+
+mismatch_perc  rep_score
+
+And a row for each sequence. No this doesn't work since the longer repeats are so rare. How about we count
+100 of each and then report the number. Hmmm. Maybe silly?
+
+OK, how to generate this? First off load the BAM into PySAM.
+
+( I'll use the gr dataset as it's tiny )
+
+

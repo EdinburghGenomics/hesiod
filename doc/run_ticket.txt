@@ -1,0 +1,28 @@
+We already have a queue 'bfx-promethion-run' and should be able to create tickets and send messages using the
+existing rt_runticket_manager.py.
+
+For testing, I can just send to the 'testing' queue on rt-test there's no need to make a new queue.
+
+So what do I want to send, and when, and with what info:
+
+Run starts - at present we don't have much info, and I'm not even sure if we'll necessarily see all the
+cells at once on the first scan? But assuming we do I can make something similar to what I have for SMRTino,
+showing the number of cells and the projects/libraries for each cell.
+
+Run completes - unlike SMRTino we don't see that the run is complete until after the sync stage, but if the
+pipeline is running prperly this should be quick. If not, I'll have to re-think the way I do things but for
+now just go with the notification and wire it into RT.
+
+All processing completes - it's possible in the world of Promethion that a new cell goes in while the previous
+one is processing, so I could check for new stuff at the end of the QC phase, but this is a bit icky.
+Instead, just determine up front if this is the 'final' report and if it is then send a 'Finished pipeline'
+message, even if we immediately then start processing a new cell and are going to send another 'Finished'
+message.
+
+Aside from that, send a comment every time a we start making a report, and every time we upload a (partial)
+report, and every time we auto-abort a stalled cell (if that ever becomes a thing).
+
+--
+
+What can we summarize? Before the initial sync we have very little to go on. Just the output from
+list_remote_cells.sh, which gets put into RUNID and CELLS.

@@ -749,7 +749,7 @@ if [ -n "$UPSTREAM" ] ; then
             { eval action_"$STATUS"
             } || log "Error while trying to run action_$STATUS on $RUNID"
         fi
-    done < <(awk -F "$IFS" '{print $1}' <<<"$UPSTREAM_INFO")
+    done < <(awk -F "$IFS" '{print $1}' <<<"$UPSTREAM_INFO" | uniq)
 fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
