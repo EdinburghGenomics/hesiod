@@ -18,10 +18,11 @@ if [[ -z "$UPSTREAM_LOC" ]] ; then
     # Nothing to do
     exit 0
 elif [[ "$UPSTREAM_LOC" =~ : ]] ; then
-    # This works as long as there are no rogue spaces.
-    ls_cmd="ssh -T ${UPSTREAM_LOC%%:*} cd ${UPSTREAM_LOC#*:} && ls -d $pattern"
+    # This works as long as there are no rogue spaces. Note the fairly short
+    # connection timeout - if the network is down we want to fail fast.
+    ls_cmd="ssh -o ConnectTimeout=5 -T ${UPSTREAM_LOC%%:*} cd ${UPSTREAM_LOC#*:} && ls -df $pattern"
 else
-    ls_cmd="eval cd ${UPSTREAM_LOC} && set +o noglob && ls -d $pattern"
+    ls_cmd="eval cd ${UPSTREAM_LOC} && set +o noglob && ls -df $pattern"
 fi
 
 # UPSTREAM_NAME must be set
