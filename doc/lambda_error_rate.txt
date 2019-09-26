@@ -1,6 +1,7 @@
 I tried some messing about with the stats calculated from the BAM files. The stuff with the repeat-dependent errors
 was a dead end but still interesting to see how these things can be calculated.
 
+Murray has done better stuff.
 
 So we now have aligned BAM files vs. Lambda.
 
@@ -52,4 +53,4 @@ OK, how to generate this? First off load the BAM into PySAM.
 
 ( I'll use the gr dataset as it's tiny )
 
-
+... and so on ...
