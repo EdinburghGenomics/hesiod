@@ -170,8 +170,6 @@ action_new(){
     # Create an input directory with a pipeline subdir and send an initial notification to RT
     # Have a 'from' file containing the upstream location
     # Also a matching output directory and back/forth symlinks
-    # If something fails we should assume that something is wrong  with the FS and not try to
-    # process more runs. However, if nothing fails we can process multiple new runs in one go.
     _cc=`twc $CELLS`
     if [ "$UPSTREAM" = LOCAL ] ; then
         log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
@@ -181,8 +179,12 @@ action_new(){
         _msg1="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
     fi
 
-    # This is ignored when processing new runs from upstream, but causes the loop to halt when
-    # processing new local runs!? Ok, whatever.
+    # This is ignored when processing new runs from upstream, because that loop doesn't check BREAK,
+    # but causes the main loop to halt when processing new local runs found by 'compgen -G'.
+    # Is this ideal?
+    # If something fails we should assume that something is wrong  with the FS and not try to
+    # process more runs. However, if nothing fails we can process multiple new runs in one go,
+    # be they local or remote.
     BREAK=1
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
@@ -219,9 +221,10 @@ action_new(){
     check_for_ready_cells
 
     # Triggers a summary to be sent to RT as a comment, which should create
-    # the new RT ticket.
-    # FIXME - add more actual content like the other pipelines
-    rt_runticket_manager --comment @<(echo "$_msg1") |& plog && log "DONE"
+    # the new RT ticket. Note that there will never be a report for a brand new run, just a summary.
+    # If this fails for some reason, press on.
+    ( send_summary_to_rt comment new "$_msg1"$'\n\n'"This is a new run - there is no report yet." ) |& plog || true
+    log "DONE"
 }
 
 action_cell_ready(){
@@ -240,9 +243,14 @@ action_cell_ready(){
     # Combined list of cells ready and done
     _cells_ready_or_done="$(tjoin $'\t' "$CELLSREADY" "$CELLSDONE")"
 
-    # This will be a no-op if the run isn't really complete
-    # If this fails, we need to continue.
-    ( notify_run_complete ) |&plog || true
+    # This will be a no-op if the run isn't really complete, and will return 3
+    # If contacting RT fails it will return 1
+    ( notify_run_complete ) |&plog || _res=$?
+    if [ ${_res:-0} = 3 ] ; then
+        _report_status="incomplete"
+    else
+        _report_status="Finished pipeline"
+    fi
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true
@@ -267,7 +275,7 @@ action_cell_ready(){
     set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
       # ever have one of these running at a time.
-      upload_report "Processing completed for cells $_cellsready." "" "maybe_complete" | plog && log DONE
+      upload_report "Processing completed for cells $_cellsready." "" "$_report_status" | plog && log DONE
 
       for _c in $CELLSREADY ; do
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
@@ -497,7 +505,7 @@ notify_run_complete(){
     # Have we actually synced all the cells?
     if ! [ $(( $_ca + $_cr + $_cd )) -eq $_cc ] ; then
         # No
-        return
+        return 3
     fi
 
     if ! [ -e pipeline/notify_${_cc}_cells_complete.done ] ; then
@@ -507,9 +515,8 @@ notify_run_complete(){
         else
             _comment="All $_cc cells have run on the instrument. Full report will follow soon."
         fi
-        if rt_runticket_manager --subject processing --reply "$_comment" ; then
-            touch pipeline/notify_${_cc}_cells_complete.done
-        fi
+        rt_runticket_manager --subject processing --reply "$_comment" || return $?
+        touch pipeline/notify_${_cc}_cells_complete.done
     fi
 }
 
@@ -574,11 +581,9 @@ upload_report() {
 }
 
 send_summary_to_rt() {
-    # FIXME - this is just copied from SMRTino
+    # Sends a summary to RT. Look at pipeline/report_upload_url.txt to
+    # see where the report has gone. The summary will be made by make_summary.py
 
-    # Sends a summary to RT. It is assumed that pipeline/report_upload_url.txt is
-    # in place and can be read. In the initial cut, we'll simply list the
-    # SMRT cells on the run, as I'm not sure how soon I get to see the XML meta-data?
     # Other than that, supply run_status and premble if you want this.
     _reply_or_comment="${1:-}"
     _run_status="${2:-}"
@@ -592,14 +597,22 @@ send_summary_to_rt() {
         _run_status=()
     fi
 
-    echo "Sending new summary of PacBio run to RT."
-    # Subshell needed to capture STDERR from make_summary.py
-    last_upload_report="`cat pipeline/report_upload_url.txt 2>/dev/null || echo "Report was not generated or upload failed"`"
+    echo "Sending new summary of this run to RT."
+
+    # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
+    { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
+            _last_upload_report="Report not generated or upload failed."
+
+      _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" 2>&3)" || \
+            _run_summary="Error making run summary."
+    } 3>&1
+
+    # Send it all to the ticket. Log any stderr.
     ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
-        @<(echo "$_preamble "$'\n'"$last_upload_report" ;
-           echo ;
-           make_summary.py --runid "$RUNID" --txt - \
-           || echo "Error while summarizing run contents." ) ) 2>&1
+        @<(echo "$_preamble"
+           echo "$_last_upload_report"
+           echo
+           echo "$_run_summary" ) ) 2>&1
 }
 
 pipeline_fail() {

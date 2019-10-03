@@ -222,7 +222,7 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --comment @???']
+        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --subject new --comment @???']
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
@@ -230,8 +230,16 @@ class T(unittest.TestCase):
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
+        # The STDERR from upload_report.sh and rt_runticket_manager.py should end
+        # up in the per-run log.
+        log_lines = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testrun/pipeline.log")
+        self.assertTrue('STDERR rt_runticket_manager.py') in log_lines
+        self.assertTrue('STDERR upload_report.sh') in log_lines
+        self.assertTrue('cat: pipeline/report_upload_url.txt: No such file or directory') in log_lines
+
     def test_new_upstream2(self):
-        """A slightly more complex run with spaces in the lib name
+        """A slightly more complex run with spaces in the lib name.
+           Note that the spaces may well break downstream parts.
         """
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
         self.bm_rundriver()
@@ -275,7 +283,7 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --comment @???']
+        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject new --comment @???']
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0] = re.sub(
@@ -362,19 +370,49 @@ class T(unittest.TestCase):
                                              " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
                                              " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " -- pack_fast5 main" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
-                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject maybe_complete --comment @???" ]
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject Finished pipeline --comment @???" ]
         expected_calls['del_remote_cells.sh'] = [ "/DUMMY/PATH/20000101_TEST_testrun2 a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
                                                                                     " a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"]
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
-        # FIXME - we need to work out exactly what messages get sent to RT and when, and ensure all runs end with a
-        # "Finished pipeline" message when all cells are processed.
+    def test_run_partial(self):
+        """Same run as above, but only one cell is ready.
+           When the pipeline runs again it should NOT notify the run as complete but the one cell
+           should be processed (higher priority than starting the sync).
+        """
+        self.copy_run('20000101_TEST_testrun2')
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+
+        self.bm_rundriver()
+        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+
+        # Doctor non-deterministic calls to rt_runticket_manager.py
+        for i, c in enumerate(self.bm.last_calls['rt_runticket_manager.py']):
+            self.bm.last_calls['rt_runticket_manager.py'][i] = re.sub( r'@\S+$', '@???', c )
+
+        expected_calls = self.bm.empty_calls()
+        expected_calls['Snakefile.main'] = [ "-f --config"
+                                             " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
+                                             " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " -- pack_fast5 main" ]
+        expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
+        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???" ]
+        expected_calls['del_remote_cells.sh'] = [ "/DUMMY/PATH/20000101_TEST_testrun2 a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"]
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+def slurp_file(f):
+    with open(f) as fh:
+        return [ l.rstrip('\n') for l in fh ]
 
 if __name__ == '__main__':
     unittest.main()
