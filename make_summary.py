@@ -9,8 +9,8 @@ from hesiod import parse_cell_name, glob
 """ Makes a summary (in text format) for a run, mostly for the benefit of RT.
 
     This wants to be able to run before any processing happens, unlike the reports.
-    Unlike make_report, this does not want to be supplied with a list of .yaml files,
-    but rather it will scan for available data.
+    Unlike make_report, this does not expect to be supplied with a list of .yaml files,
+    since these are made by the pipeline, but rather it will scan for available data.
 """
 
 def main(args):
@@ -72,14 +72,15 @@ def main(args):
         rep.append("")
     '''
 
-    # Or should that be a table?
-    rep.append(" Slot      | CellID    | Status  | Cell")
-    rep.append("-----------|-----------|---------|-" + "-" * max(len(c) for c in cells))
-    for cellname, ci in cell_infos:
-        rep.append(" {:10s}| {:10s}| {:8s}| {:s}".format( ci.get('Slot', '???'),
-                                                          ci.get('CellID'),
-                                                          ci['Status'],
-                                                          cellname))
+    # Since there ae many slots, lets make a table.
+    rep.extend(format_table( "Slot CellID Status Cell".split(),
+                             [ [ ci.get('Slot', '???'),
+                                 ci.get('CellID'),
+                                 ci['Status'],
+                                 cellname ]
+                               for cellname, ci in cell_infos ],
+                             [10, 10, 8, max(len(c) for c in cells)] ))
+
     rep.append("")
 
     if (not args.txt) or (args.txt == '-'):
@@ -88,6 +89,35 @@ def main(args):
         L.info("Writing to {}.".format(args.out))
         with open(args.txt, "w") as ofh:
             print(*rep, sep="\n", file=ofh)
+
+def format_table(headings, data, widths=None):
+    """A basic ascii table formatter.
+       Returns a list of lines, which you probably want to join with newlines
+       or print in a loop.
+    """
+    res = []
+    if not widths:
+        widths = [10 for h in headings]
+    # Add the header.
+    res.append('|'.join([
+                    " {:{w}.{w}s}".format(h, w=w) for h, w in zip(headings, widths)
+                    ]).rstrip())
+    # Add the spacer line
+    res.append('|'.join([
+                    "-{:-<{w}s}".format('', w=w) for w in widths
+                    ]))
+    # Add the data. The last column may spill so use a modified widths list
+    widths2 = widths
+    if widths2:
+        widths2[-1] = None
+    for drow in data:
+        res.append('|'.join([
+                          " {:{w}.{w}s}".format(d, w=w) if w is not None else
+                          " {:s}".format(d)
+                          for d, w in zip(drow, widths)
+                        ]).rstrip())
+
+    return res
 
 def scan_cells(run_dir):
     """Same logic as found in Snakefile.main. This only works after things are synced.
