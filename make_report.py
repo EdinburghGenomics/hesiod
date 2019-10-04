@@ -106,17 +106,6 @@ def format_report( all_info,
 
         # Embed some files from MinionQC
         minqc_base = os.path.dirname(ci['_minionqc'])
-        '''
-        for f in ['length_histogram', 'length_vs_q', 'yield_over_time']:
-            res.append('\n### {}\n'.format(f))
-            res.append("<div class='flex'>")
-            res.append(" ".join(
-                    "[plot](img/minqc_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
-                    for _ in [1]
-                ))
-            res.append("</div>")
-        '''
-        # Or more compactly...
         P('\n### {}\n'.format("MinionQC: Length Histo ; Length vs Qual ; Yield over Time"))
         P("<div class='flex'>")
         P(" ".join(

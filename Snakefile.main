@@ -46,6 +46,9 @@ else:
 
 # If not supplied, just assume the usual symlink will work...
 RUNDIR = config.get('rundata', 'rundata')
+if not os.path.exists(RUNDIR):
+    logger.warning(format("WARNING: {RUNDIR} is not a directory. Suppressing rules that reference RUNDIR."))
+    RUNDIR = None
 
 def scan_cells():
     """ Work out all the cells to process. Should be simple since the list is passed
@@ -56,9 +59,12 @@ def scan_cells():
     if 'cells' in config:
         # Believe what we are told
         cells = config['cells'].split('\t')
-    else:
+    elif RUNDIR:
         # Look for valid cells
         cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_pass/")) ]
+    else:
+        # Look for cells here in the output (presumably the run already processed and the raw dir was removed)
+        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("*/*/sequencing_summary.txt.gz")) ]
 
     if 'cellsready' in config:
         # This should include the cells to be processed now AND those already processed.
@@ -66,9 +72,12 @@ def scan_cells():
 
         for c in cellsready:
             assert c in cells, format("Invalid cell (no fastq_pass or not listed in config[cells]): {c}")
-    else:
+    elif RUNDIR:
         # Look for cells with a final_summary.txt
         cellsready = [ c for c in cells if os.path.exists(format("{RUNDIR}/{c}/final_summary.txt")) ]
+    else:
+        # If there is no RUNDIR this makes most sense by default.
+        cellsready = cells
 
     if not cellsready:
         # Not a fatal error if some specific rule is being invoked.
@@ -76,21 +85,22 @@ def scan_cells():
 
     res = { c: dict() for c in cellsready }
 
-    for c, d in res.items():
-        for pf in "pass fail".split():
-            for filetype in "fastq fast5".split():
-                category = format("{filetype}_{pf}")
-                d[category] = [ f[len(RUNDIR) + 1:]
-                                for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
+    if RUNDIR:
+        for c, d in res.items():
+            for pf in "pass fail".split():
+                for filetype in "fastq fast5".split():
+                    category = format("{filetype}_{pf}")
+                    d[category] = [ f[len(RUNDIR) + 1:]
+                                    for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
 
-    # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
-    # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so this
-    # is definitely a bad thing.
-    for c, d in res.items():
-        for pf in "pass fail".split():
-            if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
-                raise RuntimeError( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
-                                    sc_counts(res) )
+        # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
+        # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so this
+        # is definitely a bad thing.
+        for c, d in res.items():
+            for pf in "pass fail".split():
+                if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
+                    raise RuntimeError( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
+                                        sc_counts(res) )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
@@ -111,7 +121,7 @@ def sc_counts(sc_dict, width=140):
 # Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
 SC, COUNTS = scan_cells()
 LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
-RUN = os.path.basename(os.path.realpath(RUNDIR)).split('.')[0]
+RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 
 def save_out_plist(yaml_files, out_file):
         plist = set()
@@ -132,25 +142,26 @@ if 'logger' in globals():
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
-# TODO - added aggregated stats per lib
+# TODO - add aggregated stats per lib
 # NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
 localrules: main, one_cell, pack_fast5
 rule main:
+    output:
+        plist    = "projects_ready.txt",
+        panrep   = "all_reports/report.{}cells.pan".format(len(SC)),
+        rep      = "all_reports/report.{}cells.pan.html".format(len(SC)),
+        replink  = "all_reports/report.html",
     input:
         yaml     = expand("{cell}/cell_info.yaml", cell=SC),
         minionqc = "minionqc/combinedQC/summary.yaml"
-    output:
-        plist    = "projects_ready.txt",
-        rep      = "all_reports/report.html"
     params:
         templates = os.environ.get('TEMPLATES', '.')
     run:
         # After generating all YAML, all projects are ready.
         save_out_plist(input.yaml, str(output.plist))
 
-        panrep = "{}/report.{}cells.pan".format(os.path.dirname(output.rep), len(input.yaml))
-        shell("make_report.py -o {panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
+        shell("make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
 
         shell(r'''
             {TOOLBOX} pandoc -f markdown \
@@ -158,10 +169,10 @@ rule main:
                                 --include-in-header={params.templates}/javascript.js.html \
                                 --include-in-header={params.templates}/local.css.html \
                                 --toc --toc-depth=4 \
-                                -o {panrep}.html {panrep}
+                                -o {output.rep} {output.panrep}
         ''')
 
-        shell("ln -snr {panrep}.html {output.rep}")
+        shell("ln -snr {output.rep} {output.replink}")
 
 # I've split out the fast5 packing in order to allow me to re-run everything else without
 # doing this.
@@ -236,119 +247,125 @@ rule one_cell:
 # I made these a single rule to reduce the number of submitted jobs, with
 # the assuption we'll always be doing both, and "group:" in Snakemake is currently
 # broken with DRMAA :-( ...But I fixed it in upstream now :-)
-rule gzip_md5sum_fast5:
-    output:
-        gz  = "{foo}.fast5.gz",
-        md5 = "md5sums/{foo}.fast5.gz.md5"
-    input:
-        RUNDIR + "/{foo}.fast5"
-    threads: 2
-    shell:
-       r"""{PIGZ} -v -p{threads} -c {input} > {output.gz}
-           ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
-        """
+if RUNDIR:
+    rule gzip_md5sum_fast5:
+        output:
+            gz  = "{foo}.fast5.gz",
+            md5 = "md5sums/{foo}.fast5.gz.md5"
+        input:
+            RUNDIR + "/{foo}.fast5"
+        threads: 2
+        shell:
+           r"""{PIGZ} -v -p{threads} -c {input} > {output.gz}
+               ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
+            """
 
 # This one concatenates and zips and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
-rule concat_gzip_md5sum_fastq:
-    priority: 100
-    output:
-        gz    = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
-        md5   = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
-        count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count",
-        fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
-    input:
-        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
-    threads: 6
-    run:
-        # Here we run the risk of blowing out the command line lenght limit, so avoid
-        # that.
-        with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
+if RUNDIR:
+    rule concat_gzip_md5sum_fastq:
+        priority: 100
+        output:
+            gz    = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
+            md5   = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
+            count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count",
+            fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+        input:
+            fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
+        threads: 6
+        run:
+            # Here we run the risk of blowing out the command line length limit, so avoid
+            # that.
+            with open(output.fofn, "w") as fh:
+                for fname in input.fastq: print(fname, file=fh)
 
-        shell(r"xargs -d '\n' cat <{output.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
+            shell(r"xargs -d '\n' cat <{output.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
-        # Base counter
-        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+            # Base counter
+            shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
 
-        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+            shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
 # We've decided to do the lambda mapping up front. Here's the rule to combine the filtered
 # fastq.gz files, by simply concatenating them rather than unzip/rezip.
 # Note this is specific to the pass reads. We don't partition the fail reads (should we??)
-rule concat_md5sum_nolambda_fastq:
-    priority: 100
-    output:
-        gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
-        md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
-        count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
-        fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list",
-        fofn2 = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq_count.list")
-    input:
-        fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],
-        count = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.count") for f in SC[wc.cell]['fastq_pass']]
-    run:
-        # Avoid blowing the command line limit by listing files in a file. This could be
-        # marked temporary but it's small and handy for debugging.
-        with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
+if RUNDIR:
+    rule concat_md5sum_nolambda_fastq:
+        priority: 100
+        output:
+            gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
+            md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
+            count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
+            fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list",
+            fofn2 = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq_count.list")
+        input:
+            fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],
+            count = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.count") for f in SC[wc.cell]['fastq_pass']]
+        run:
+            # Avoid blowing the command line limit by listing files in a file. This could be
+            # marked temporary but it's small and handy for debugging.
+            with open(output.fofn, "w") as fh:
+                for fname in input.fastq: print(fname, file=fh)
 
-        with open(output.fofn2, "w") as fh:
-            for fname in input.count: print(fname, file=fh)
+            with open(output.fofn2, "w") as fh:
+                for fname in input.count: print(fname, file=fh)
 
-        # Simply concatenate the gzipped files
-        shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
+            # Simply concatenate the gzipped files
+            shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
 
-        # Combine base counts
-        shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+            # Combine base counts
+            shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
 
-        # Checksum over the whole file
-        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+            # Checksum over the whole file
+            shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
-rule concat_md5sum_lambda_bam:
-    output:
-        bam  = "{cell}/{all,[^/]+}_lambda.bam",
-        md5  = "md5sums/{cell}/{all,[^/]+}_lambda.bam.md5",
-        fofn = "{cell}/{all,[^/]+}_lambda_bam.list"
-    input:
-        bam  = lambda wc: [format("fastq_pass_tmp/{f}.lambda.bam") for f in SC[wc.cell]['fastq_pass']]
-    threads: 4
-    run:
-        with open(output.fofn, "w") as fh:
-            for fname in input.bam: print(fname, file=fh)
+if RUNDIR:
+    rule concat_md5sum_lambda_bam:
+        output:
+            bam  = "{cell}/{all,[^/]+}_lambda.bam",
+            md5  = "md5sums/{cell}/{all,[^/]+}_lambda.bam.md5",
+            fofn = "{cell}/{all,[^/]+}_lambda_bam.list"
+        input:
+            bam  = lambda wc: [format("fastq_pass_tmp/{f}.lambda.bam") for f in SC[wc.cell]['fastq_pass']]
+        threads: 4
+        run:
+            with open(output.fofn, "w") as fh:
+                for fname in input.bam: print(fname, file=fh)
 
-        # samtools merge (files in fastq_pass_tmp should be pre-sorted)
-        shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
+            # samtools merge (files in fastq_pass_tmp should be pre-sorted)
+            shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
 
-        shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
+            shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 
 # This rule produces the stuff in fastq_pass_tmp, and will normally be applied
 # to every individual fastq_pass file. It uses nested implicit FIFOs. I call it "bashception".
 # Note this type of construct is vulnerable to the kill-before-flush bug but it seems with
-# this arrangement we are OK.
+# this arrangement we are OK. See:
+#  https://www.pixelbeat.org/docs/coreutils-gotchas.html
 # I plan to fully clean out the temp dir as a separate op outside of Snakemake,
 # deleting it once a cell is done.
-rule map_lambda:
-    output:
-        fq    = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam   = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
-        count = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.count"),
-    input:
-        RUNDIR + "/{cell}/{f}.fastq"
-    params:
-        ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
-        rg     = r'@RG\tID:1\tSM:{cell}\tPL:promethion',
-        mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
-    threads: 6
-    shell:
-       r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
-                lambda_splitter.awk \
-                    -v paf=/dev/stdin \
-                    -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
-                    {input} ) | \
-           {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
-           {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.count}
-        '''
+if RUNDIR:
+    rule map_lambda:
+        output:
+            fq    = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
+            bam   = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
+            count = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.count"),
+        input:
+            RUNDIR + "/{cell}/{f}.fastq"
+        params:
+            ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
+            rg     = r'@RG\tID:1\tSM:{cell}\tPL:promethion',
+            mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
+        threads: 6
+        shell:
+           r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee -p >( \
+                    lambda_splitter.awk \
+                        -v paf=/dev/stdin \
+                        -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
+                        {input} ) | \
+               {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
+               {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.count}
+            '''
 
 def find_sequencing_summary(wc):
     """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
@@ -362,18 +379,20 @@ def find_sequencing_summary(wc):
 
     return found
 
-rule gzip_sequencing_summary:
-    output:
-        link = "{cell}/sequencing_summary.txt.gz"
-    input:
-        summary = find_sequencing_summary
-    threads: 2
-    run:
-        # First copy the file, preserving the name. Then link.
-        gzfile = "{}/{}.gz".format(wildcards.cell, os.path.basename(str(input.summary)))
+# This rule must be suppressed if the upstream is missing
+if RUNDIR:
+    rule gzip_sequencing_summary:
+        output:
+            link = "{cell}/sequencing_summary.txt.gz"
+        input:
+            summary = find_sequencing_summary
+        threads: 2
+        run:
+            # First copy the file, preserving the name. Then link.
+            gzfile = "{}/{}.gz".format(wildcards.cell, os.path.basename(str(input.summary)))
+            shell(r"{PIGZ} -p{threads} -c <{input.summary} >{gzfile}")
 
-        shell(r"{PIGZ} -p{threads} -c <{input.summary} >{gzfile}")
-        shell(r"cd {wildcards.cell} && ln -sn `basename {gzfile}` `basename {output.link}`")
+            shell(r"ln -snr {gzfile} {output.link}")
 
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
