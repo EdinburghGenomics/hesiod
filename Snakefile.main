@@ -15,6 +15,14 @@ set -u
 
 source "`dirname $0`"/shell_helper_functions.sh
 
+# Sanity-check that the virtual env is active
+if ! which NanoPlot >/dev/null ; then
+    echo "***"
+    echo "*** NanoPlot not in PATH. You probably need to activate the Virtual Env"
+    echo "***"
+    echo
+fi
+
 # The TOOLBOX setting gets passed down to jobs that run on SLURM. The PATH setting
 # does not, as SLURM resets that env var.
 export TOOLBOX="$(find_toolbox)"
@@ -154,14 +162,15 @@ rule main:
         replink  = "all_reports/report.html",
     input:
         yaml     = expand("{cell}/cell_info.yaml", cell=SC),
-        minionqc = "minionqc/combinedQC/summary.yaml"
+        # minionqc = "minionqc/combinedQC/summary.yaml"
     params:
         templates = os.environ.get('TEMPLATES', '.')
     run:
         # After generating all YAML, all projects are ready.
         save_out_plist(input.yaml, str(output.plist))
 
-        shell("make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
+        # shell("make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
+        shell("make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} {input.yaml}")
 
         shell(r'''
             {TOOLBOX} pandoc -f markdown \
@@ -212,21 +221,27 @@ rule one_cell:
                                             base = [cellname_to_base(wc.cell)] ),
         blobs        = "blob/{cell}/plots.yaml",
         nanoplot     = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
-        minionqc     = "minionqc/{cell}/summary.yaml",
+        #minionqc     = "minionqc/{cell}/summary.yaml",
     run:
         ci = parse_cell_name(wildcards.cell)
         ci['Run'] = RUN
 
-        # Add pass/fail number of files
+        # Add pass/fail number of files. If the RUNDIR is not available we'll not attempt
+        # to recalculate this. I could still count fast5 files but a better approach would be
+        # to serialize SC[wildcards.cell] and just keep hold of this for info.
         cell_files = SC[wildcards.cell]
         for pf in "pass fail".split():
-            # Maybe we can't guarantee the counts in fastq and fast5 match?!
-            if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
-                ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
-            else:
-                ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[format('fastq_{pf}')]),
-                                                                     len(cell_files[format('fast5_{pf}')]),
-                                                                     pf = pf )
+            try:
+                # Maybe we can't guarantee the counts in fastq and fast5 match?!
+                if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
+                    ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+                else:
+                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[format('fastq_{pf}')]),
+                                                                         len(cell_files[format('fast5_{pf}')]),
+                                                                         pf = pf )
+            except KeyError:
+                # FIXME - see comment above.
+                ci['Files in '+pf] = "unknown"
 
         # Add info from the .count files
         ci['_counts'] = []
@@ -238,7 +253,7 @@ rule one_cell:
         # Link to other reports
         ci['_blobs'] = str(input.blobs)
         ci['_nanoplot'] = str(input.nanoplot[0])
-        ci['_minionqc'] = str(input.minionqc)
+        #ci['_minionqc'] = str(input.minionqc)
 
         dump_yaml(ci, str(output))
 

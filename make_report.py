@@ -105,27 +105,28 @@ def format_report( all_info,
                 P()
 
         # Embed some files from MinionQC
-        minqc_base = os.path.dirname(ci['_minionqc'])
-        P('\n### {}\n'.format("MinionQC: Length Histo ; Length vs Qual ; Yield over Time"))
-        P("<div class='flex'>")
-        P(" ".join(
-            "[plot](img/minqc_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
-            for f in ['length_histogram', 'length_vs_q', 'yield_over_time']
-         ))
-        P("</div>")
+        if '_minionqc' in ci:
+            P('\n### {}\n'.format("MinionQC: Length Histo ; Length vs Qual ; Yield over Time"))
+            P("<div class='flex'>")
+            P(" ".join(
+                "[plot](img/minqc_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
+                for f in ['length_histogram', 'length_vs_q', 'yield_over_time']
+             ))
+            P("</div>")
 
         # Nanoplot plots
-        P('\n### {}\n'.format("NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"))
-        P("<div class='flex'>")
-        P(" ".join(
-            "[plot](img/nanoplot_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
-            for f in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
-         ))
-        P("</div>")
+        if '_nanoplot' in ci:
+            P('\n### {}\n'.format("NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"))
+            P("<div class='flex'>")
+            P(" ".join(
+                "[plot](img/nanoplot_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
+                for f in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
+             ))
+            P("</div>")
 
 
-        # Link to the NanoPlot report
-        P( "[Full NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)".format(ci=ci) )
+            # Link to the NanoPlot report
+            P( "[Full NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)".format(ci=ci) )
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
