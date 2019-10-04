@@ -248,8 +248,10 @@ action_cell_ready(){
     ( notify_run_complete ) |&plog || _res=$?
     if [ ${_res:-0} = 3 ] ; then
         _report_status="incomplete"
+        _report_level=comment
     else
         _report_status="Finished pipeline"
+        _report_level=reply
     fi
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
@@ -275,7 +277,15 @@ action_cell_ready(){
     set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
       # ever have one of these running at a time.
-      upload_report "Processing completed for cells $_cellsready." "" "$_report_status" | plog && log DONE
+      upload_report | plog && log DONE
+
+      # At the moment, notifying RT after making a report is always a failure condition, even if there
+      # is more data to sync/process. This should probably be addressed so we can keep syncing, but it
+      # requires complex changes to the state machine.
+      send_summary_to_rt "$_report_level" "$_report_status" "Processing completed for cells $_cellsready. Run report is at" || \
+      { log "Failed to send summary to RT. See $per_run_log"
+        false
+      }
 
       for _c in $CELLSREADY ; do
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
@@ -521,37 +531,21 @@ notify_run_complete(){
 }
 
 upload_report() {
-    # Makes a report. Will not exit on error. I'm assuming all substantial processing
-    # will have been done already so this should be quick.
+    # Pushes the report. Will not exit on error but the report_upload_url.txt will indicate
+    # if this worked.
+    # status to the caller. I'm assuming all substantial processing will have been done already
+    # so this should be quick.
 
-    # usage: upload_report [rt_prefix] [report_fudge_status] [rt_set_status]
+    # usage: upload_report
 
-    # rt_prefix is mandatory and should be descriptive
-    # A blank report_fudge_status will cause the status to be determined from the
-    # state machine, but sometimes we want to override this.
-    # A blank rt_set_status will leave the status unchanged. A value of "NONE" will
-    # suppress reporting to RT entirely.
-    # Caller is responsible for log redirection to plog, but in some cases we want to
-    # make a regular log message referencing the plog destination, so this is a bit messy.
+    # The Hesiod version was somewhat messier. This may get messier too.
+
     set +o | grep '+o errexit' && _ereset='set +e' || _ereset='set -e'
     set +e
-
-    # All of these must be supplied.
-    _rprefix="$1"
-    _rep_status="$2"
-    _rt_run_status="$3"
 
     # Get a handle on logging.
     plog </dev/null
     _plog="${per_run_log}"
-
-    # FIXME - not sure if I want to run the report directly off the processing
-    # step or have a separate call? Just now it's the former.
-    #Snakefile.main -F --config rep_status="$_rep_status" -- report_main 2>&1
-    true
-
-    # Snag that return value
-    _retval=$(( $? + ${_retval:-0} ))
 
     # Push to server and capture the result (if upload_report.sh does not error it must print a URL)
     # We want stderr from upload_report.sh to go to stdout, so it gets plogged.
@@ -559,25 +553,11 @@ upload_report() {
     # so if the upload fails it needs to be removed.
     rm -f pipeline/report_upload_url.txt
     log "Uploading report"
-    if [ $_retval = 0 ] ; then
-        upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
-            { log "Upload error. See $_plog" ;
-              rm -f pipeline/report_upload_url.txt ; }
-    fi
-
-    send_summary_to_rt comment "$_rt_run_status" "$_rprefix Run report is at"
-
-    # If this fails, the pipeline will continue, since only the final message to RT
-    # is seen as critical.
-    if [ $? != 0 ] ; then
-        log "Failed to send summary to RT. See $per_run_log"
-        _retval=$(( $_retval + 1 ))
-    fi
+    upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
+        { log "Upload error. See $_plog" ;
+          rm -f pipeline/report_upload_url.txt ; }
 
     eval "$_ereset"
-    # Retval will be >1 if anything failed. It's up to the caller what to do with this info.
-    # The exception is for the upload. Caller should check for the URL file to see if that that failed.
-    return $_retval
 }
 
 send_summary_to_rt() {
@@ -642,7 +622,7 @@ pipeline_fail() {
         log "FAIL $_failure on $RUNID; see $per_run_log"
     else
         # RT failure. Complain to STDERR in the hope this will generate an alert mail via CRON
-        msg="FAIL $_failure on $RUNID, and also failed to report the error via RT. See $per_run_log"
+        msg="FAIL $_failure on $RUNID, and also failed to report the error via RT."$'\n'"See $per_run_log"
         echo "$msg" >&2
         log "$msg"
     fi

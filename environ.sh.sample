@@ -4,6 +4,9 @@ LOG_DIR=~pipeline/hesiod/logs
 # Not yet used...
 STALL_TIME=''
 
+# This is needed due to missing certs in the Python certifi package:
+export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+
 # We may have multiple UPSTREAM locations, ie. instruments. In which case you could set
 # UPSTREAM="EGS1 EGS2 LOANER1". But for now just one box.
 UPSTREAM="EGS1"

@@ -38,10 +38,10 @@ class BinMocker:
         """Internal function for making mock scripts.
         """
 
-        mockscript = '''
+        mockscript = r'''
             #!/bin/bash
             {side_effect}
-            echo "`basename $0` $@" >> "`dirname $0`"/_MOCKCALLS ; exit {retcode}
+            echo "`basename $0` $@" | sed ':a; N; s/\n/\\n/; ta' >> "`dirname $0`"/_MOCKCALLS ; exit {retcode}
         '''.format(**locals())
 
         with open(os.path.join(self.mock_bin_dir, mockname), 'w') as fh:

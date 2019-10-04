@@ -9,7 +9,7 @@ import yaml, yamlloader
 import shutil
 import base64
 
-from hesiod import hesiod_version, glob, parse_cell_name, load_yaml
+from hesiod import hesiod_version, glob, load_yaml
 
 def format_report( all_info,
                    pipedata,

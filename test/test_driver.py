@@ -130,6 +130,18 @@ class T(unittest.TestCase):
 
         self.assertTrue(o_split)
 
+    def assertInStderr(self, *words):
+        """Assert that there is at least one line in stdout containing all these strings
+        """
+        o_split = self.bm.last_stderr.split("\n")
+
+        # This loop progressively prunes down the lines, until anything left
+        # must have contained each word in the list.
+        for w in words:
+            o_split = [ l for l in o_split if w in l ]
+
+        self.assertTrue(o_split)
+
     def assertNotInStdout(self, *words):
         """Assert that no lines in STDOUT contain all of these strings
         """
@@ -360,6 +372,9 @@ class T(unittest.TestCase):
 
         self.bm_rundriver()
         self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/failed"))
 
         # Doctor non-deterministic calls to rt_runticket_manager.py
         for i, c in enumerate(self.bm.last_calls['rt_runticket_manager.py']):
@@ -376,7 +391,7 @@ class T(unittest.TestCase):
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
-                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject Finished pipeline --comment @???" ]
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject Finished pipeline --reply @???" ]
         expected_calls['del_remote_cells.sh'] = [ "/DUMMY/PATH/20000101_TEST_testrun2 a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
                                                                                     " a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"]
 
@@ -407,6 +422,97 @@ class T(unittest.TestCase):
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???" ]
         expected_calls['del_remote_cells.sh'] = [ "/DUMMY/PATH/20000101_TEST_testrun2 a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"]
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_run_complete_rtfail(self):
+        """Same as test_run_complete, but messaging to RT fails.
+           The run should press on up to the final stage but should then fail and
+           not del_remote_cells
+        """
+        self.copy_run('20000101_TEST_testrun2')
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
+
+        # When the driver can't report a failure to RT, it will log an error to STDERR so that
+        # the CRON can send us warning messages directly.
+        self.bm.add_mock('rt_runticket_manager.py', fail=True)
+        self.bm_rundriver(check_stderr=False)
+
+        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("Failed to send summary to RT.")
+        self.assertInStderr("FAIL Reporting for cells")
+        self.assertInStderr("and also failed to report the error via RT")
+
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/failed"))
+
+        # Doctor non-deterministic calls to rt_runticket_manager.py
+        rtcalls = self.bm.last_calls['rt_runticket_manager.py']
+        for i in range(len(rtcalls)):
+            rtcalls[i] = re.sub( r'@\S+$', '@???', rtcalls[i] )
+            rtcalls[i] = re.sub( r'(failed --reply) .+$', r'\1 ???', rtcalls[i] )
+
+        expected_calls = self.bm.empty_calls()
+        expected_calls['Snakefile.main'] = [ "-f --config"
+                                             " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " -- pack_fast5 main" ]
+        expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
+        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
+                                                      " All 2 cells have run on the instrument. Full report will follow soon.",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject Finished pipeline --reply @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply ???"]
+        expected_calls['del_remote_cells.sh'] = []
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_run_partial_rtfail(self):
+        """What if RT communication fails on a partial run?
+           Well I shouldn't enter fail state as I want to keep processing cells if poss.
+           But also I don't want the cell to be deleted or marked done until RT is notified.
+           Maybe I need to only do deletions when the run is fully processed??
+           For now I'll just need to enter failed state. Anything else would need a change
+           to the state machine.
+        """
+        self.copy_run('20000101_TEST_testrun2')
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+
+        # When the driver can't report a failure to RT, it will log an error to STDERR so that
+        # the CRON can send us warning messages directly.
+        self.bm.add_mock('rt_runticket_manager.py', fail=True)
+        self.bm_rundriver(check_stderr=False)
+
+        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("Failed to send summary to RT.")
+        self.assertInStderr("FAIL Reporting for cells")
+        self.assertInStderr("and also failed to report the error via RT")
+
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/failed"))
+
+        # Doctor non-deterministic calls to rt_runticket_manager.py
+        rtcalls = self.bm.last_calls['rt_runticket_manager.py']
+        for i in range(len(rtcalls)):
+            rtcalls[i] = re.sub( r'@\S+$', '@???', rtcalls[i] )
+            rtcalls[i] = re.sub( r'(failed --reply) .+$', r'\1 ???', rtcalls[i] )
+
+        expected_calls = self.bm.empty_calls()
+        expected_calls['Snakefile.main'] = [ "-f --config"
+                                             " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
+                                             " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
+                                             " -- pack_fast5 main" ]
+        expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
+        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???",
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply ???" ]
+        expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
