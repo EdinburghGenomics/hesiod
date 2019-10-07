@@ -327,7 +327,7 @@ class T(unittest.TestCase):
         # A new ticket should have been made, but with an error
         expected_calls = self.bm.empty_calls()
         expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject failed'
-                                                     ' --reply New_Run_Setup. See log in /dev/stdout']
+                                                     ' --reply Failed at New_Run_Setup.\\nSee log in /dev/stdout']
 
         # And nothing should be written to the fastqdata dir
         self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
@@ -452,7 +452,7 @@ class T(unittest.TestCase):
         rtcalls = self.bm.last_calls['rt_runticket_manager.py']
         for i in range(len(rtcalls)):
             rtcalls[i] = re.sub( r'@\S+$', '@???', rtcalls[i] )
-            rtcalls[i] = re.sub( r'(failed --reply) .+$', r'\1 ???', rtcalls[i] )
+            rtcalls[i] = re.sub( r'(failed --reply \w+) .+$', r'\1 ???', rtcalls[i] )
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ "-f --config"
@@ -466,7 +466,7 @@ class T(unittest.TestCase):
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject Finished pipeline --reply @???",
-                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply ???"]
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply Failed ???"]
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -500,7 +500,7 @@ class T(unittest.TestCase):
         rtcalls = self.bm.last_calls['rt_runticket_manager.py']
         for i in range(len(rtcalls)):
             rtcalls[i] = re.sub( r'@\S+$', '@???', rtcalls[i] )
-            rtcalls[i] = re.sub( r'(failed --reply) .+$', r'\1 ???', rtcalls[i] )
+            rtcalls[i] = re.sub( r'(failed --reply \w+) .+$', r'\1 ???', rtcalls[i] )
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ "-f --config"
@@ -511,7 +511,7 @@ class T(unittest.TestCase):
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???",
-                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply ???" ]
+                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject failed --reply Failed ???" ]
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)

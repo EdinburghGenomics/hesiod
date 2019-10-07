@@ -587,10 +587,15 @@ send_summary_to_rt() {
             _run_summary="Error making run summary."
     } 3>&1
 
+    # Switch spaces to &nbsp; in the summary. This doesn't really fix the table but it does help.
+    _run_summary="$(sed 's/ /\xC2\xA0/g' <<<"$_run_summary")"
+
     # Send it all to the ticket. Log any stderr.
     ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
         @<(echo "${_preamble}:"
            echo "$_last_upload_report"
+           echo
+           echo "----------"
            echo
            echo "$_run_summary" ) ) 2>&1
 }
@@ -618,7 +623,7 @@ pipeline_fail() {
     # Send an alert to RT.
     # Note that after calling 'plog' we can query '$per_run_log' since all shell vars are global.
     plog "Attempting to notify error to RT"
-    if rt_runticket_manager --subject failed --reply "$_failure. See log in $per_run_log" |& plog ; then
+    if rt_runticket_manager --subject failed --reply "Failed at $_failure."$'\n'"See log in $per_run_log" |& plog ; then
         log "FAIL $_failure on $RUNID; see $per_run_log"
     else
         # RT failure. Complain to STDERR in the hope this will generate an alert mail via CRON
