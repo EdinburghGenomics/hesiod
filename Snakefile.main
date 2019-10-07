@@ -353,7 +353,8 @@ if RUNDIR:
             shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 
 # This rule produces the stuff in fastq_pass_tmp, and will normally be applied
-# to every individual fastq_pass file. It uses nested implicit FIFOs. I call it "bashception".
+# to every individual fastq_pass file prior to combining the results. It uses nested
+# implicit FIFOs. I call it "bashception".
 # Note this type of construct is vulnerable to the kill-before-flush bug but it seems with
 # this arrangement we are OK. See:
 #  https://www.pixelbeat.org/docs/coreutils-gotchas.html
@@ -373,7 +374,7 @@ if RUNDIR:
             mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
         threads: 6
         shell:
-           r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee -p >( \
+           r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
                     lambda_splitter.awk \
                         -v paf=/dev/stdin \
                         -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
@@ -501,7 +502,8 @@ rule qualimap:
         '''
 
 # Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
-# Y-axis scale. This change needs to be ported back to SMRTino.
+# Y-axis scale. This change needs to be ported back to SMRTino. Also note I'm running the plots on the
+# nolambda files so we'll never see lambda in the blobs. Maybe we should reconsider this??
 # BLAST S sequences in C chunks
 BLOB_SUBSAMPLE = 10000
 BLOB_CHUNKS = 100

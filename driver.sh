@@ -581,7 +581,7 @@ send_summary_to_rt() {
 
     # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
     { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
-            _last_upload_report="Report not generated or upload failed."
+            _last_upload_report="Report not yet generated or upload failed."
 
       _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" 2>&3)" || \
             _run_summary="Error making run summary."
@@ -589,7 +589,7 @@ send_summary_to_rt() {
 
     # Send it all to the ticket. Log any stderr.
     ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
-        @<(echo "$_preamble"
+        @<(echo "${_preamble}:"
            echo "$_last_upload_report"
            echo
            echo "$_run_summary" ) ) 2>&1

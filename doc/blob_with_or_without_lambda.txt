@@ -1,0 +1,22 @@
+At present, the pipeline splits all the 'pass' sequences into 2 files:
+
+1) A BAM file of all the reads that aligned to lambda, aligned to lambda.
+2) A FASTQ file of everything else
+
+The blob plots now only show the latter. Which is good but also maybe we'd like to
+see a version of the blob with the lambda present? Well if so we could just go
+back to making the blob on all the 'pass' reads, but this:
+
+1) Generates a whole extra big file, unless we rearrange the rules
+2) Relies on BLAST to identify the lambda sequences
+
+For 2 especially, if we switch to a synthetic spike-in then that won't be in NT.
+
+So, we could do something programmatic. This would involve subsampling both the
+FASTQ and the BAM at the corect percentages, then BLASTing only the FASTQ reads,
+and synthesizing a BLAST report for the lambda reads. The we'd combine it all
+and feed it to BLOBtools.
+
+Yes this is doable. Probably pointless but doable. If we wanted to show both plots
+for comparison then we could subsample the FASTQ reads post-blasting to avoid
+repeat work. Hmmm.
