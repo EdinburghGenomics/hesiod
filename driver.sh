@@ -223,7 +223,9 @@ action_new(){
     # Triggers a summary to be sent to RT as a comment, which should create
     # the new RT ticket. Note that there will never be a report for a brand new run, just a summary.
     # If this fails for some reason, press on.
-    ( send_summary_to_rt comment new "$_msg1"$'\n\n'"This is a new run - there is no report yet." ) |& plog || true
+    ( send_summary_to_rt comment \
+                         new \
+                         "$_msg1"$'\n\n'"This is a new run - there is no report yet." ) |& plog || true
     log "DONE"
 }
 
@@ -255,7 +257,9 @@ action_cell_ready(){
     fi
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
-    ( send_summary_to_rt comment processing "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true
+    ( send_summary_to_rt comment \
+                         processing \
+                         "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true
 
     # As usual, the Snakefile controls the processing
     plog "Preparing to process cell(s) $_cellsready into $RUN_OUTPUT"
@@ -282,7 +286,10 @@ action_cell_ready(){
       # At the moment, notifying RT after making a report is always a failure condition, even if there
       # is more data to sync/process. This should probably be addressed so we can keep syncing, but it
       # requires complex changes to the state machine.
-      send_summary_to_rt "$_report_level" "$_report_status" "Processing completed for cells $_cellsready. Run report is at" || \
+      send_summary_to_rt "$_report_level" \
+                         "$_report_status" \
+                         "Processing completed for cells $_cellsready. Run report is at" \
+                         FUDGE || \
       { log "Failed to send summary to RT. See $per_run_log"
         false
       }
@@ -568,6 +575,7 @@ send_summary_to_rt() {
     _reply_or_comment="${1:-}"
     _run_status="${2:-}"
     _preamble="${3:-Run report is at}"
+    _fudge="${4:-}"
 
     # Quoting of a subject with spaces requires use of arrays but beware this:
     # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
@@ -577,13 +585,17 @@ send_summary_to_rt() {
         _run_status=()
     fi
 
+    if [ -n "$_fudge" ] ; then
+        _fudge=--fudge
+    fi
+
     echo "Sending new summary of this run to RT."
 
     # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
     { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
             _last_upload_report="Report not yet generated or upload failed."
 
-      _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" 2>&3)" || \
+      _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" $_fudge 2>&3)" || \
             _run_summary="Error making run summary."
     } 3>&1
 

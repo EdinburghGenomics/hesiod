@@ -56,7 +56,7 @@ def main(args):
         if os.path.exists( pf('{}.done'.format(basename)) ):
             ci['Status'] = "done"
         elif os.path.exists( pf('{}.started'.format(basename)) ):
-            ci['Status'] = "in qc"
+            ci['Status'] = "in qc" if not args.fudge else "done"
         elif os.path.exists( pf('{}.synced'.format(basename)) ):
             ci['Status'] = "need qc"
         else:
@@ -143,6 +143,8 @@ def parse_args(*args):
                             help="Hint the upstream location for this run.")
     argparser.add_argument("--cells",
                             help="Hint what we expect the cells to be.")
+    argparser.add_argument("--fudge", action="store_true",
+                            help="Convert all 'in qc' cells to 'done' for final summary.")
     argparser.add_argument("-d", "--debug", action="store_true",
                             help="Print more verbose debugging messages.")
 
