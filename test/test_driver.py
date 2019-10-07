@@ -180,8 +180,8 @@ class T(unittest.TestCase):
 
         self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
 
-        self.assertTrue('Nothing found in {}/runs or any upstream locations'.format(
-                                          self.temp_dir ) in self.bm.last_stderr)
+        self.assertInStdout("Found 0 cells in upstream runs")
+        self.assertInStderr('Nothing found in {}/runs or any upstream locations'.format(self.temp_dir))
 
     def test_no_venv(self):
         """With a missing virtualenv the script should fail and not even scan.

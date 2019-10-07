@@ -171,12 +171,12 @@ action_new(){
     # Have a 'from' file containing the upstream location
     # Also a matching output directory and back/forth symlinks
     _cc=`twc $CELLS`
-    if [ "$UPSTREAM" = LOCAL ] ; then
+    if [ "$RUNUPSTREAM" = LOCAL ] ; then
         log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
         _msg1="New run in $PROM_RUNS with $_cc cells."
     else
         log "\_NEW $RUNID with $_cc cells. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
-        _msg1="Syncing new run from $UPSTREAM to $PROM_RUNS with $_cc cells."
+        _msg1="Syncing new run from $RUNUPSTREAM to $PROM_RUNS with $_cc cells."
     fi
 
     # This is ignored when processing new runs from upstream, because that loop doesn't check BREAK,
@@ -188,7 +188,7 @@ action_new(){
     BREAK=1
     if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
         cd "$PROM_RUNS/$RUNID"
-        echo "$UPSTREAM" > "pipeline/upstream"
+        echo "$RUNUPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
         log "FAILED $RUNID (creating $PROM_RUNS/$RUNID/pipeline)"
@@ -644,7 +644,7 @@ get_run_status() { # run_dir
   # Capture the various parts into variables (see test/grs.sh)
   for _v in RUNID/RunID INSTRUMENT/Instrument \
             CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellsDone CELLSABORTED/CellsAborted \
-            STATUS/PipelineStatus UPSTREAM/Upstream ; do
+            STATUS/PipelineStatus RUNUPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
     eval "${_v%/*}"='"$_line"'
   done
@@ -663,9 +663,11 @@ for UPSTREAM_NAME in $UPSTREAM ; do
     UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
 
     # If this fails (network error or whatever) we still want to process local stuff
-    log ">> Looking for upstream runs in $UPSTREAM_LOC"
+    log ">> Looking for ${UPSTREAM_NAME} upstream runs in $UPSTREAM_LOC"
     UPSTREAM_INFO+="$(list_remote_cells.sh)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
 done
+debug "$UPSTREAM_INFO"
+log "Found `echo -n "$UPSTREAM_INFO" | wc -l` cells in upstream runs"
 unset UPSTREAM_LOC UPSTREAM_NAME
 
 ###--->>> SCANNING LOOP <<<---###
@@ -725,7 +727,7 @@ fi
 # Now synthesize new run events
 STATUS=new
 if [ -n "$UPSTREAM" ] ; then
-    log ">> Looking for new upstream runs matching regex $RUN_NAME_REGEX"
+    log ">> Handling new upstream runs matching regex $RUN_NAME_REGEX"
     while read RUNID ; do
         if [[ -z "$RUNID" ]] ; then
             log "No runs seen"
@@ -738,9 +740,8 @@ if [ -n "$UPSTREAM" ] ; then
                 continue
             fi
 
-            # FIXME - ensure these match what is emitted by run_status.py,
-            # and check IFS compatibility
-            UPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
+            # Set vars to match get_run_status. Remember we have IFS set to "\t" in this script.
+            RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
             CELLS=$(   awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
             CELLSPENDING=""
 

@@ -9,6 +9,9 @@ set -euo pipefail
 # The first and second columns will always correspond with a 1:1 mapping.
 # The third column may provide multiple values for each name.
 
+# Try:
+# $ env UPSTREAM_LOC=prom@promethion:/data UPSTREAM_NAME=EGS1 ./list_remote_cells.sh
+
 pattern='*/*/20??????_*_????????/fast?_????'
 
 # Prevent glob expansion in local shell
