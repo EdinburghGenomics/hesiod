@@ -1,0 +1,51 @@
+In each Hesiod report we have one or more projects represented, but in the initial version
+we're not compiling any per-project info. I think we should. This particularly came up when
+looking at how to add the blob stats, which should probably be grouped by project.
+
+Urmi agrees, so after "About this run" we have:
+
+Project 12345XY (or 12345YX?)
+
+Cell Count
+Files in Pass
+Files in Fail
+
+[ Then a table with rows for passed/failed/filtered ]
+Total Reads
+Total Bases
+Max Length
+
+Then the Blob Tables
+
+BLAST hits by Phylum
+BLAST hits by Order
+BLAST hits by Species
+
+
+# To make this work...
+
+The Snakefile needs to work out which project is represented on a cell (simply by taking
+the first 5 chars). At the moment there is potential for mis-typing the project initials
+so I'll account for that in the report.
+
+Then the list_blob_plots needs to make an overview by project - tables_by_project.yaml,
+linking to 3x blobstats.{taxlevel}.{project}.csv per project, so a dict of lists of named
+tuples.
+
+{ project: [ { title: ...,
+               csv: ... },
+           ] },
+
+Now the other info will be resolved by project internally to make_report.py
+
+Ah - but I also have to consider that the tables could be separate for pass + nolambda and the
+number of reads in the subsample is important. I should incorporate this into the table I think.
+
+{ project: [ { title: "BLAST hits for (pass|nolambda) reads by phylum"
+               counts: {dict_by_cell},
+               csv: filename },
+           ] },
+
+I could have a rule to make blobstats.{project}.{pf}.{taxlevel}.csv or I could roll everything into
+one rule that loops through. The former seems more snake-makey. In which case I need to calculate
+a master dict of { project: cells }.

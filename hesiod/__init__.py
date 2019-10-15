@@ -33,6 +33,8 @@ def parse_cell_name(cell):
         res['Library'] = cell.split('/')[0]
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
 
+    res['Project'] = res['Library'][:5]
+
     return res
 
 # YAML convenience functions that use the ordered loader/saver
@@ -49,3 +51,25 @@ def dump_yaml(foo, filename=None):
             return yaml.dump(foo, yfh, Dumper=yamlloader.ordereddict.CSafeDumper)
     else:
         return yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper)
+
+# Another generic and useful function
+def groupby(iterable, keyfunc, sort_by_key=True):
+    """A bit like itertools.groupby() but returns a dict (or rather an OrderedDict)
+       of lists, rather than an iterable of iterables.
+       There is no need for the input list to be sorted.
+       If sort_by_key is False the order of the returned dict will be in the order
+       that keys are seen in the iterable.
+       If sort_by_key is callable then the order of the returned dict will be sorted
+       by this key function, else it will be sorted in the default ordering. Yeah.
+       The lists themselves will always be in the order of the original iterable.
+    """
+    res = OrderedDict()
+    for i in iterable:
+        res.setdefault(keyfunc(i), list()).append(i)
+
+    if not sort_by_key:
+        return res
+    elif sort_by_key is True:
+        return OrderedDict(sorted(res.items()))
+    else:
+        return OrderedDict(sorted(res.items(), key=lambda t: sort_by_key(t[0])))
