@@ -53,7 +53,9 @@ def main(args):
     # Could also get this from the caller??
     for cellname, ci in cell_infos:
         basename = cellname.split('/')[-1]
-        if os.path.exists( pf('{}.done'.format(basename)) ):
+        if os.path.exists( pf('{}.aborted'.format(basename)) ):
+            ci['Status'] = "aborted"
+        elif os.path.exists( pf('{}.done'.format(basename)) ):
             ci['Status'] = "done"
         elif os.path.exists( pf('{}.started'.format(basename)) ):
             ci['Status'] = "in qc" if not args.fudge else "done"
