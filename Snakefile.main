@@ -38,7 +38,7 @@ from pprint import pformat
 
 from snakemake.utils import format
 
-from hesiod import glob, parse_cell_name, dump_yaml, load_yaml
+from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
 
 logger = snakemake.logging.logger
 
@@ -126,9 +126,12 @@ def sc_counts(sc_dict, width=140):
     return pformat(sc_counts, width=width)
 
 
-# Cells are in the form {lib}/{cell}. Some outputs are aggregated by {lib} and other are per-cell.
+# Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
+# Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
+# FIXME - nothing is aggregated per-lib just yet?!
 SC, COUNTS = scan_cells()
-LIBS = sorted(set([ c.split('/')[0] for c in SC ]))
+CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(c)['Library'], True)
+CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(c)['Project'], True)
 RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 
 def save_out_plist(yaml_files, out_file):
@@ -156,12 +159,13 @@ if 'logger' in globals():
 localrules: main, one_cell, pack_fast5
 rule main:
     output:
-        plist    = "projects_ready.txt",
-        panrep   = "all_reports/report.{}cells.pan".format(len(SC)),
-        rep      = "all_reports/report.{}cells.pan.html".format(len(SC)),
-        replink  = "all_reports/report.html",
+        plist     = "projects_ready.txt",
+        panrep    = "all_reports/report.{}cells.pan".format(len(SC)),
+        rep       = "all_reports/report.{}cells.pan.html".format(len(SC)),
+        replink   = "all_reports/report.html",
     input:
-        yaml     = expand("{cell}/cell_info.yaml", cell=SC),
+        yaml      = expand("{cell}/cell_info.yaml", cell=SC),
+        blobstats = "blob/blobstats_by_project.yaml",
         # minionqc = "minionqc/combinedQC/summary.yaml"
     params:
         templates = os.environ.get('TEMPLATES', '.')
@@ -198,6 +202,7 @@ rule pack_fast5:
 #  All fast5 files get individually compressed
 #  All _fail.fastq files get concatenated and compressed
 #  All _pass.fastq files get split into nolambda (concat and compress) and lambda (merged BAM)
+#  but as requested by Urmi we also retain the combined 'pass' files.
 #  All of the files get an md5sum
 def cellname_to_base(c):
     """Given a cell name, what base name do we choose for the output files?
@@ -209,10 +214,10 @@ rule one_cell:
     input:
         fastq_gz     = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
-                                            pf = "nolambda fail".split() ),
+                                            pf = "pass nolambda fail".split() ),
         counts       = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
-                                            pf = "nolambda fail".split() ),
+                                            pf = "pass nolambda fail".split() ),
         lambda_bam   = lambda wc: expand( "{base}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)] ),
         lambda_stats = lambda wc: expand( "lambdaqc/{base}_lambda.bam.stats",
@@ -395,6 +400,13 @@ def find_sequencing_summary(wc):
 
     return found
 
+def slurp_file(filename):
+    """Standard file slurper. Returns a list of lines.
+    """
+    with open(filename) as fh: res = list(fh)
+    if res[-1] == '': res.pop()
+    return res
+
 # This rule must be suppressed if the upstream is missing
 if RUNDIR:
     rule gzip_sequencing_summary:
@@ -508,14 +520,26 @@ rule qualimap:
 BLOB_SUBSAMPLE = 10000
 BLOB_CHUNKS = 100
 BLOB_LEVELS = "phylum order species".split()
-BLOB_PARTS  = ["nolambda"]
+
+# For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
+# final version.
+BLOB_PARTS  = ["pass", "nolambda", "lambda"]
 
 # This is how I want to pass my plots into compile_cell_info.py
 # Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for
 # each, and arranges the plots into 2 (1?) rows of 3 columns as we wish to
 # display them.
-localrules: list_blob_plots
-rule list_blob_plots:
+# We also depend on the CSV outputs of parse_blob_table, which will be rendered to
+# markdown within the make_report script. These are grouped by project not cell, so
+# we need a separate rule below.
+localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, parse_blob_table
+
+rule fasta_numseqs:
+    output: "{foo}.fasta.numseqs"
+    input:  "{foo}.fasta"
+    shell:  "grep -o '^>' {input} | wc -l > {output}"
+
+rule per_cell_blob_plots:
     output: "blob/{cell}/plots.yaml"
     input:
         png = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
@@ -526,47 +550,128 @@ rule list_blob_plots:
                       taxlevel = BLOB_LEVELS,
                       extn = "cov0 read_cov.cov0".split(),
                       thumb = ['.__thumb', ''] ),
-        sample = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta",
+        sample = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs",
                       cell = wc.cell,
                       pf = BLOB_PARTS,
                       run = [RUN],
                       ci = [parse_cell_name(wc.cell)],
                       ss = [BLOB_SUBSAMPLE] ),
     run:
-        # We want to know how big the subsample actually was, as it may be <BLOB_SUBSAMPLE, so check
-        # the FASTA
+        # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE, so check
+        # the FASTA, then make a dict of {part: seq_count}
         wc = wildcards
-        counts = [ next(shell("grep -o '^>' {f} | wc -l", iterable=True)).strip()
-                   for f in input.sample ]
+        counts = { part: slurp_file(f)[0]
+                   for part, f in zip(BLOB_PARTS, input.sample) }
 
         # I need to emit the plots in order in pairs. Unfortunately expand() won't quite
         # cut it here in preserving order but I can make a nested list comprehension.
+        # Group by BLOB_PARTS with an appropriate title.
         plots = [ dict(title = 'Taxonomy for {pf} reads ({c} sequences) by {l}'.format(
-                                                                            pf = s,
-                                                                            c = counts[n],
+                                                                            pf = pf,
+                                                                            c = counts[pf],
                                                                             l = ', '.join(BLOB_LEVELS) ),
+
                        files = [ [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
                                                                             cell = wc.cell,
-                                                                            ci = parse_cell_name(wc.cell),
                                                                             run = RUN,
-                                                                            pf = s,
+                                                                            ci = parse_cell_name(wc.cell),
+                                                                            pf = pf,
                                                                             taxlevel = taxlevel,
                                                                             extn = extn )
                                     for taxlevel in BLOB_LEVELS ]
                                  for extn in "read_cov.cov0 cov0".split() ]
-
-                      ) for n, s in enumerate(BLOB_PARTS) ]
+                      ) for pf in BLOB_PARTS ]
 
         dump_yaml(plots, str(output))
 
+# See above. input.sample is as above but now for all the cells.
+rule per_project_blob_tables:
+    output: "blob/blobstats_by_project.yaml"
+    input:
+        csv = expand("blob/blobstats.{project}.{pf}.{taxlevel}.csv",
+                                          project = CELLS_PER_PROJECT,
+                                          pf = BLOB_PARTS,
+                                          taxlevel = BLOB_LEVELS ),
+        sample = lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
+                                          cell = cell,
+                                          pf = pf,
+                                          run = [RUN],
+                                          ci = parse_cell_name(cell),
+                                          ss = [BLOB_SUBSAMPLE] )
+                                for cell in SC for pf in BLOB_PARTS ],
+    run:
+        # List ALL the tables of blob stats to show per project
+        # The fiddly bit is incorporating the counts dict. See doc/per_project_info.txt
+        res = dict()
+        for p in CELLS_PER_PROJECT:
+            # For each project p make a list of tables, first by PF, then by tax level.
+            csv_list = res[p] = list()
+            for pf in BLOB_PARTS:
+                for tl in BLOB_LEVELS:
+                    # For each table we need a dict of counts matching the table lines,
+                    # ie. one item per cell.
+                    counts_dict = dict()
+                    for cell in CELLS_PER_PROJECT[p]:
+                        # Recreate the filename from input.sample
+                        f = "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
+                                                            cell = cell,
+                                                            run = [RUN],
+                                                            ci =  parse_cell_name(cell),
+                                                            pf = pf,
+                                                            ss = [BLOB_SUBSAMPLE] )
+                        # Did I get that right??
+                        assert f in [str(s) for s in input.sample]
+                        counts_dict[cell] = slurp_file(f)[0]
+
+                    csv = "blob/blobstats.{project}.{pf}.{taxlevel}.csv".format(
+                                    project = p,
+                                    pf = pf,
+                                    taxlevel = tl )
+                    assert csv in [str(s) for s in input.csv]
+
+                    csv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
+                                                            pf = pf,
+                                                            taxlevel = tl ),
+                                           csv = csv,
+                                           counts = counts_dict ) )
+
+        # Finally we have the data structure we need.
+        dump_yaml(res, str(output))
+
+rule parse_blob_table:
+    output: "blob/blobstats.{project}.{pf}.{taxlevel}.csv"
+    input:
+        lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.blobplot.stats.txt".format(
+                                                            cell = cell,
+                                                            run = RUN,
+                                                            ci = parse_cell_name(cell),
+                                                            **vars(wc) )
+                         for cell in CELLS_PER_PROJECT[wc.project] ]
+    params:
+        pct_limit = 1
+    shell:
+        "{TOOLBOX} parse_blob_table {output} {params.pct_limit} {input}"
+
 # Convert to FASTA and subsample and munge the headers
+# seqtk seq -ACNU == to-fasta, no-comments, no-ambiguous, uppercase
 rule fastq_to_subsampled_fasta:
-    output: "blob/{foo}+sub{n}.fasta"
+    output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
     shell:
        r"""{PIGZ} -d -c {input} | \
-             {TOOLBOX} seqtk seq -ACNU - |\
-             {TOOLBOX} seqtk sample - {wildcards.n} |\
+             {TOOLBOX} seqtk seq -ACNU - | \
+             {TOOLBOX} seqtk sample - {wildcards.n} | \
+             sed 's,/,_,g' > {output}
+        """
+
+# Version that works on lambda.bam files
+# The sed filter may well be redundant here.
+rule bam_to_subsampled_fasta:
+    output: "blob/{foo,.+(_lambda)}+sub{n}.fasta"
+    input: "{foo}.bam"
+    shell:
+       r"""{TOOLBOX} samtools fasta {input} | \
+             {TOOLBOX} seqtk sample - {wildcards.n} | \
              sed 's,/,_,g' > {output}
         """
 
