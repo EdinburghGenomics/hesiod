@@ -109,14 +109,12 @@ def format_table(headings, data, widths=None):
                     "-{:-<{w}s}".format('', w=w) for w in widths
                     ]))
     # Add the data. The last column may spill so use a modified widths list
-    widths2 = widths
-    if widths2:
-        widths2[-1] = None
+    widths2 = widths[:-1] + [None]
     for drow in data:
         res.append('|'.join([
                           " {:{w}.{w}s}".format(d, w=w) if w is not None else
                           " {:s}".format(d)
-                          for d, w in zip(drow, widths)
+                          for d, w in zip(drow, widths2)
                         ]).rstrip())
 
     return res
