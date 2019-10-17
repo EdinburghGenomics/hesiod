@@ -13,7 +13,7 @@ BLOB_CHUNKS = 100
 BLOB_LEVELS = "phylum order species".split()
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
-# final version.
+# final version. See PART_LABELS in the main Snakefile.
 BLOB_PARTS  = ["pass", "nolambda", "lambda"]
 
 # This is how I want to pass my plots into compile_cell_info.py
@@ -25,6 +25,7 @@ BLOB_PARTS  = ["pass", "nolambda", "lambda"]
 # we need a separate rule below.
 localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, parse_blob_table
 
+# Basic FASTA sequence counter...
 rule fasta_numseqs:
     output: "{foo}.fasta.numseqs"
     input:  "{foo}.fasta"
@@ -49,7 +50,7 @@ rule per_cell_blob_plots:
                       ss = [BLOB_SUBSAMPLE] ),
     run:
         # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE, so check
-        # the FASTA, then make a dict of {part: seq_count}
+        # the FASTA, then make a dict of {part: seq_count} for this cell.
         wc = wildcards
         counts = { part: slurp_file(f)[0]
                    for part, f in zip(BLOB_PARTS, input.sample) }
@@ -75,7 +76,8 @@ rule per_cell_blob_plots:
 
         dump_yaml(plots, str(output))
 
-# See above. input.sample is as above but now for all the cells.
+# See above. Now we want to make a CSV table per project summarizing the main taxa found
+# in the blob database.
 rule per_project_blob_tables:
     output: "blob/blobstats_by_project.yaml"
     input:
@@ -83,37 +85,16 @@ rule per_project_blob_tables:
                                           project = CELLS_PER_PROJECT,
                                           pf = BLOB_PARTS,
                                           taxlevel = BLOB_LEVELS ),
-        sample = lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
-                                          cell = cell,
-                                          pf = pf,
-                                          run = RUN,
-                                          ci = parse_cell_name(cell),
-                                          ss = BLOB_SUBSAMPLE )
-                                for cell in SC for pf in BLOB_PARTS ],
     run:
         # List ALL the tables of blob stats to show per project
-        # The fiddly bit is incorporating the counts dict. See doc/per_project_info.txt
         res = dict()
         for p in CELLS_PER_PROJECT:
             # For each project p make a list of tables, first by PF, then by tax level.
             csv_list = res[p] = list()
             for pf in BLOB_PARTS:
                 for tl in BLOB_LEVELS:
-                    # For each table we need a dict of counts matching the table lines,
-                    # ie. one item per cell.
-                    counts_dict = dict()
-                    for cell in CELLS_PER_PROJECT[p]:
-                        # Recreate the filename from input.sample
-                        f = "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
-                                                            cell = cell,
-                                                            run = RUN,
-                                                            ci =  parse_cell_name(cell),
-                                                            pf = pf,
-                                                            ss = BLOB_SUBSAMPLE )
-                        # Did I get that right??
-                        assert f in [str(s) for s in input.sample]
-                        counts_dict[cell] = slurp_file(f)[0]
-
+                    # Recreate the filename. I should just be able to go through input.csv
+                    # in order but I'm not 100% sure.
                     csv = "blob/blobstats.{project}.{pf}.{taxlevel}.csv".format(
                                     project = p,
                                     pf = pf,
@@ -121,12 +102,11 @@ rule per_project_blob_tables:
                     assert csv in [str(s) for s in input.csv]
 
                     csv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
-                                                            pf = pf,
+                                                            pf = PART_LABELS.get(pf, pf),
                                                             taxlevel = tl ),
-                                           csv = csv,
-                                           counts = counts_dict ) )
+                                           csv = csv ) )
 
-        # Finally we have the data structure we need.
+        # And this gives us the data structure we need.
         dump_yaml(res, str(output))
 
 rule parse_blob_table:

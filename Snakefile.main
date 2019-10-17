@@ -149,6 +149,7 @@ if 'logger' in globals():
 # TODO - add aggregated stats per lib
 # NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
+
 localrules: main, one_cell, pack_fast5
 rule main:
     output:
@@ -202,15 +203,23 @@ def cellname_to_base(c):
     """
     return "{}/{}_{Library}_{CellID}".format(c, RUN, **parse_cell_name(c))
 
+# See also BLOB_PARTS in Snakefile.blob
+FASTQ_PARTS = ["pass", "nolambda", "fail"]
+PART_LABELS = { 'pass'     : "all passed",
+                'fail'     : "all failed",
+                'nolambda' : "lambda-filtered passed",
+                'lambda'   : "lambda-mapping passed" }
+
+
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
         fastq_gz     = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
-                                            pf = "pass nolambda fail".split() ),
+                                            pf = FASTQ_PARTS ),
         counts       = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
-                                            pf = "pass nolambda fail".split() ),
+                                            pf = FASTQ_PARTS ),
         lambda_bam   = lambda wc: expand( "{base}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)] ),
         lambda_stats = lambda wc: expand( "lambdaqc/{base}_lambda.bam.stats",
@@ -231,6 +240,7 @@ rule one_cell:
         for pf in "pass fail".split():
             try:
                 # Maybe we can't guarantee the counts in fastq and fast5 match?!
+                # Nope - they should always match.
                 if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
                     ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
                 else:
@@ -243,9 +253,9 @@ rule one_cell:
 
         # Add info from the .count files
         ci['_counts'] = []
-        for label, cf in zip(["Lambda-filtered passing reads", "All failed reads"], input.counts):
+        for label, cf in zip(FASTQ_PARTS, input.counts):
             cdata = load_yaml(cf)
-            cdata['_label'] = label
+            cdata['_label'] = "{} reads".format(PART_LABELS.get(label, label).capitalize())
             ci['_counts'].append(cdata)
 
         # Link to other reports

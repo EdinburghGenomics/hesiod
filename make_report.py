@@ -71,6 +71,7 @@ def format_report( all_info,
     P( "\n# Stats per project\n")
     for p, title, cells in list_projects( all_info.values(), project_realnames ):
 
+        # No escaping of title - list_projects adds MD markup
         P( "## {}\n".format(title) )
 
         # Calculate some basic metadata for all cells in project
@@ -111,13 +112,10 @@ def format_report( all_info,
         # Simply print all the tables listed.
         for blobtable in (blobstats or {}).get(p, []):
 
-            # Insert 'Subsample Size' as second column
-            headings = splice(blobtable['csv_data'][0], 1, 'Subsample size')
-
-            rows = [ splice(row, 1, 
-
-                     for row in blobtable['csv_data'][1:] ]
-
+            # Insert the table as it comes
+            P( format_table( blobtable['csv_data'][0],
+                             blobtable['csv_data'][1:],
+                             title = blobtable['title'] ))
 
     #########################################################################
     # Per-cell section
