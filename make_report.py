@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import OrderedDict, namedtuple
 import shutil
 
-from hesiod import hesiod_version, glob, load_yaml
+from hesiod import hesiod_version, glob, load_yaml, abspath
 
 def format_report( all_info,
                    pipedata,
@@ -71,8 +71,10 @@ def format_report( all_info,
     P( "\n# Stats per project\n")
     for p, title, cells in list_projects( all_info.values(), project_realnames ):
 
-        # No escaping of title - list_projects adds MD markup
+        # No escaping of title - list_projects adds MD markup already
         P( "## {}\n".format(title) )
+        P()
+        P( ":::::: {.bs-callout}" )
 
         # Calculate some basic metadata for all cells in project
         P( format_dl( [( 'Cell Count', len(cells) ),
@@ -117,6 +119,9 @@ def format_report( all_info,
                              blobtable['csv_data'][1:],
                              title = blobtable['title'] ))
 
+        P( "", "::::::", "" )
+
+
     #########################################################################
     # Per-cell section
     #########################################################################
@@ -159,8 +164,8 @@ def format_report( all_info,
 
 
         # Nanoplot stats
-        if '_nanoplot' in ci:
-            ns = ci['_nanoplot']
+        if '_nanoplot_data' in ci:
+            ns = ci['_nanoplot_data']
 
             def _format(_k, _v):
                 """Coerce some floats to ints but not all of them"""
@@ -225,8 +230,8 @@ def format_report( all_info,
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
-        if '_blobs' in ci:
-            for plot_group in ci['_blobs']:
+        if '_blobs_data' in ci:
+            for plot_group in ci['_blobs_data']:
 
                 P('\n### {}\n'.format(plot_group['title']))
 
@@ -324,9 +329,12 @@ def main(args):
 
         # Load _blobs and _nanoplot parts.
         if '_blobs' in yaml_info:
-            yaml_info['_blobs'] = load_yaml(yaml_info['_blobs'], relative_to=y)
+            yaml_info['_blobs'] = abspath(yaml_info['_blobs'], relative_to=y)
+            yaml_info['_blobs_data'] = load_yaml(yaml_info['_blobs'])
         if '_nanoplot' in yaml_info:
-            yaml_info['_nanoplot'] = load_yaml(yaml_info['_nanoplot'], relative_to=y)
+            yaml_info['_nanoplot'] = abspath(yaml_info['_nanoplot'], relative_to=y)
+            yaml_info['_nanoplot_data'] = load_yaml(yaml_info['_nanoplot'])
+
 
         all_info[yaml_info['Cell']] = yaml_info
 

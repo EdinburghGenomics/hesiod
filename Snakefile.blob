@@ -59,11 +59,11 @@ rule per_cell_blob_plots:
         # cut it here in preserving order but I can make a nested list comprehension.
         # Group by BLOB_PARTS with an appropriate title.
         plots = [ dict(title = 'Taxonomy for {pf} reads ({c} sequences) by {l}'.format(
-                                                                            pf = pf,
+                                                                            pf = PART_LABELS.get(pf, pf),
                                                                             c = counts[pf],
                                                                             l = ', '.join(BLOB_LEVELS) ),
 
-                       files = [ [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
+                       files = [ [ "{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
                                                                             cell = wc.cell,
                                                                             run = RUN,
                                                                             ci = parse_cell_name(wc.cell),
@@ -95,11 +95,11 @@ rule per_project_blob_tables:
                 for tl in BLOB_LEVELS:
                     # Recreate the filename. I should just be able to go through input.csv
                     # in order but I'm not 100% sure.
-                    csv = "blob/blobstats.{project}.{pf}.{taxlevel}.csv".format(
+                    csv = "blobstats.{project}.{pf}.{taxlevel}.csv".format(
                                     project = p,
                                     pf = pf,
                                     taxlevel = tl )
-                    assert csv in [str(s) for s in input.csv]
+                    assert "blob/" + csv in [str(s) for s in input.csv]
 
                     csv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
                                                             pf = PART_LABELS.get(pf, pf),

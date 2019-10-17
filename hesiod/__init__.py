@@ -48,11 +48,16 @@ def load_yaml(filename, relative_to=None):
     """Load YAML from a file (not a file handle).
        If specified, relative paths are resolved relative to os.path.basename(relative_to)
     """
-    if relative_to and not filename.startswith('/'):
-        filename = os.path.join(os.path.dirname(relative_to), filename)
-
-    with open(filename) as yfh:
+    with open(abspath(filename)) as yfh:
         return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+
+def abspath(filename, relative_to=None):
+    """Version of abspath which can optionally be resolved relative to another file.
+    """
+    if relative_to and not filename.startswith('/'):
+        return os.path.abspath(os.path.join(os.path.dirname(relative_to), filename))
+    else:
+        return os.path.abspath(filename)
 
 def dump_yaml(foo, filename=None):
     """Return YAML string and optionally dump to a file (not a file handle)."""

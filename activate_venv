@@ -33,7 +33,7 @@ else
         "$(readlink -f "$_py3")" -mvenv ./_py3_venv
         activate_venv
 
-        pip3 install --upgrade pip
+        pip3 install pip==19.2.1
         pip3 install pyyaml==5.1.1
         pip3 install yamlloader==0.5.5
         pip3 install Rt==1.0.11
@@ -49,6 +49,10 @@ else
         # snakemake and drmaa
         pip install snakemake==5.5.3
         pip install drmaa==0.7.9
+
+        # For access the Clarity
+        pip3 install pyclarity_lims==0.4.8
+        pip3 install psycopg2-binary==2.8.3
 
         # Here’s the big one
         pip install NanoPlot==1.26.1
