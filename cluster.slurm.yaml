@@ -6,7 +6,7 @@ blast_chunk              : {slurm_opts: '--mem=24000 --mincpus=6'}
 blob_db                  : {slurm_opts: '--mem=12000 --mincpus=1'}
 blob_plot_png            : {slurm_opts: '--mem=12000 --mincpus=1'}
 diamond_chunk            : {slurm_opts: '--mem=24000 --mincpus=8'}
-concat_gzip_md5sum_fastq : {slurm_opts: '--mem=24000 --mincpus=6'}
+concat_gzip_md5sum_fastq : {slurm_opts: '--mem=24000 --mincpus=8'}
 concat_tar_md5sum_fastq  : {slurm_opts: '--mem=24000 --mincpus=6'}
 concat_md5sum_lambda_bam : {slurm_opts: '--mem=12000 --mincpus=4'}
 map_lambda               : {slurm_opts: '--mem=12000 --mincpus=4'}

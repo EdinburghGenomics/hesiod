@@ -51,7 +51,8 @@ if [ -e "$ENVIRON_SH" ] ; then
     # Saves having to put 'export' on every line in the config.
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
-           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE TOOLBOX
+           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE TOOLBOX \
+           PROJECT_NAME_LIST
 fi
 
 # Tools may reliably use this to report the version of Hesiod being run right now.
@@ -255,6 +256,10 @@ action_cell_ready(){
         _report_status="Finished pipeline"
         _report_level=reply
     fi
+
+    # We'd like to have some project info from the LIMS.
+    # TODO - maybe get this earlier, if we want to put the info in RT?
+    project_realnames |& plog
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment \
@@ -643,6 +648,13 @@ pipeline_fail() {
         echo "$msg" >&2
         log "$msg"
     fi
+}
+
+project_realnames() {
+    # Save info about the projects into $RUN_OUTPUT/project_realnames.yaml
+    # This is done on a best-effort basis, so if we can't contact the LIMS no file is written.
+    plog "Asking LIMS for the real project names..."
+    project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t $CELLS || true
 }
 
 get_run_status() { # run_dir

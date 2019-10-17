@@ -51,6 +51,7 @@ rule gzip_md5sum_fast5:
 
 # This one concatenates and zips and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
+# TODO - should probably convert this to zip the individual chunks, as per the nolambda files?
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
@@ -60,7 +61,7 @@ rule concat_gzip_md5sum_fastq:
         fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
     input:
         fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
-    threads: 6
+    threads: 8
     run:
         # Here we run the risk of blowing out the command line length limit, so avoid
         # that.
@@ -83,7 +84,7 @@ rule concat_md5sum_nolambda_fastq:
         gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
         md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
         count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
-        fofn  = "{cell}/{all,[^/]+}_nolambda_fastq.list",
+        fofn  = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq.list"),
         fofn2 = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq_count.list")
     input:
         fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],

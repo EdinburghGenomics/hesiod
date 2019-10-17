@@ -5,7 +5,6 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pprint import pformat
 from datetime import datetime
 from collections import OrderedDict, namedtuple
-import yaml, yamlloader
 import shutil
 import base64
 
@@ -15,7 +14,9 @@ def format_report( all_info,
                    pipedata,
                    aborted_list = (),
                    minionqc = None,
-                   totalcells = None ):
+                   totalcells = None,
+                   project_realnames = None,
+                   blobstats = None ):
     """Makes the report as a list of strings (lines)
     """
 
@@ -27,28 +28,33 @@ def format_report( all_info,
     instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
     libs = sorted(set([ i['Cell'].split('/')[0] for i in all_info.values() ]))
 
+    #########################################################################
     # Header
+    #########################################################################
+
     P( "% Promethion run {}".format(",".join(runs)),
        "% Hesiod version {}".format(pipedata['version']),
        "% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")) )
 
+    #########################################################################
     # Run metadata
+    #########################################################################
     P()
     P( "# About this run (experiment? project?)\n")
-    P( "### Metadata\n")
-    P( '<dl class="dl-horizontal">' )
-    P( '<dt>Run ID</dt> <dd>{}</dd>'.format(",".join(runs)) )
-    P( '<dt>Upstream Location</dt> <dd>{}</dd>'.format(pipedata['upstream']) )
-    P( '<dt>Instrument</dt> <dd>{}</dd>'.format(",".join(instr)) )
-    P( '<dt>Cell Count</dt> <dd>{}</dd>'.format(len(all_info) if totalcells is None else totalcells) )
-    P( '<dt>Library Count</dt> <dd>{}</dd>'.format(len(libs)) )
-    P( '<dt>Start Time</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[0]) )
-    P( '<dt>Last Run Time</dt> <dd>{}</dd>'.format((pipedata['start_times'] or ['unknown'])[-1]) )
-    P( '</dl>' )
+
+    P( format_dl( [( 'Run ID',            ",".join(runs) ),
+                   ( 'Upstream Location', pipedata['upstream'] ),
+                   #( 'Instrument',        ",".join(instr) ),
+                   ( 'Cell Count',        len(all_info) if totalcells is None else totalcells ),
+                   ( 'Library Count',     len(libs) ),
+                   ( 'Start Time',        (pipedata['start_times'] or ['unknown'])[0] ),
+                   ( 'Last Run Time',     (pipedata['start_times'] or ['unknown'])[-1], )],
+                  title="Metadata") )
+
 
     # Overview plots from minionqc/combinedQC
     if minionqc:
-        P('\n### {}\n'.format("MinionQC: Combined Length Histo ; Combined Quality Histo ; Combined Yield over Time"))
+        P("\n### {}\n".format("MinionQC: Combined Length Histo ; Combined Quality Histo ; Combined Yield over Time"))
         P("<div class='flex'>")
         P(" ".join(
             "[plot](img/minqc_combined_{f}.png){{.thumbnail}}".format(f=f)
@@ -56,23 +62,84 @@ def format_report( all_info,
          ))
         P("</div>")
 
+    #########################################################################
+    # Per-project section
+    #########################################################################
+
+    # Info and BLOB stats by project, which we get from i['Project']. Hopefully the LIMS gave us names
+    # and links to all the projects.
+    P( "\n# Stats per project\n")
+    for p, title, cells in list_projects( all_info.values(), project_realnames ):
+
+        P( "## {}\n".format(title) )
+
+        # Calculate some basic metadata for all cells in project
+        P( format_dl( [( 'Cell Count', len(cells) ),
+                       ( 'Library Count', len(set([c['Library'] for c in cells])) ),
+                       ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
+                       ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
+                      title="Metadata") )
+
+        # Tabulate some totals for passed/failed/filtered. This is just a matter of totting
+        # up values in the _counts section of each cell.
+        # First get all the labels from the first cell:
+        all_counts = [c['_counts'] for c in cells]
+        labels = [f['_label'] for f in all_counts[0]]
+
+        # And sanity check that the list of labels is consistent for all cells
+        # (as from here we'll assume everything is in the same order)
+        for c in all_counts[1:]:
+            assert [f['_label'] for f in c] == labels
+
+        # A list of lists to populate the table
+        # see test/test_make_report.py if you're trying to work out how the nested
+        # expansions work.
+        rows = [ ( label,
+                   sum( cat_counts['total_reads'] ),
+                   sum( cat_counts['total_bases'] ),
+                   max( [ int(l.split('-')[-1]) for l in cat_counts['read_length'] ] ) )
+                 for row, label in enumerate(labels)
+                 for cat_counts in [{ k: [ c[row][k] for c in all_counts ]
+                                      for k in ['total_reads', 'total_bases', 'read_length'] }] ]
+
+        P( format_table( ["Category", "Total Reads", "Total Bases", "Max Length"],
+                         rows,
+                         title = "Read summary" ) )
+
+        # Now for the BLOB tables. These are specified by the blobstats_by_project.yaml file,
+        # and will be loaded as a dict by project.
+        # Simply print all the tables listed.
+        for blobtable in (blobstats or {}).get(p, []):
+
+            # Insert 'Subsample Size' as second column
+            headings = splice(blobtable['csv_data'][0], 1, 'Subsample size')
+
+            rows = [ splice(row, 1, 
+
+                     for row in blobtable['csv_data'][1:] ]
+
+
+    #########################################################################
+    # Per-cell section
+    #########################################################################
+
+    P('\n# Stats per cell\n')
     for cell, ci in sorted(all_info.items()):
         P()
-        P( "# Cell {}".format(cell) )
+        P( "## Cell {}".format(cell) )
         P()
         P( ":::::: {.bs-callout}" )
 
         # Basic cell metadata
-        P( '<dl class="dl-horizontal">' )
-        P("### Metadata")
-        for k, v in ci.items():
-            if not k.startswith("_"):
-                # Special case for date
-                if k == "Date" and re.match(r'[0-9]{8}', v):
-                    v = datetime.strptime(v, '%Y%m%d').strftime('%d %b %Y')
-                P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(v)))
-        P( '</dl>' )
-        P()
+        def _format(_k, _v):
+            """Handle special case for dates"""
+            if _k == "Date" and re.match(r'[0-9]{8}', _v):
+                _v = datetime.strptime(v, '%Y%m%d').strftime('%d %b %Y')
+            return (_k, _v)
+
+
+        P( format_dl( [ _format( k, v ) for k, v in ci.items() if not k.startswith("_") ],
+                      title="Metadata") )
 
         # Stuff from the .count files that's been embedded in the YAML
         for cdata in ci.get('_counts', []):
@@ -151,12 +218,57 @@ def format_report( all_info,
     P("*~~~*")
     return res
 
+def format_dl(data_pairs, title=None):
+    """Formats a table of values with headings in the first column.
+       Currently we do this as a <dl>, but this may change.
+    """
+    res = []
+    P = lambda *a: res.extend(a or [''])
+
+    P( '<dl class="dl-horizontal">' )
+    if title:
+        P("### {}\n".format(escape(title)))
+    for k, pv in data_pairs:
+        P('<dt>{}</dt> <dd>{}</dd>'.format(escape(k),escape(pv)))
+    P( '</dl>' )
+    P()
+
+    return "\n".join(res)
+
+def format_table(headings, data, title=None):
+    """Another markdown table formatter. Values will be escaped.
+       Presumably the table is destined to be a DataTable.
+       Returns a single string.
+    """
+    res = []
+    P = lambda *a: res.extend(a or [''])
+
+    if title:
+        P("### {}\n".format(escape(title)))
+
+    # Add the header, bounded by pipes.
+    P('| {} |'.format( ' | '.join([ escape(h)
+                                    for h in headings ]) ))
+
+    # Add the spacer line - fix the with for easier reading of the MD
+    widths = [ len(escape(h)) for h in headings ]
+    P('|-{}-|'.format( '-|-'.join([ "-{:-<{w}s}".format('', w=w)
+                                    for w in widths ]) ))
+
+    # Add the data.
+    for drow in data:
+        P('| {} |'.format( ' | '.join([ escape(d)
+                                        for d in drow ]) ))
+    P()
+
+    return "\n".join(res)
+
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
 
     all_info = dict()
-    # Basic basic basic
+    # Slurp up all the cells we're going to report on
     for y in args.yamls:
         yaml_info = load_yaml(y)
 
@@ -171,13 +283,30 @@ def main(args):
     else:
         pipedata = dict(version=hesiod_version)
 
+    # See if we have some info from the LIMS
+    if args.realnames:
+        realnames = load_yaml(args.realnames)
+    else:
+        realnames = None
+
+    # See if we have per-project blob stats. These can't be included in the per-cell YAML
+    # files as the combined tables are generated by a separate R script.
+    # I've decided to use a single combined metadata file rather than one per project.
+    if args.blobstats:
+        blobstats = load_blobstats(args.blobstats)
+    else:
+        blobstats  = None
+
+
     # FIXME - we're missing a pipeline status and list of aborted/pending cells?
 
     rep = format_report( all_info,
                          pipedata = pipedata,
                          aborted_list = [],
                          minionqc = args.minionqc,
-                         totalcells = args.totalcells )
+                         totalcells = args.totalcells,
+                         project_realnames = realnames,
+                         blobstats = blobstats )
 
     if (not args.out) or (args.out == '-'):
         print(*rep, sep="\n")
@@ -190,6 +319,59 @@ def main(args):
         L.info("Copying files to {}".format(copy_dest))
 
         copy_files(all_info, copy_dest, minionqc=args.minionqc)
+
+def load_blobstats(filename):
+    """Load the YAML file but then also add the split_out contents of all of
+       the linked CSV files.
+    """
+    blobstats = load_yaml(filename)
+
+    for proj_stats in blobstats.values():
+        for proj_file in proj_stats:
+            # proj_file is now a dict which must have a 'csv' member
+            csv_file = proj_file['csv']
+
+            # Resolve the file name relative to the original YAML file
+            if not csv_file.startswith('/'):
+                csv_file = os.path.join(os.path.dirname(filename), csv_file)
+
+            with open(csv_file) as fh:
+                # Naive CSV split
+                proj_file['csv_data'] = [ line.strip().split(',') for line in fh ]
+
+    return blobstats
+
+def list_projects(cells, realname_dict):
+    """ Given a list of cells, which have 'Project' set, come up with a set of headings
+        to print and return a list of (name, heading, cells) tuples.
+        The list of names will be converted to a sorted set.
+    """
+    if realname_dict is None:
+        realname_dict = dict()
+
+    res = OrderedDict()
+
+    for c in cells:
+        n = c['Project']
+        if n in res:
+            # Just add this cell to the list
+            res[n][1].append(c)
+        else:
+            # Do we know about this one?
+            if n in realname_dict:
+                if realname_dict[n].get('url'):
+                    title = "Project [{}]({})".format(
+                                      realname_dict[n].get('name'),
+                                          realname_dict[n].get('url') )
+                else:
+                    title = "Project {}".format(
+                                     realname_dict[n].get('name') )
+            else:
+                title = "Project {}".format(n)
+            res[n] = (title, [c])
+
+    # Convert dict of doubles back to list of triples and sort them too
+    return [ (k, *v) for k, v in sorted(res.items()) ]
 
 def copy_files(all_info, base_path, minionqc=None):
     """ We need to copy the NanoPlot, MinionQC, Blob reports into here.
@@ -285,6 +467,10 @@ def parse_args(*args):
                             help="Manually set the total number of cells, if not all are yet reported.")
     argparser.add_argument("-p", "--pipeline", default="rundata/pipeline",
                             help="Directory to scan for pipeline meta-data.")
+    argparser.add_argument("-r", "--realnames",
+                            help="YAML file containing real names for projects.")
+    argparser.add_argument("-b", "--blobstats",
+                            help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")
     argparser.add_argument("-f", "--fudge_status",
                             help="Override the PipelineStatus shown in the report.")
     argparser.add_argument("-o", "--out",

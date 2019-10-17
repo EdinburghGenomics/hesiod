@@ -25,9 +25,10 @@ CLUSTER_QUEUE=casava
 #   {upstream_path} - eg /data/testrun
 #   {cell}          - col 3 - eg. testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b
 #   {run}           - col 1 - eg. 20190710_TEST_testrun
-SYNC_CMD="rsync -vrltDR --modify-window=5 \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
+SYNC_CMD="rsync -vrltR --modify-window=5 \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
 ## Or this should be faster but only works for /mnt/lustre/promethion:
-# SYNC_CMD="ssh -T \${upstream_host} rsync -vrltDR --modify-window=5 \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
+# SYNC_CMD="ssh -T \${upstream_host} rsync -vrltR --modify-window=5 \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
+# SYNC_CMD="ssh -T \${upstream_host} rsync -vrltR --size-only --append \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
 
 # If you want different sync commands for different upstream hosts then this is not yet supported.
 # I'm imagining if we get another Promethion we'll just set it up the same.

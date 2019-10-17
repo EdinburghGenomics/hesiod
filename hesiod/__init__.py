@@ -33,7 +33,12 @@ def parse_cell_name(cell):
         res['Library'] = cell.split('/')[0]
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
 
-    res['Project'] = res['Library'][:5]
+    # FIXME - not sure this is the right thing to do when the regex fails.
+    mo =  re.match(r"([0-9]{5})[A-Z]{2}", res['Library'])
+    if mo:
+        res['Project'] = mo.group(1)
+    else:
+        res['Project'] = res['Library']
 
     return res
 
@@ -45,12 +50,12 @@ def load_yaml(filename):
         return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 
 def dump_yaml(foo, filename=None):
-    """Return YAML string or dump to a file (not a file handle)."""
+    """Return YAML string and optionally dump to a file (not a file handle)."""
+    ydoc = yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper)
     if filename:
         with open(filename, 'w') as yfh:
-            return yaml.dump(foo, yfh, Dumper=yamlloader.ordereddict.CSafeDumper)
-    else:
-        return yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper)
+            print(ydoc, file=yfh, end='')
+    return ydoc
 
 # Another generic and useful function
 def groupby(iterable, keyfunc, sort_by_key=True):
@@ -73,3 +78,10 @@ def groupby(iterable, keyfunc, sort_by_key=True):
         return OrderedDict(sorted(res.items()))
     else:
         return OrderedDict(sorted(res.items(), key=lambda t: sort_by_key(t[0])))
+
+def slurp_file(filename):
+    """Standard file slurper. Returns a list of lines.
+    """
+    with open(filename) as fh:
+        return [ l.rstrip("\n") for l in fh ]
+

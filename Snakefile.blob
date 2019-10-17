@@ -2,6 +2,7 @@
 
 # Rules to make BLOB plots and summary tables.
 # These rules are designed to be included in Snakefile.main and will not run standalone.
+from hesiod import slurp_file
 
 # Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
 # Y-axis scale. This change needs to be ported back to SMRTino. Also note I'm running the plots on the
@@ -85,9 +86,9 @@ rule per_project_blob_tables:
         sample = lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
                                           cell = cell,
                                           pf = pf,
-                                          run = [RUN],
+                                          run = RUN,
                                           ci = parse_cell_name(cell),
-                                          ss = [BLOB_SUBSAMPLE] )
+                                          ss = BLOB_SUBSAMPLE )
                                 for cell in SC for pf in BLOB_PARTS ],
     run:
         # List ALL the tables of blob stats to show per project
@@ -105,10 +106,10 @@ rule per_project_blob_tables:
                         # Recreate the filename from input.sample
                         f = "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs".format(
                                                             cell = cell,
-                                                            run = [RUN],
+                                                            run = RUN,
                                                             ci =  parse_cell_name(cell),
                                                             pf = pf,
-                                                            ss = [BLOB_SUBSAMPLE] )
+                                                            ss = BLOB_SUBSAMPLE )
                         # Did I get that right??
                         assert f in [str(s) for s in input.sample]
                         counts_dict[cell] = slurp_file(f)[0]
@@ -147,8 +148,9 @@ rule parse_blob_table:
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
+    threads: 2
     shell:
-       r"""{PIGZ} -d -c {input} | \
+       r"""{PIGZ} -p{threads} -d -c {input} | \
              {TOOLBOX} seqtk seq -ACNU - | \
              {TOOLBOX} seqtk sample - {wildcards.n} | \
              sed 's,/,_,g' > {output}
@@ -159,6 +161,7 @@ rule fastq_to_subsampled_fasta:
 rule bam_to_subsampled_fasta:
     output: "blob/{foo,.+(_lambda)}+sub{n}.fasta"
     input: "{foo}.bam"
+    threads: 2
     shell:
        r"""{TOOLBOX} samtools fasta {input} | \
              {TOOLBOX} seqtk sample - {wildcards.n} | \
