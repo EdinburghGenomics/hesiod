@@ -178,6 +178,7 @@ rule main:
             {TOOLBOX} pandoc -f markdown \
                                 --template={params.templates}/template.html \
                                 --include-in-header={params.templates}/javascript.js.html \
+                                --include-in-header={params.templates}/easter.js.html \
                                 --include-in-header={params.templates}/local.css.html \
                                 --toc --toc-depth=4 \
                                 -o {output.rep} {output.panrep}

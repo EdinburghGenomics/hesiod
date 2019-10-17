@@ -26,10 +26,15 @@ BLOB_PARTS  = ["pass", "nolambda", "lambda"]
 localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, parse_blob_table
 
 # Basic FASTA sequence counter...
+# we need a special case for empty files here - these simply have 0 sequences.
 rule fasta_numseqs:
     output: "{foo}.fasta.numseqs"
     input:  "{foo}.fasta"
-    shell:  "grep -o '^>' {input} | wc -l > {output}"
+    shell:
+         r'''if ! grep -o '^>' {input} | wc -l > {output} ; then
+                [ ! -s {input} ] && echo 0 > {output}
+             fi
+          '''
 
 rule per_cell_blob_plots:
     output: "blob/{cell}/plots.yaml"

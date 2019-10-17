@@ -31,220 +31,220 @@
 <!-- end: fancybox2 -->
 
 <script>
-    /* Inevitably this script is getting frikkin huge, as every new item added to the reports
-       creates more complications and special cases. Meh. */
+/* Inevitably this script is getting frikkin huge, as every new item added to the reports
+   creates more complications and special cases. Meh. */
 
-    /* Make all tables into datatables (hmmm - maybe we only want this on selected tables??) */
-    $(document).ready(function() {
-        /* All datatables want to be class "display", and wrapped in a div of class table-wrap
-           Furthermore any <caption> wants to be extracted and bunged into the id
-           attribute on the wrapper div, as Pandoc does not support setting table attributes
-           directly and DataTables clobbers any style/id set on the table itself. */
-        $('table').each(function(){
-            $(this).attr('class', 'display');
-            $(this).wrap("<div class='table-wrap' style='overflow-x:auto; width:auto'></div>");
+/* Make all tables into datatables (hmmm - maybe we only want this on selected tables??) */
+$(document).ready(function() {
+    /* All datatables want to be class "display", and wrapped in a div of class table-wrap
+       Furthermore any <caption> wants to be extracted and bunged into the id
+       attribute on the wrapper div, as Pandoc does not support setting table attributes
+       directly and DataTables clobbers any style/id set on the table itself. */
+    $('table').each(function(){
+        $(this).attr('class', 'display');
+        $(this).wrap("<div class='table-wrap' style='overflow-x:auto; width:auto'></div>");
 
-            if($(this).find('caption')){
-                $(this).parent().attr('id', $(this).find('caption').text());
-                $(this).find('caption').remove();
+        if($(this).find('caption')){
+            $(this).parent().attr('id', $(this).find('caption').text());
+            $(this).find('caption').remove();
+        }
+        var div_id = $(this).parent().attr('id');
+
+        /* Replace any hyphens with non-break hyphens within the text */
+        fix_hyphens($(this));
+
+        var dtable = $(this).dataTable({
+            dom:      'Bfrtip',
+            paging:   false,
+            info:     false,
+            ordering: false,
+            order:    [],
+            buttons:  (div_id != 'no_buttons' ? [ 'copy', 'csv', 'excel' ] : []),
+            searching: false,
+            columnDefs: [ { width: "200pt", targets: 0 } ],
+        });
+
+        /* Now add linked filters if this table wants them */
+        if(div_id == 'linkedfilter')
+        {
+            add_filters(dtable);
+        }
+    });
+    /* If there were any linkedfilter tables, select the first item */
+    default_filters();
+} );
+
+/* Lightbox popups and thumbnails */
+$(document).ready(function(){
+
+    /* Make all lightbox links show in a fancybox popup (using an iFrame supports PDF on Chrome) */
+    $('a.lightbox').each(function(){
+        $(this).attr('title', $(this).attr('href'));
+        $(this).attr('data-fancybox-type', "iframe");
+        $(this).fancybox({
+            fitToView:   false,
+            autoSize:    false,
+            width:       '90%',
+            height:      '90%',
+            openEffect:  'none',
+            closeEffect: 'none',
+            iframe: {
+                scrolling: 'auto',
+                preload:   false,
             }
-            var div_id = $(this).parent().attr('id');
-
-            /* Replace any hyphens with non-break hyphens within the text */
-            fix_hyphens($(this));
-
-            var dtable = $(this).dataTable({
-                dom:      'Bfrtip',
-                paging:   false,
-                info:     false,
-                ordering: false,
-                order:    [],
-                buttons:  (div_id != 'no_buttons' ? [ 'copy', 'csv', 'excel' ] : []),
-                searching: false,
-                columnDefs: [ { width: "200pt", targets: 0 } ],
-            });
-
-            /* Now add linked filters if this table wants them */
-            if(div_id == 'linkedfilter')
-            {
-                add_filters(dtable);
-            }
-        });
-        /* If there were any linkedfilter tables, select the first item */
-        default_filters();
-    } );
-
-    /* Lightbox popups and thumbnails */
-    $(document).ready(function(){
-
-        /* Make all lightbox links show in a fancybox popup (using an iFrame supports PDF on Chrome) */
-        $('a.lightbox').each(function(){
-            $(this).attr('title', $(this).attr('href'));
-            $(this).attr('data-fancybox-type', "iframe");
-            $(this).fancybox({
-                fitToView:   false,
-                autoSize:    false,
-                width:       '90%',
-                height:      '90%',
-                openEffect:  'none',
-                closeEffect: 'none',
-                iframe: {
-                    scrolling: 'auto',
-                    preload:   false,
-                }
-            });
-        });
-
-        /* And make all thumbnail links show thumbnails and trigger a fancybox popup (no iFrame so only png/jpeg) */
-        $('a.thumbnail').each(function(){
-            // A little filename manipulation
-            var target = $(this).attr('href');
-            var target_base = target.split('/');
-                target_base = target_base[target_base.length-1];
-            var target_thumb = target.split('.');
-                target_thumb[target_thumb.length-1] = ('__thumb.' + target_thumb[target_thumb.length-1]);
-                target_thumb = target_thumb.join('.');
-
-            // Plonk in the img tag as child of the <a> element
-            var old_text = $(this).text()
-            $(this).html("<img style='border:none'/>");
-            try{ $(this).find('img').error(image_missing) } catch(ReferenceError){};
-            $(this).find('img').attr('src', target_thumb);
-            $(this).find('img').attr('alt', old_text);
-
-            $(this).attr('title', target_base);
-            $(this).fancybox({
-                fitToView:   true,
-                autoSize:    true,
-                openEffect:  'none',
-                closeEffect: 'none',
-                iframe: {
-                    scrolling: 'auto',
-                    preload:   false,
-                }
-            });
-        });
-
-        /* Seems I now want thumbnails for PDF, so here's a combo of the two. Thumbnails are
-           always PNG */
-        $('a.ithumbnail').each(function(){
-            // A little filename manipulation
-            var target = $(this).attr('href');
-            var target_base = target.split('/');
-                target_base = target_base[target_base.length-1];
-            var target_thumb = target.split('.');
-                target_thumb[target_thumb.length-1] = ('__thumb.png');
-                target_thumb = target_thumb.join('.');
-
-            // Plonk in the img tag as child of the <a> element
-            var old_text = $(this).text()
-            $(this).html("<img style='border:none'/>");
-            try{ $(this).find('img').error(image_missing) } catch(ReferenceError){};
-            $(this).find('img').attr('src', target_thumb);
-            $(this).find('img').attr('alt', old_text);
-
-            $(this).attr('title', $(this).attr('href'));
-            $(this).attr('data-fancybox-type', "iframe");
-            $(this).fancybox({
-                fitToView:   false,
-                autoSize:    false,
-                width:       '90%',
-                height:      '90%',
-                openEffect:  'none',
-                closeEffect: 'none',
-                iframe: {
-                    scrolling: 'auto',
-                    preload:   false,
-                }
-            });
         });
     });
 
-// This is just to keep Vim happy with hilighting
-</script>
-<script>
-    function fix_hyphens(parent_elem){
-        // Replaces all hypens in all child nodes with non-breaking hyphens
-        parent_elem.find('*').contents().filter(function(){
-            return this.nodeType === Node.TEXT_NODE
-        }).each(function(){
-            if(this.textContent.indexOf("-") >= 0){
-                /* Note "‑" below is a literal non-breaking hyphen. You can also obtain it using
-                   unescape("%u2011") or $("<div>&#8209;</div>").text().
-                */
-                this.replaceWith(this.textContent.replace(new RegExp("-", "g"),"‑"));
+    /* And make all thumbnail links show thumbnails and trigger a fancybox popup (no iFrame so only png/jpeg) */
+    $('a.thumbnail').each(function(){
+        // A little filename manipulation
+        var target = $(this).attr('href');
+        var target_base = target.split('/');
+            target_base = target_base[target_base.length-1];
+        var target_thumb = target.split('.');
+            target_thumb[target_thumb.length-1] = ('__thumb.' + target_thumb[target_thumb.length-1]);
+            target_thumb = target_thumb.join('.');
+
+        // Plonk in the img tag as child of the <a> element
+        var old_text = $(this).text()
+        $(this).html("<img style='border:none'/>");
+        try{ $(this).find('img').error(image_missing) } catch(ReferenceError){};
+        $(this).find('img').attr('src', target_thumb);
+        $(this).find('img').attr('alt', old_text);
+
+        $(this).attr('title', target_base);
+        $(this).fancybox({
+            fitToView:   true,
+            autoSize:    true,
+            openEffect:  'none',
+            closeEffect: 'none',
+            iframe: {
+                scrolling: 'auto',
+                preload:   false,
             }
         });
-    }
+    });
 
-    // Some global variables...
-    linkedfilter_tables = [];
-    linkedfilter_dropdowns = [];
-    linkedfilter_values = [];
+    /* Seems I now want thumbnails for PDF, so here's a combo of the two. Thumbnails are
+       always PNG */
+    $('a.ithumbnail').each(function(){
+        // A little filename manipulation
+        var target = $(this).attr('href');
+        var target_base = target.split('/');
+            target_base = target_base[target_base.length-1];
+        var target_thumb = target.split('.');
+            target_thumb[target_thumb.length-1] = ('__thumb.png');
+            target_thumb = target_thumb.join('.');
 
-    function add_filters(dtable){
-        // Adds a dropdown select to the specified table.
-        // If called on multiple tables the filters will be linked. However, I'm not sure
-        // if I want all the filters to get a union of all possible values. The controls
-        // work as expected either way, with a message if no results are found.
-        // Adapted from https://datatables.net/reference/api/column().search()
-        var col = dtable.api().columns(0);
-        var select = $('<select />')
-            .prependTo(
-                dtable
-            )
-            .on( 'change', function () {
-                var selected_val = $(this).val();
-                $(linkedfilter_dropdowns).each(function(){
-                    this.val(selected_val);
-                });
-                $(linkedfilter_tables).each(function(){
-                    var c = this.search( '^' + $.fn.dataTable.util.escapeRegex(selected_val) + '$', true, false );
-                    window.setTimeout(function(){c.draw()}, 0);
-                });
-            } );
-        // Get the search data for the first column and add to the select list
-        $($.unique(col.cache( 'search' )[0])).each( function ( i ) {
-                // FIXME - robust quoting!!
+        // Plonk in the img tag as child of the <a> element
+        var old_text = $(this).text()
+        $(this).html("<img style='border:none'/>");
+        try{ $(this).find('img').error(image_missing) } catch(ReferenceError){};
+        $(this).find('img').attr('src', target_thumb);
+        $(this).find('img').attr('alt', old_text);
+
+        $(this).attr('title', $(this).attr('href'));
+        $(this).attr('data-fancybox-type', "iframe");
+        $(this).fancybox({
+            fitToView:   false,
+            autoSize:    false,
+            width:       '90%',
+            height:      '90%',
+            openEffect:  'none',
+            closeEffect: 'none',
+            iframe: {
+                scrolling: 'auto',
+                preload:   false,
+            }
+        });
+    });
+});
+
+// This is just to keep Vim happy with hilighting
+</script><script>
+
+function fix_hyphens(parent_elem){
+    // Replaces all hypens in all child nodes with non-breaking hyphens
+    parent_elem.find('*').contents().filter(function(){
+        return this.nodeType === Node.TEXT_NODE
+    }).each(function(){
+        if(this.textContent.indexOf("-") >= 0){
+            /* Note "‑" below is a literal non-breaking hyphen. You can also obtain it using
+               unescape("%u2011") or $("<div>&#8209;</div>").text().
+            */
+            this.replaceWith(this.textContent.replace(new RegExp("-", "g"),"‑"));
+        }
+    });
+}
+
+// Some global variables...
+linkedfilter_tables = [];
+linkedfilter_dropdowns = [];
+linkedfilter_values = [];
+
+function add_filters(dtable){
+    // Adds a dropdown select to the specified table.
+    // If called on multiple tables the filters will be linked. However, I'm not sure
+    // if I want all the filters to get a union of all possible values. The controls
+    // work as expected either way, with a message if no results are found.
+    // Adapted from https://datatables.net/reference/api/column().search()
+    var col = dtable.api().columns(0);
+    var select = $('<select />')
+        .prependTo(
+            dtable
+        )
+        .on( 'change', function () {
+            var selected_val = $(this).val();
+            $(linkedfilter_dropdowns).each(function(){
+                this.val(selected_val);
+            });
+            $(linkedfilter_tables).each(function(){
+                var c = this.search( '^' + $.fn.dataTable.util.escapeRegex(selected_val) + '$', true, false );
+                window.setTimeout(function(){c.draw()}, 0);
+            });
+        } );
+    // Get the search data for the first column and add to the select list
+    $($.unique(col.cache( 'search' )[0])).each( function ( i ) {
+            // FIXME - robust quoting!!
+            var newopt = $('<option/>')
+            newopt.attr('value', this);
+            newopt.text(this);
+            select.append( newopt );
+
+            // Add to the global value list.
+            linkedfilter_values.push(this);
+        } );
+    // Make the dropdown as wide as the column.
+    select.css( {width: '100%'} );
+    // Register this in the global linkedfilter_tables list
+    linkedfilter_tables.push(col);
+    linkedfilter_dropdowns.push(select);
+}
+
+function default_filters(){
+
+    // Replace all the filters with a union of all options. To enable this change
+    // just change false->true here.
+    if(false && (linkedfilter_dropdowns.length > 1)){
+        // Get a discrete list of options
+        linkedfilter_values = linkedfilter_values.sort().filter(function(el,i,a){return !i||el+''!=a[i-1];})
+
+        // Clear each existing dropdown and add the global options instead
+        $(linkedfilter_dropdowns).each( function(){
+            var select = this;
+            select.empty();
+            $(linkedfilter_values).each( function(i) {
                 var newopt = $('<option/>')
                 newopt.attr('value', this);
                 newopt.text(this);
                 select.append( newopt );
-
-                // Add to the global value list.
-                linkedfilter_values.push(this);
-            } );
-        // Make the dropdown as wide as the column.
-        select.css( {width: '100%'} );
-        // Register this in the global linkedfilter_tables list
-        linkedfilter_tables.push(col);
-        linkedfilter_dropdowns.push(select);
-    }
-
-    function default_filters(){
-
-        // Replace all the filters with a union of all options. To enable this change
-        // just change false->true here.
-        if(false && (linkedfilter_dropdowns.length > 1)){
-            // Get a discrete list of options
-            linkedfilter_values = linkedfilter_values.sort().filter(function(el,i,a){return !i||el+''!=a[i-1];})
-
-            // Clear each existing dropdown and add the global options instead
-            $(linkedfilter_dropdowns).each( function(){
-                var select = this;
-                select.empty();
-                $(linkedfilter_values).each( function(i) {
-                    var newopt = $('<option/>')
-                    newopt.attr('value', this);
-                    newopt.text(this);
-                    select.append( newopt );
-                });
             });
-        }
-
-        if(linkedfilter_dropdowns.length > 0){
-            linkedfilter_dropdowns[0].change();
-        }
+        });
     }
+
+    if(linkedfilter_dropdowns.length > 0){
+        linkedfilter_dropdowns[0].change();
+    }
+}
 
 </script>
