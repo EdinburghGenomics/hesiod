@@ -44,8 +44,13 @@ def parse_cell_name(cell):
 
 # YAML convenience functions that use the ordered loader/saver
 # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
-def load_yaml(filename):
-    """Load YAML from a file (not a file handle)."""
+def load_yaml(filename, relative_to=None):
+    """Load YAML from a file (not a file handle).
+       If specified, relative paths are resolved relative to os.path.basename(relative_to)
+    """
+    if relative_to and not filename.startswith('/'):
+        filename = os.path.join(os.path.dirname(relative_to), filename)
+
     with open(filename) as yfh:
         return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 

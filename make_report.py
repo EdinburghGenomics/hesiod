@@ -3,6 +3,7 @@ import os, sys, re
 import logging as L
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pprint import pformat
+from math import modf
 from datetime import datetime
 from collections import OrderedDict, namedtuple
 import shutil
@@ -98,10 +99,10 @@ def format_report( all_info,
         rows = [ ( label,
                    sum( cat_counts['total_reads'] ),
                    sum( cat_counts['total_bases'] ),
-                   max( [ int(l.split('-')[-1]) for l in cat_counts['read_length'] ] ) )
+                   max( cat_counts['max_length'] ) )
                  for row, label in enumerate(labels)
                  for cat_counts in [{ k: [ c[row][k] for c in all_counts ]
-                                      for k in ['total_reads', 'total_bases', 'read_length'] }] ]
+                                      for k in ['total_reads', 'total_bases', 'max_length'] }] ]
 
         P( format_table( ["Category", "Total Reads", "Total Bases", "Max Length"],
                          rows,
@@ -139,28 +140,57 @@ def format_report( all_info,
         P( format_dl( [ _format( k, v ) for k, v in ci.items() if not k.startswith("_") ],
                       title="Metadata") )
 
-        # Stuff from the .count files that's been embedded in the YAML
-        for cdata in ci.get('_counts', []):
-            P( '<dl class="dl-horizontal">' )
-            P("### {}".format(escape(cdata['_label'])))
-            for k, v in cdata.items():
-                if not k.startswith("_"):
-                    P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(v)))
-            P( '</dl>' )
+        # Stuff from the .count files that's been embedded in the YAML.
+        # Make a single table
+        if ci.get('_counts'):
+            headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
+
+            # Confirm that all dicts have the same labels
+            for c in ci['_counts'][1:]:
+                assert [ h for h in c if not h.startswith('_') ] == headings
+
+            # Reformat the values into rows
+            rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
+                     for c in ci['_counts'] ]
+
+            P( format_table( ["Part"] + headings,
+                             rows,
+                             title = "Read counts" ) )
             P()
 
 
         # Nanoplot stats
         if '_nanoplot' in ci:
-            ns = load_yaml(ci['_nanoplot'])
+            ns = ci['_nanoplot']
 
-            ''' # Selective version??
-            P("### Nanoplot General summary")
+            def _format(_k, _v):
+                """Coerce some floats to ints but not all of them"""
+                if not( _k.startswith("Mean") or _k.startswith("Median") ):
+                    # Seems the best way to detect if the float is really an int in disguise
+                    if not modf(_v)[0]:
+                        _v = int(v)
+                return (_k, _v)
+
+            # So we just want the General summary. But do we want it as a table or a
+            # DL or a rotated table or what? Let's have all three.
             nsgs, = [ i[1] for i in ns if i[0] == "General summary" ]
-            for k, pv, n*_ in nsgs:
-                P('<dt>{}</dt> <dd>{}</dd>'.format(k,escape(pv)))
-            '''
 
+            # As I had it before
+            P( format_dl( [ (k, pv) for k, pv, *_ in nsgs ],
+                          title = "Nanoplot general summary" ) )
+
+            # As a one-line table, using the number values
+            P( format_table( [ k for k, pv, nv, *_ in nsgs ],
+                             [ [ _format(k, nv)[1] for k, pv, nv, *_ in nsgs ] ],
+                             title = "Nanoplot general summary" ) )
+
+            # As a rotated table
+            P( format_table( ['Item', 'Printable', 'Value'],
+                             [ [k, pv, _format(k, nv)[1] ] for k, pv, nv, *_ in nsgs ],
+                             title = "Nanoplot general summary" ) )
+
+            # Version that prints everything...
+            '''
             for title, items in ns:
                 P( '<dl class="dl-horizontal">' )
                 P("### Nanoplot {}\n".format(escape(title)))
@@ -168,6 +198,7 @@ def format_report( all_info,
                     P('<dt>{}</dt> <dd>{}</dd>'.format(escape(k),escape(pv)))
                 P( '</dl>' )
                 P()
+            '''
 
         # Embed some files from MinionQC
         if '_minionqc' in ci:
@@ -196,7 +227,7 @@ def format_report( all_info,
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
         if '_blobs' in ci:
-            for plot_group in load_yaml(ci['_blobs']):
+            for plot_group in ci['_blobs']:
 
                 P('\n### {}\n'.format(plot_group['title']))
 
@@ -261,6 +292,20 @@ def format_table(headings, data, title=None):
 
     return "\n".join(res)
 
+def fixup_counts(celldict):
+    """I copied the .count format from Illuminatus where most FASTQ files have all sequences the
+       same length, but here this is rarely the case and I have read_length as a string '<min>-<max>'.
+       Rather than change the format and have to re-count all files, I'll just cope with the old
+       format here.
+       celldict will be modified by this function but it should be idempotent.
+    """
+    for countsdict in celldict.get('_counts', []):
+        if 'read_length' in countsdict:
+            rlsplit = str(countsdict['read_length']).split('-'))
+            countsdict['min_length'] = int( rlsplit[0] )
+            countsdict['max_length'] = int( rlsplit[-1] )
+            del countsdict['read_length']
+
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
@@ -272,6 +317,16 @@ def main(args):
 
         # Sort by cell ID - all YAML must have this.
         assert yaml_info.get('Cell'), "All yamls must have a Cell ID"
+        assert yaml_info.get('Project'), "All yamls must have a Project (recreate this file with the latest Snakefile)"
+
+        # Convert read_lenght to min_length and max_length
+        fixup_counts(yaml_info)
+
+        # Load _blobs and _nanoplot parts.
+        if '_blobs' in yaml_info:
+            yaml_info['_blobs'] = load_yaml(ci['_blobs'], relative_to=y)
+        if '_nanoplot' in yaml_info:
+            yaml_info['_nanoplot'] = load_yaml(ci['_nanoplot'], relative_to=y)
 
         all_info[yaml_info['Cell']] = yaml_info
 
@@ -329,7 +384,8 @@ def load_blobstats(filename):
             # proj_file is now a dict which must have a 'csv' member
             csv_file = proj_file['csv']
 
-            # Resolve the file name relative to the original YAML file
+            # Resolve the file name relative to the original YAML file,
+            # as in load_yaml.
             if not csv_file.startswith('/'):
                 csv_file = os.path.join(os.path.dirname(filename), csv_file)
 
