@@ -7,7 +7,6 @@ from math import modf
 from datetime import datetime
 from collections import OrderedDict, namedtuple
 import shutil
-import base64
 
 from hesiod import hesiod_version, glob, load_yaml
 
@@ -133,7 +132,7 @@ def format_report( all_info,
         def _format(_k, _v):
             """Handle special case for dates"""
             if _k == "Date" and re.match(r'[0-9]{8}', _v):
-                _v = datetime.strptime(v, '%Y%m%d').strftime('%d %b %Y')
+                _v = datetime.strptime(_v, '%Y%m%d').strftime('%d %b %Y')
             return (_k, _v)
 
 
@@ -168,7 +167,7 @@ def format_report( all_info,
                 if not( _k.startswith("Mean") or _k.startswith("Median") ):
                     # Seems the best way to detect if the float is really an int in disguise
                     if not modf(_v)[0]:
-                        _v = int(v)
+                        _v = int(_v)
                 return (_k, _v)
 
             # So we just want the General summary. But do we want it as a table or a
@@ -301,7 +300,8 @@ def fixup_counts(celldict):
     """
     for countsdict in celldict.get('_counts', []):
         if 'read_length' in countsdict:
-            rlsplit = str(countsdict['read_length']).split('-'))
+            # This works if the read length is already an int or a single string
+            rlsplit = str(countsdict['read_length']).split('-')
             countsdict['min_length'] = int( rlsplit[0] )
             countsdict['max_length'] = int( rlsplit[-1] )
             del countsdict['read_length']
@@ -324,9 +324,9 @@ def main(args):
 
         # Load _blobs and _nanoplot parts.
         if '_blobs' in yaml_info:
-            yaml_info['_blobs'] = load_yaml(ci['_blobs'], relative_to=y)
+            yaml_info['_blobs'] = load_yaml(yaml_info['_blobs'], relative_to=y)
         if '_nanoplot' in yaml_info:
-            yaml_info['_nanoplot'] = load_yaml(ci['_nanoplot'], relative_to=y)
+            yaml_info['_nanoplot'] = load_yaml(yaml_info['_nanoplot'], relative_to=y)
 
         all_info[yaml_info['Cell']] = yaml_info
 
