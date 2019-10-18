@@ -282,12 +282,22 @@ rule nanoplot:
     output:
         stats = "nanoplot/{cell}/NanoStats.txt",
         rep   = "nanoplot/{cell}/NanoPlot-report.html"
-    input:  "{cell}/sequencing_summary.txt.gz"
+    input:
+        summary = "{cell}/sequencing_summary.txt.gz",
+        passlist = lambda wc: "{base}_pass_fastq.list".format(base=cellname_to_base(wc.cell))
     params:
         thumbsize = "320x320"
     run:
-        ap = os.path.realpath(input[0])
+        ap = os.path.realpath(str(input.summary))
         shell(r'cd "$(dirname {output.stats})" ; rm -f *.png *.html *.log')
+
+        # We need a special case when there are no passing reads as NanoPlot will choke.
+        # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
+        # if RUNDIR is not set, so inspect input.passlist.
+        if os.path.getsize(str(input.passlist)) == 0:
+           shell("touch {output}")
+           return
+
         shell(r'cd "$(dirname {output.stats})" ; NanoPlot --summary {ap}')
 
         # Finally, make thumbnails for everything

@@ -49,26 +49,36 @@ rule gzip_md5sum_fast5:
            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
         """
 
-# This one concatenates and zips and sums the fastq. The fastq are smaller so one file is OK
+# These two concatenate and zip and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
 # TODO - should probably convert this to zip the individual chunks, as per the nolambda files?
+
+# I've broken out the rule that makes _fastq.list files so I can request the list without
+# making the actual file.
+localrules: list_fastq
+rule list_fastq:
+    priority: 100
+    output:
+        fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+    input:
+        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
+    run:
+        # Just write all the input files to the output file.
+        with open(output.fofn, "w") as fh:
+            for fname in input.fastq: print(fname, file=fh)
+
+
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
         gz    = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
         md5   = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
-        count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count",
-        fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+        count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count"
     input:
-        fastq = lambda wc: [format("{RUNDIR}/{f}") for f in SC[wc.cell]['fastq_'+wc.pf]]
+        fofn  = "{cell}/{all}_{pf}_fastq.list"
     threads: 8
     run:
-        # Here we run the risk of blowing out the command line length limit, so avoid
-        # that.
-        with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
-
-        shell(r"xargs -d '\n' cat <{output.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
+        shell(r"xargs -d '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
         # Base counter
         shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
