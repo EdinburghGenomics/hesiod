@@ -7,7 +7,7 @@
 
 import os, sys, re
 import logging as L
-from collections import defaultdict
+from copy import deepcopy
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 def read_blob_table(fh):
@@ -136,60 +136,70 @@ class Matrix:
         self._col_numsort = self._colname in numsort
         self._row_numsort = self._rowname in numsort
         self._empty = empty
-        self._data = defaultdict(dict)
+        self._data = dict()
 
-        # Though we could recreate this from self._data it's best to keep it cached:
-        self._rowlabels = set()
+    def copy(self):
+        # This works.
+        return deepcopy(self)
+
+        c = super(Matrix, self)( self._colname,
+                                 self._rowname,
+                                 empty = self._empty )
+
+        c._col_numsort = self._col_numsort
+        c._row_numsort = self._row_numsort
+
+        c._data = deepcopy(self._data)
 
     def add(self, val, **kwargs):
         """Add a value to the matrix
         """
-        self._data[kwargs[self._colname]][kwargs[self._rowname]] = val
-        self._rowlabels.add(kwargs[self._rowname])
+        if len(kwargs) > 2:
+            # All other cases will trigger a KeyError below.
+            raise IndexError("Too many kwargs")
 
-    def list_labels(self, name, prunefunc=None):
+        # I tried a defaultdict but it causes problems - ie.
+        # if the caller tries to retrieve an unknown column it springs into
+        # existence.
+        self._data.setdefault(kwargs[self._colname], dict())[kwargs[self._rowname]] = val
+
+    def list_labels(self, name):
         """List all the labels for either the rows or columns.
            Sort order will be depend on the order specified at object creation.
-           If supplied, rows (or columns) with no values satisfying prunefunc will be skipped.
         """
         if name == self._colname:
-            return self._list_col_labels(prunefunc)
+            return self._list_col_labels()
 
         elif name == self._rowname:
-            return self._list_row_labels(prunefunc)
+            return self._list_row_labels()
 
         else:
             raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
 
-    def _list_col_labels(self, prunefunc=None):
-        if not prunefunc:
-            prunefunc = lambda x: True
+    def _scan_rowlabels(self):
+        """Calculate all the row labels.
+           If I cared at all about efficiency I'd keep the set stored, but I don't.
+        """
+        return set([ rl for cv in self._data.values() for rl in cv ])
 
-        res = [ cl for cl in self._data if
-                any( prunefunc(self._data[cl].get(rl, self._empty))
-                     for rl in self._rowlabels ) ]
+    def _list_col_labels(self):
+        rowlabels = self._scan_rowlabels()
 
         # Always sort by name first.
-        res.sort()
+        res = sorted(self._data)
 
         if self._col_numsort:
             # The labels with the highest max values come first
             res.sort( reverse = True,
                       key = lambda cl:
-                        max(self._data[cl].get(rl, self._empty) for rl in self._rowlabels) )
+                        max(self._data[cl].get(rl, self._empty) for rl in rowlabels) )
 
         return res
 
-    def _list_row_labels(self, prunefunc=None):
-        if not prunefunc:
-            prunefunc = lambda x: True
-
-        res = [ rl for rl in self._rowlabels
-                if any( prunefunc(self._data[cl].get(rl, self._empty))
-                        for cl in self._data ) ]
+    def _list_row_labels(self):
 
         # Always sort by name first.
-        res.sort()
+        res = sorted(self._scan_rowlabels())
 
         if self._row_numsort:
             res.sort( reverse = True,
@@ -198,20 +208,46 @@ class Matrix:
 
         return res
 
-    def get_vector(self, name, label, prunefunc=None):
+    def prune(self, name, func):
+        """Prune out rows or columns where no item passes the test.
+           Note that empty cells are also checked.
+            func : a function on type(this.empty) => bool
+        """
+        # Need this to correctly check empty values
+        rowlabels = self._scan_rowlabels()
+
+        if name == self._colname:
+            # Scan through columns
+            for cl in list(self._data):
+                if not any( func(self._data[cl].get(rl, self._empty))
+                            for rl in rowlabels ):
+                    del self._data[cl]
+
+        elif name == self._rowname:
+            # Actually turns out to be simpler. Scan through rows
+            for rl in rowlabels:
+                if not any( func(self._data[cl].get(rl, self._empty))
+                            for cl in self._data ):
+                    for cl in self._data:
+                        del self._data[cl][rl]
+
+        else:
+            raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
+
+
+    def get_vector(self, name, label):
         """Get a whole row or column
-           If prunefunc is supplied, it works as for list_labels()
         """
         # Opposite to list_labels since to fetch a whole row I need the column
         # labels and vice versa.
         if name == self._colname:
 
             return [ self._data[label].get(rl, self._empty) for
-                     rl in self._list_row_labels(prunefunc) ]
+                     rl in self._list_row_labels() ]
 
         elif name == self._rowname:
             return [ self._data[cl].get(label, self._empty) for
-                     cl in self._list_col_labels(prunefunc) ]
+                     cl in self._list_col_labels() ]
         else:
             raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
 

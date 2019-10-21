@@ -54,11 +54,29 @@ class T(unittest.TestCase):
 
         self.assertEqual(m.list_labels('x'), [])
 
-        # This actually works but maybe should raise KeyError?
+        # This actually works but probably should raise KeyError?
         self.assertEqual(m.get_vector('x', 'notset'), [])
+        self.assertEqual(m.get_vector('y', 'notset'), [])
+
+    def test_bad_get(self):
+
+        m = Matrix(empty=-1)
+
+        # Trying to get data from unknown labels is a bad idea, as the
+        # results are inconsistent. See above.
+        m.add(1, x='foo', y='bar')
+        with self.assertRaises(KeyError):
+            m.get_vector('x', 'notset')
+        self.assertEqual(m.get_vector('y', 'notset'), [-1])
+
+        # These should fail.
+        with self.assertRaises(KeyError):
+            m.add(1, x='foo', z='moo')
+        with self.assertRaises(IndexError):
+            m.add(1, x='foo', y='bar', z='moo')
 
     def cheese(self, **kwargs):
-        # Give me a chees matrix to play with
+        # Give me a chees matrix to play with (hey, why not?)
         m = Matrix('cheese', 'quality', **kwargs)
 
 
@@ -86,20 +104,24 @@ class T(unittest.TestCase):
 
         # Only look at the 'extreme' cheeses with some score >=9.0. Ie. Danish for stength
         # and Wensleydale for crumbliness.
-        self.assertEqual(m.list_labels('cheese', lambda s: s >= 9.0),
+        m2 = m.copy()
+        m2.prune('cheese', lambda s: s >= 9.0)
+
+        self.assertEqual(m2.list_labels('cheese'),
                          ["Cheshire", "Danish"])
-        self.assertEqual(m.get_vector('quality', 'crumbliness', lambda s: s >= 9.0),
+        self.assertEqual(m2.get_vector('quality', 'crumbliness'),
                          [9.0, 4.0])
-        self.assertEqual(m.get_vector('quality', 'strength', lambda s: s >= 9.0),
+        self.assertEqual(m2.get_vector('quality', 'strength'),
                          [2.0, 9.0])
 
         # Now just the extreme lows. Ie . Cheshire for flavour strength
-        self.assertEqual(m.list_labels('cheese', lambda s: s <= 2.0),
-                                 ["Cheshire"])
+        m3 = m.copy()
+        m3.prune('cheese', lambda s: s <= 2.0)
+        self.assertEqual(m3.list_labels('cheese'), ["Cheshire"])
 
         # Or if nothing passes the test
-        self.assertEqual(m.list_labels('cheese', lambda s: s <= 1.0),
-                                 [])
+        m3.prune('cheese', lambda s: s <= 1.0)
+        self.assertEqual(m3.list_labels('cheese'), [])
 
     def test_sort(self):
         # Now make it so that both columns and rows sort by highest first
@@ -112,6 +134,26 @@ class T(unittest.TestCase):
         # Data should come out accordingly
         self.assertEqual(m.get_vector('cheese', 'Cheshire'), [9.0, 2.0, 6.0])
         self.assertEqual(m.get_vector('quality', 'strength'), [2.0, 9.0, 5.0])
+
+    def test_copy(self):
+        # Just to be sure the copy constructor works properly
+        m = self.cheese()
+
+        # Make a copy and wipe it out
+        m2 = m.copy()
+        m2.prune('cheese', lambda x: False)
+        self.assertEqual(m2.list_labels('cheese'), [])
+        self.assertEqual(m2.list_labels('quality'), [])
+
+        # And again
+        m3 = m.copy()
+        m3.prune('cheese', lambda x: False)
+        self.assertEqual(m3.list_labels('cheese'), [])
+        self.assertEqual(m3.list_labels('quality'), [])
+
+        # But m is still intact?
+        self.assertEqual(len(m.list_labels('cheese')), 3)
+        self.assertEqual(len(m.list_labels('quality')), 3)
 
     def test_sparse(self):
 
@@ -144,6 +186,15 @@ class T(unittest.TestCase):
                          [0.0, 1.0, 8.0, 10.0])
         self.assertEqual(m.get_vector('cheese', 'Wensleydale'),
                          [6.0, 7.0, 0.0, 5.0])
+
+        # Prune to see only qualities with some item missing. All cheeses have been rated for
+        # firmness and strength.
+        m2 = m.copy()
+        m2.prune('quality', lambda s: s == 0.0)
+
+        self.assertEqual(m2.list_labels('quality'), ["crumbliness", "gooeyness"])
+        # Now with the strength and firmess ratings gone the sort order changes...
+        self.assertEqual(m2.list_labels('cheese'), ["Cheshire", "Brie", "Wensleydale", "Danish"])
 
 if __name__ == '__main__':
     unittest.main()
