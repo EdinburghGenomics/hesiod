@@ -139,17 +139,9 @@ class Matrix:
         self._data = dict()
 
     def copy(self):
-        # This works.
+        # This works. I assume the stored values won't be mutable
+        # types.
         return deepcopy(self)
-
-        c = super(Matrix, self)( self._colname,
-                                 self._rowname,
-                                 empty = self._empty )
-
-        c._col_numsort = self._col_numsort
-        c._row_numsort = self._row_numsort
-
-        c._data = deepcopy(self._data)
 
     def add(self, val, **kwargs):
         """Add a value to the matrix
@@ -157,6 +149,9 @@ class Matrix:
         if len(kwargs) > 2:
             # All other cases will trigger a KeyError below.
             raise IndexError("Too many kwargs")
+
+        if type(val) != type(self._empty):
+            raise TypeError("{} is not a {}".format(val, type(self._empty)))
 
         # I tried a defaultdict but it causes problems - ie.
         # if the caller tries to retrieve an unknown column it springs into

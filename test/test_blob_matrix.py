@@ -75,6 +75,25 @@ class T(unittest.TestCase):
         with self.assertRaises(IndexError):
             m.add(1, x='foo', y='bar', z='moo')
 
+    def test_bad_type(self):
+
+        # Can only add items that match the type of the empty value
+        m = Matrix()
+        with self.assertRaises(TypeError):
+            m.add(1, x='foo', y='bar')
+
+        # Empty is integer
+        m2 = Matrix(empty=0)
+        m2.add(1, x='foo', y='bar')
+        with self.assertRaises(TypeError):
+            m2.add(0.1, x='foo', y='bar')
+
+        # Empty is string
+        m3 = Matrix(empty='')
+        m3.add('1.0', x='foo', y='bar')
+        with self.assertRaises(TypeError):
+            m3.add(0.1, x='foo', y='bar')
+
     def cheese(self, **kwargs):
         # Give me a chees matrix to play with (hey, why not?)
         m = Matrix('cheese', 'quality', **kwargs)
