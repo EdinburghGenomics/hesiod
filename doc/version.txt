@@ -1,0 +1,6 @@
+In production, Hesiod fastidiously records which version of the pipeline is running
+and bakes into reports. Inspired by MultiQC I've made it so that the development version
+now logs the actual GIT commit as well as the contents of version.txt.
+
+If a new release has just been tagged then then version will be reported without
+any embellishment.
