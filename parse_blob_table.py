@@ -8,6 +8,7 @@
 import os, sys, re
 import logging as L
 from copy import deepcopy
+from collections import Counter
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 def read_blob_table(fh):
@@ -27,7 +28,7 @@ def read_blob_table(fh):
             headerlines.append(l[3:])
         elif l.startswith('# '):
             assert not colnames # Should only see one such line
-            colnames = l[3:].split("\t")
+            colnames = l[2:].split("\t")
         else:
             datalines.append(l.split("\t"))
             assert len(datalines[-1]) == len(colnames)
@@ -66,7 +67,7 @@ def main(args):
 
     # Now I can have a master Matrix
     mm = Matrix('taxon', 'lib', numsort=('taxon'))
-    total_reads_per_lib = dict()
+    total_reads_per_lib = Counter()
 
     for colnames, name_map, datalines in all_tables:
 
@@ -89,13 +90,12 @@ def main(args):
         # just do that calculation. First estimate the total reads per lib based off the
         # 'all' row.
         all_row, = [ dl for dl in datalines if dl[colidx['name']] == 'all' ]
-        total_reads_per_bam = dict()
+        total_reads_per_bam = Counter()
         for n in name_map:
             total_reads_per_bam[n] = (all_row[colidx[n+'_read_map']] * 100) / all_row[colidx[n+'_read_map_p']]
 
             # We also keep a master count
-            total_reads_per_lib.setdefault(name_map[n], 0)
-            total_reads_per_lib.setdefault[name_map[n]] += total_reads_per_bam[n]
+            total_reads_per_lib[name_map[n]] += total_reads_per_bam[n]
 
         # We've now also verified that all names in the name map have corresponding columns,
         # but are all columns present in the name_map?
@@ -106,7 +106,7 @@ def main(args):
         # Strip out rows that have name in ['all', 'no-hit', 'undef', 'other']
         # FIXME - maybe I want 'other' left in?
         datalines = [ dl for dl in datalines
-                      if dl[colidx['name']] not in ['all', 'no-hit', 'undef', 'other'] ]
+                      if dl[colidx['name']] not in ['all', 'no-hit', 'undef'] ]
 
         # Now recalculate all the percentages relative to this value, and pop them into
         # my master matrix.
@@ -119,7 +119,7 @@ def main(args):
                 assert abs(dl[colidx[n+'_read_map_p']] - new_pct) < 0.1
 
                 # Into the matrix with ye!
-                # The add function will object if a value was already present.
+                # The mm.add() method will object if a value was already present.
                 mm.add(new_pct, taxon=dl[colidx['name']], lib=name_map[n])
 
     # End of loop through all_tables
@@ -127,9 +127,9 @@ def main(args):
     # Now prune out taxa with nothing that makes the cutoff - but first see what is
     # the highest number. Due to our sorting strategy this will always be in the leftmost
     # taxon column.
-    max_percent = 0.0
+    max_percent = "None"
     for tax in mm.list_labels('taxon')[:1]:
-        max_percent = max( mm.get_vector('taxon', tax) )
+        max_percent = "{:.{}f}".format(max( mm.get_vector('taxon', tax) ), args.round)
 
     mm.prune('taxon', lambda v: v >= args.cutoff)
 
@@ -143,24 +143,30 @@ def main(args):
 
         # Jon had this so I'll (kinda) copy it...
         # taxlevel <- unlist(strsplit(basename(files[1]), '\\.'))[2]
-        taxlevel = args.statstxt[0].split('.')[-4]
+        try:
+            taxlevel = args.statstxt[0].split('/')[-1].split('.')[-4]
+        except IndexError:
+            taxlevel = "taxon"
 
-        fh.print('No {taxlevel} is represented by at least {limit}% of reads (max {max}%)'.format(
+        print('No {taxlevel} is represented by at least {limit}% of reads (max {max}%)'.format(
                                         taxlevel = taxlevel,
                                         limit = args.cutoff,
-                                        max = max_percent ))
+                                        max = max_percent ),
+              file = fh)
+    else:
+        # Heading
+        print('\t'.join( [args.label] +
+                         (["Total Reads"] if args.total_reads else []) +
+                         mm.list_labels('taxon') ),
+              file=fh)
 
-    # Heading
-    print('\t'.join( [args.label] +
-                     ["Total Reads"] if args.total_reads else [] +
-                     mm.list_labels('taxon') ))
+        # Rows
+        for lib in mm.list_labels('lib'):
 
-    # Rows
-    for lib in mm.list_labels('lib'):
-
-        print('\t'.join( lib +
-                         total_reads_per_lib[lib] if args.total_reads else [] +
-                         mm.get_vector('lib', lib) ))
+            print('\t'.join( [lib] +
+                             (["{:.0f}".format(total_reads_per_lib[lib])] if args.total_reads else []) +
+                             [ "{:.{}f}".format(v, args.round) for v in mm.get_vector('lib', lib) ] ),
+                  file=fh)
 
     # And done
     fh.close()
@@ -313,6 +319,8 @@ def parse_args(*args):
                             help="Label to put on the first column")
     argparser.add_argument("-t", "--total_reads", action="store_true",
                             help="Add a 'Total Reads' column.")
+    argparser.add_argument("-r", "--round", type=int, default=2,
+                            help="Number of decimals to keep in floats.")
     argparser.add_argument("statstxt", nargs="+",
                             help="One or more input files to scan.")
     argparser.add_argument("-d", "--debug", action="store_true",
