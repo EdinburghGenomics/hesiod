@@ -133,7 +133,7 @@ def main(args):
 
     mm.prune('taxon', lambda v: v >= args.cutoff)
 
-    # And print the result. As it's TSV and we've already chacked for tabs this is safe.
+    # And print the result. As it's TSV and we've already checked for tabs this is safe.
     if args.output == '-':
         fh = sys.stdout
     else:

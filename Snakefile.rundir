@@ -78,6 +78,7 @@ rule concat_gzip_md5sum_fastq:
         fofn  = "{cell}/{all}_{pf}_fastq.list"
     threads: 8
     run:
+        # Rely on xargs to deal with way more files than could fit on the command line
         shell(r"xargs -d '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
         # Base counter

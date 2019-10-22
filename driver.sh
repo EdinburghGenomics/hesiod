@@ -307,9 +307,11 @@ action_cell_ready(){
 
     # Attempt deletion but don't fret if it fails
     _upstream="`cat pipeline/upstream`"
-    log "Marking deletable cells on $_upstream."
-    plog "Marking cells as deletable on $_upstream: $CELLSREADY"
-    del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
+    if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
+        log "Marking deletable cells on $_upstream."
+        plog "Marking cells as deletable on $_upstream: $CELLSREADY"
+        del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
+    fi
 }
 
 
@@ -766,7 +768,7 @@ if [ -n "$UPSTREAM" ] ; then
 
             # Set vars to match get_run_status. Remember we have IFS set to "\t" in this script.
             RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
-            CELLS=$(   awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
+            CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
             CELLSPENDING=""
 
             { eval action_"$STATUS"

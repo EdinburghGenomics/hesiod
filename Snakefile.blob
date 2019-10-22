@@ -86,7 +86,7 @@ rule per_cell_blob_plots:
 rule per_project_blob_tables:
     output: "blob/blobstats_by_project.yaml"
     input:
-        csv = expand("blob/blobstats.{project}.{pf}.{taxlevel}.csv",
+        tsv = expand("blob/blobstats.{project}.{pf}.{taxlevel}.tsv",
                                           project = CELLS_PER_PROJECT,
                                           pf = BLOB_PARTS,
                                           taxlevel = BLOB_LEVELS ),
@@ -95,27 +95,27 @@ rule per_project_blob_tables:
         res = dict()
         for p in CELLS_PER_PROJECT:
             # For each project p make a list of tables, first by PF, then by tax level.
-            csv_list = res[p] = list()
+            tsv_list = res[p] = list()
             for pf in BLOB_PARTS:
                 for tl in BLOB_LEVELS:
-                    # Recreate the filename. I should just be able to go through input.csv
+                    # Recreate the filename. I should just be able to go through input.tsv
                     # in order but I'm not 100% sure.
-                    csv = "blobstats.{project}.{pf}.{taxlevel}.csv".format(
+                    tsv = "blobstats.{project}.{pf}.{taxlevel}.tsv".format(
                                     project = p,
                                     pf = pf,
                                     taxlevel = tl )
-                    assert "blob/" + csv in [str(s) for s in input.csv]
+                    assert "blob/" + tsv in [str(s) for s in input.tsv]
 
-                    csv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
+                    tsv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
                                                             pf = PART_LABELS.get(pf, pf),
                                                             taxlevel = tl ),
-                                           csv = csv ) )
+                                           tsv = tsv ) )
 
         # And this gives us the data structure we need.
         dump_yaml(res, str(output))
 
 rule parse_blob_table:
-    output: "blob/blobstats.{project}.{pf}.{taxlevel}.csv"
+    output: "blob/blobstats.{project}.{pf}.{taxlevel}.tsv"
     input:
         lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.blobplot.stats.txt".format(
                                                             cell = cell,
@@ -126,7 +126,7 @@ rule parse_blob_table:
     params:
         pct_limit = 1
     shell:
-        "{TOOLBOX} parse_blob_table {output} {params.pct_limit} {input}"
+        "parse_blob_table.py -t -o {output} -c {params.pct_limit} {input}"
 
 # Convert to FASTA and subsample and munge the headers
 # seqtk seq -ACNU == to-fasta, no-comments, no-ambiguous, uppercase

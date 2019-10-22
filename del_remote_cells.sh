@@ -10,7 +10,7 @@ set -euo pipefail
 upstream_loc="$1" ; shift
 
 if [ "$upstream_loc" = LOCAL ] || [ -z "$upstream_loc" ] ; then
-    # Nothing to do
+    # Nothing to do. Really we shouldn't have been called.
     cat_cmd="true"
 elif [[ "$upstream_loc" =~ : ]] ; then
     # Remote delete

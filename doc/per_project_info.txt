@@ -52,7 +52,7 @@ a master dict of { project: cells }. OK, I've done this.
 
 ----
 
-We've hit a fundamental problem. In a regular reference-free QC report I don't why these numbers
+We've hit a fundamental problem. In a regular reference-free QC report I don't know why these numbers
 are calculated as they are but I know they relate to the depth of coverage in the individual BAM files.
 Ideally, in a de-novo assembly, high-coverage contigs are well resolved and may represent many
 reads, so counting the contigs belonging to each taxon is not too useful. But multiplying that number by
@@ -64,10 +64,12 @@ complexity index as a cutoff?
 
 I believe that just running the current script will churn out nonsense numbers because it will be multiplying
 something by the complexity (non-dustiness) score - which is pretty arbitrary.
+( Actually it doesn't - see below )
 Also it may fail completely because I'm trying to combine reports from mutliple 'assemblies' (as blobtools sees
 the samples), whereas in our regular QC reports we always tabulate all of the libraries which have been
 aligned back to a single assembly, for which we have a single blobDB based on a single BLAST summary of a
 single subsample.
+( Actually this is not true - see below )
 
 So what to do? I think I'll press on and finish implementing what I started. The numbers will be junk, however
 I think that fixing them will be a matter of replacing the parseBlobTable.R script with a more appropriate
@@ -77,4 +79,23 @@ One thing I will get rid of, though - the 'counts' sections in the blobstats_by_
 I've just realised the blobplot.stats.txt files have this info in them, so there's no need to patch
 it in via this clunky mechanism.
 
-I'm going to do a checkpoint commit of the code then rip this out.
+I'm going to do a checkpoint commit of the code then rip this out. (DONE)
+
+---
+
+So what does parseBlobTable.R do? In normal .blobplot.stats.txt files there are multiple lines indicating each
+BAM that went into the BLOBDB. -- grep('## bam[0-9]+', lines). If there is a single assembly then the script will
+be parsing a single input file, but we also support per-library assemblies and the script will then parse multiple
+input files where each relates to one BAM. (I think Jon wrote this script from scratch? It's definitely heavily
+edited by him.)
+
+In mine there is a single 'cov0' line which references my concocted .complexity file. Since the parser ignores
+this line the gsub() leaves the column names as they are and all the 'Library ID' values come out as 'cov0'.
+
+OK, so what does the R script actually do to get the numbers? It recalculates from the _read_map columns. And
+these are claculated by blobtools. Ah, but they are calculated using the read_cov not the base_cov for the bam
+file. And I've made it so the read_cov is always 1. So in that case the numbers ARE meaningful. OK. Cool.
+
+So in which case I should be able to use the script as it stands. But I do need to get the total into the first
+column. And I do need to fix the library names. Question is, can I do this in R or should I convert the thing to
+Python. I really don't like R. :-(

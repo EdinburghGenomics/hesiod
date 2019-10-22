@@ -115,8 +115,8 @@ def format_report( all_info,
         for blobtable in (blobstats or {}).get(p, []):
 
             # Insert the table as it comes
-            P( format_table( blobtable['csv_data'][0],
-                             blobtable['csv_data'][1:],
+            P( format_table( blobtable['tsv_data'][0],
+                             blobtable['tsv_data'][1:],
                              title = blobtable['title'] ))
 
         P( "", "::::::", "" )
@@ -389,17 +389,17 @@ def load_blobstats(filename):
 
     for proj_stats in blobstats.values():
         for proj_file in proj_stats:
-            # proj_file is now a dict which must have a 'csv' member
-            csv_file = proj_file['csv']
+            # proj_file is now a dict which must have a 'tsv' member
+            tsv_file = proj_file['tsv']
 
             # Resolve the file name relative to the original YAML file,
             # as in load_yaml.
-            if not csv_file.startswith('/'):
-                csv_file = os.path.join(os.path.dirname(filename), csv_file)
+            if not tsv_file.startswith('/'):
+                tsv_file = os.path.join(os.path.dirname(filename), tsv_file)
 
-            with open(csv_file) as fh:
-                # Naive CSV split
-                proj_file['csv_data'] = [ line.strip().split(',') for line in fh ]
+            with open(tsv_file) as fh:
+                # Naive TSV split is fine
+                proj_file['tsv_data'] = [ line.strip().split('\t') for line in fh ]
 
     return blobstats
 
