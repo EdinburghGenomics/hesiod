@@ -71,28 +71,42 @@ class T(unittest.TestCase):
 
         # These should fail.
         with self.assertRaises(KeyError):
-            m.add(1, x='foo', z='moo')
+            m.add_overwrite(1, x='foo', z='moo')
         with self.assertRaises(IndexError):
-            m.add(1, x='foo', y='bar', z='moo')
+            m.add_overwrite(1, x='foo', y='bar', z='moo')
 
     def test_bad_type(self):
 
         # Can only add items that match the type of the empty value
         m = Matrix()
         with self.assertRaises(TypeError):
-            m.add(1, x='foo', y='bar')
+            m.add_overwrite(1, x='foo', y='bar')
 
         # Empty is integer
         m2 = Matrix(empty=0)
-        m2.add(1, x='foo', y='bar')
+        m2.add_overwrite(1, x='foo', y='bar')
         with self.assertRaises(TypeError):
-            m2.add(0.1, x='foo', y='bar')
+            m2.add_overwrite(0.1, x='foo', y='bar')
 
         # Empty is string
         m3 = Matrix(empty='')
-        m3.add('1.0', x='foo', y='bar')
+        m3.add_overwrite('1.0', x='foo', y='bar')
         with self.assertRaises(TypeError):
-            m3.add(0.1, x='foo', y='bar')
+            m3.add_overwrite(0.1, x='foo', y='bar')
+
+    def test_double_add(self):
+
+        # It's useful to check that we only add things once. When combining blob
+        # reports we don't expect to see the same pieve of info twice, unless there
+        # is an error in the input.
+        m = Matrix()
+        m.add(1.0, x='foo', y='bar')
+
+        with self.assertRaises(KeyError):
+            m.add(2.0, x='foo', y='bar')
+
+        # But we can force it.
+        m.add_overwrite(2.0, x='foo', y='bar')
 
     def cheese(self, **kwargs):
         # Give me a chees matrix to play with (hey, why not?)

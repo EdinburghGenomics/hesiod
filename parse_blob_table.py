@@ -32,30 +32,15 @@ def read_blob_table(fh):
             datalines.append(l.split("\t"))
             assert len(datalines[-1]) == len(colnames)
 
-    # Now extract a name mapping dict from the headerlines and apply it to colnames
+    # Now extract a name mapping dict from the headerlines
     name_map = { l.split('=')[0] : re.sub('(\+.*|\.[^.]*)$', '', l.split('/')[-1])
                  for l in headerlines
                  if re.match(r'(bam|cov)[0-9]+=', l) }
 
-    '''
-    # Drop the columns we don't need before doing the renaming
-    # This removes a corner case in the old code where samples with the substring 'covsum'
-    # anywhere in the name simply vanish from the results.
-    col_filter = [ n == 'name' or ( n.split('_', 1) in name_map )
-                   for n in colnames ]
+    # There should be no tab chars in any names
+    assert not any(re.search(r'\t', n) for n in name_map.keys())
+    assert not any(re.search(r'\t', n) for n in name_map.values())
 
-    # Now we can munge and filter the names
-    colnames2 = [ "{}_{}".format(name_map[nsplit[0]], nsplit[1])
-                    if (nsplit[1:] and nsplit[0] in name_map) else n
-                  for n, f in zip(colnames, col_filter)
-                  for nsplit in [n.split('_', 1)]
-                  if f ]
-
-    # Apply the same filter to the data rows.
-    # Yes I could do this more succinctly with pandas. No I don't want to.
-    datalines2 = [ [ x for x, f in zip(dl, col_filter) if f ]
-                   for dl in datalines ]
-    '''
     # Coerce every value in a _read_map column to an integer, and each _read_map_p
     # column to a float
     for dl in datalines:
@@ -65,6 +50,7 @@ def read_blob_table(fh):
             elif colname.endswith('_read_map_p'):
                 dl[i] = float(dl[i].replace('%',''))
 
+    # That's what we need!
     return (colnames, name_map, datalines)
 
 def main(args):
@@ -78,11 +64,13 @@ def main(args):
         with open(f) as fh:
             all_tables.append(read_blob_table(fh))
 
-
+    # Now I can have a master Matrix
+    mm = Matrix('taxon', 'lib', numsort=('taxon'))
+    total_reads_per_lib = dict()
 
     for colnames, name_map, datalines in all_tables:
 
-        # Since I'm not using a table datatype, make an index of the column names
+        # Since I'm not using a table datatype, make my own index of the column names
         colidx = { n: i for i, n in enumerate(colnames) }
 
         # (Comment from Jon)
@@ -101,31 +89,87 @@ def main(args):
         # just do that calculation. First estimate the total reads per lib based off the
         # 'all' row.
         all_row, = [ dl for dl in datalines if dl[colidx['name']] == 'all' ]
-        total_reads_per_lib = dict()
+        total_reads_per_bam = dict()
         for n in name_map:
-            total_reads_per_lib[n] = (all_row[colidx[n+'_read_map']] * 100) / all_row[colidx[n+'_read_map_p']]
+            total_reads_per_bam[n] = (all_row[colidx[n+'_read_map']] * 100) / all_row[colidx[n+'_read_map_p']]
 
+            # We also keep a master count
+            total_reads_per_lib.setdefault(name_map[n], 0)
+            total_reads_per_lib.setdefault[name_map[n]] += total_reads_per_bam[n]
 
-        # Now recalculate all the percentages relative to this value.
-        for dl in datalines:
-            for i, colname in enumerate(colnames):
-                if colname.endswith('_read_map_p'):
-                    total_reads = total_reads_per_lib[colname.split('_')[0]]
-                    mapped_reads = dl[colidx[colname.split('_')[0]+'_read_map']]
-                    new_pct = (mapped_reads * 100) / total_reads
-                    # The new value should be close to the old one.
-                    assert abs(dl[i] - new_pct) < 0.1
-                    dl[i] = new_pct
+        # We've now also verified that all names in the name map have corresponding columns,
+        # but are all columns present in the name_map?
+        for colname in colnames:
+            if colname.endswith('_read_map_p') and colname != 'covsum_read_map_p':
+                assert name_map[colname[:-len('_read_map_p')]]
 
         # Strip out rows that have name in ['all', 'no-hit', 'undef', 'other']
+        # FIXME - maybe I want 'other' left in?
         datalines = [ dl for dl in datalines
                       if dl[colidx['name']] not in ['all', 'no-hit', 'undef', 'other'] ]
 
+        # Now recalculate all the percentages relative to this value, and pop them into
+        # my master matrix.
+        for dl in datalines:
+            for n in name_map:
+                total_reads = total_reads_per_bam[n]
+                mapped_reads = dl[colidx[n+'_read_map']]
+                new_pct = (mapped_reads * 100) / total_reads
+                # The new value should be close to the old one.
+                assert abs(dl[colidx[n+'_read_map_p']] - new_pct) < 0.1
+
+                # Into the matrix with ye!
+                # The add function will object if a value was already present.
+                mm.add(new_pct, taxon=dl[colidx['name']], lib=name_map[n])
+
+    # End of loop through all_tables
+
+    # Now prune out taxa with nothing that makes the cutoff - but first see what is
+    # the highest number. Due to our sorting strategy this will always be in the leftmost
+    # taxon column.
+    max_percent = 0.0
+    for tax in mm.list_labels('taxon')[:1]:
+        max_percent = max( mm.get_vector('taxon', tax) )
+
+    mm.prune('taxon', lambda v: v >= args.cutoff)
+
+    # And print the result. As it's TSV and we've already chacked for tabs this is safe.
+    if args.output == '-':
+        fh = sys.stdout
+    else:
+        fh = open(args.output, 'x')
+
+    if not mm.list_labels('taxon'):
+
+        # Jon had this so I'll (kinda) copy it...
+        # taxlevel <- unlist(strsplit(basename(files[1]), '\\.'))[2]
+        taxlevel = args.statstxt[0].split('.')[-4]
+
+        fh.print('No {taxlevel} is represented by at least {limit}% of reads (max {max}%)'.format(
+                                        taxlevel = taxlevel,
+                                        limit = args.cutoff,
+                                        max = max_percent ))
+
+    # Heading
+    print('\t'.join( [args.label] +
+                     ["Total Reads"] if args.total_reads else [] +
+                     mm.list_labels('taxon') ))
+
+    # Rows
+    for lib in mm.list_labels('lib'):
+
+        print('\t'.join( lib +
+                         total_reads_per_lib[lib] if args.total_reads else [] +
+                         mm.get_vector('lib', lib) ))
+
+    # And done
+    fh.close()
+
 class Matrix:
     """A lightweight 2D matrix suitable for my porpoises.
-       Yes I could use a Pandas DataFrame but I don't see the need to depend on Pandas
-       (which is big) and also I'd still need to define the sort/prune logic which is the
-       trickiest bit of the code.
+       Yes I could use a Pandas DataFrame and copy the R logic but I don't see the need to
+       depend on Pandas (which is big) and also I'd still need to define the sort/prune logic
+       which is the trickiest bit of the code.
        See test_blob_matrix.py for example usage.
     """
     def __init__(self, colname='x', rowname='y', numsort=(),  empty=0.0):
@@ -143,7 +187,7 @@ class Matrix:
         # types.
         return deepcopy(self)
 
-    def add(self, val, **kwargs):
+    def add_overwrite(self, val, **kwargs):
         """Add a value to the matrix
         """
         if len(kwargs) > 2:
@@ -157,6 +201,15 @@ class Matrix:
         # if the caller tries to retrieve an unknown column it springs into
         # existence.
         self._data.setdefault(kwargs[self._colname], dict())[kwargs[self._rowname]] = val
+
+    def add(self, val, **kwargs):
+        """Add a value but check it's not already set.
+           This is normally what we want.
+        """
+        if kwargs[self._rowname] in self._data.get(kwargs[self._colname], {}):
+            raise KeyError
+
+        self.add_overwrite(val, **kwargs)
 
     def list_labels(self, name):
         """List all the labels for either the rows or columns.
@@ -247,7 +300,7 @@ class Matrix:
             raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
 
 def parse_args(*args):
-    description = """ Takes one or more .blobplot.stats.txt files and makes a CSV table
+    description = """ Takes one or more .blobplot.stats.txt files and makes a TSV table
                       of the most common taxa by BAM (or COV) file.
                   """
     argparser = ArgumentParser( description=description,
@@ -255,7 +308,11 @@ def parse_args(*args):
     argparser.add_argument("-o", "--output", default='-',
                             help="Where to save the result. Defaults to stdout.")
     argparser.add_argument("-c", "--cutoff", type=float, default="1.0",
-                            help="Taxa found at less than cutoff% in all samples will not be shown.")
+                            help="Taxa found at less than cutoff%% in all samples will not be shown.")
+    argparser.add_argument("-l", "--label", default="Library ID",
+                            help="Label to put on the first column")
+    argparser.add_argument("-t", "--total_reads", action="store_true",
+                            help="Add a 'Total Reads' column.")
     argparser.add_argument("statstxt", nargs="+",
                             help="One or more input files to scan.")
     argparser.add_argument("-d", "--debug", action="store_true",
