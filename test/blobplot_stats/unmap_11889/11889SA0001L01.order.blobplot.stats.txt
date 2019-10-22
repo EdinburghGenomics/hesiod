@@ -1,0 +1,36 @@
+## blobtools v0.9.19
+## bam0=/lustre/projectqc/11889_Schnaufer_Achim/unmap_qc/.snakemake/shadow/tmpytoj37jn/11889SA0001L01__386_Parent/bwamem_merged/11889SA0001L01__386_Parent+mrkdup.bam
+# name	colour	count_visible	count_visible_perc	span_visible	span_visible_perc	n50	gc_mean	gc_std	bam0_mean	bam0_std	bam0_read_map	bam0_read_map_p
+all	None	22,483	100.0%	10,315,124	100.0%	438	0.42	0.076	82.9	410.4	5,260,014	56.7%
+no-hit	#d3d3d3	5,252	100.0%	2,467,643	100.0%	490	0.36	0.079	224.2	702.6	3,210,452	34.6%
+other	#ffffff	174	100.0%	69,939	100.0%	377	0.56	0.14	5.7	14.2	3,194	0.0%
+Anseriformes	None	1	100.0%	398	100.0%	398	0.55	0.0	6.1	0.0	25	0.0%
+Coleoptera	None	21	100.0%	7,711	100.0%	371	0.43	0.059	4.9	5.3	384	0.0%
+Caudovirales	None	1	100.0%	300	100.0%	300	0.56	0.0	1.7	0.0	3	0.0%
+Sphingobacteriales	None	4	100.0%	1,492	100.0%	319	0.37	0.036	1.8	0.9	9	0.0%
+Proteobacteria-undef	None	1	100.0%	318	100.0%	318	0.52	0.0	1.6	0.0	2	0.0%
+Clostridiales	None	1	100.0%	372	100.0%	372	0.4	0.0	1.6	0.0	2	0.0%
+Viruses-undef	None	2	100.0%	881	100.0%	507	0.5	0.0045	2.4	0.1	10	0.0%
+Bacillales	None	4	100.0%	1,522	100.0%	380	0.38	0.05	17.8	21.8	301	0.0%
+Lactobacillales	None	18	100.0%	6,779	100.0%	346	0.42	0.028	5.8	13.8	350	0.0%
+Bacteria-undef	None	3	100.0%	3,085	100.0%	2,457	0.46	0.07	7.1	7.0	171	0.0%
+Malasseziales	None	1	100.0%	346	100.0%	346	0.48	0.0	89.0	0.0	400	0.0%
+Propionibacteriales	None	28	100.0%	10,517	100.0%	378	0.58	0.031	2.0	0.6	123	0.0%
+Enterobacterales	None	2	100.0%	641	100.0%	324	0.53	0.025	13.5	10.7	97	0.0%
+Corynebacteriales	None	4	100.0%	1,478	100.0%	375	0.54	0.047	1.8	0.6	12	0.0%
+Spirurida	None	7	100.0%	4,583	100.0%	782	0.44	0.037	13.3	14.7	266	0.0%
+Strigeidida	None	2	100.0%	552	100.0%	330	0.4	0.016	69.1	54.2	217	0.0%
+Carnivora	None	2	100.0%	621	100.0%	318	0.47	0.047	2.9	0.5	12	0.0%
+Micrococcales	None	61	100.0%	23,462	100.0%	377	0.71	0.04	1.9	0.7	253	0.0%
+Cyclophyllidea	None	1	100.0%	202	100.0%	202	0.41	0.0	12.1	0.0	18	0.0%
+Galliformes	None	1	100.0%	342	100.0%	342	0.63	0.0	1.6	0.0	2	0.0%
+Tissierellales	None	4	100.0%	1,412	100.0%	333	0.38	0.036	15.4	23.4	330	0.0%
+Rosales	None	1	100.0%	499	100.0%	499	0.43	0.0	1.5	0.0	4	0.0%
+Selenomonadales	None	1	100.0%	321	100.0%	321	0.57	0.0	37.5	0.0	146	0.0%
+Polyopisthocotylea	None	3	100.0%	2,105	100.0%	1,221	0.39	0.0078	5.7	2.6	57	0.0%
+undef	#e2514a	6	100.0%	2,718	100.0%	586	0.52	0.049	2.6	0.7	35	0.0%
+Rodentia	#fca55d	11,978	100.0%	4,565,935	100.0%	366	0.43	0.06	7.7	27.3	273,934	3.0%
+Kinetoplastida	#fee999	3,892	100.0%	2,740,482	100.0%	879	0.45	0.07	132.5	498.7	1,609,244	17.4%
+Haemosporida	#edf8a3	680	100.0%	266,311	100.0%	389	0.36	0.014	78.8	115.2	117,664	1.3%
+Primates	#a2d9a4	456	100.0%	162,692	100.0%	336	0.4	0.057	52.7	232.0	44,488	0.5%
+Pseudomonadales	#47a0b3	45	100.0%	39,404	100.0%	9,977	0.45	0.05	3.3	5.6	1,003	0.0%

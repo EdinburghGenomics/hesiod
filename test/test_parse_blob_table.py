@@ -150,6 +150,18 @@ class T(unittest.TestCase):
             self.check_with_csv( ['{}.{}.blobplot.stats.txt'.format(basename, t)],
                                   '{}.{}.csv'.format(basename, t) )
 
+    def test_11889_unmap(self):
+        """Much like the one above but this has three files to input.
+        """
+        testdir = DATA_DIR + '/unmap_11889'
+
+        statstxt = [ "{}/11889SA{}L01.order.blobplot.stats.txt".format(testdir, n)
+                     for n in ['0001', '0002', '0003'] ]
+
+        self.check_with_csv( statstxt,
+                             testdir + '/blobstats.order.Unmapped.csv' )
+
+
     def test_20190405_EGS1_11650KL(self):
         """Some 'jellyfish plot' data from Hesiod
         """

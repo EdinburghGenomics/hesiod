@@ -1,0 +1,28 @@
+## blobtools v0.9.19
+## bam0=/lustre/projectqc/11889_Schnaufer_Achim/unmap_qc/.snakemake/shadow/tmp0jtyxa3v/11889SA0002L01__34_386W1Hybrid/bwamem_merged/11889SA0002L01__34_386W1Hybrid+mrkdup.bam
+# name	colour	count_visible	count_visible_perc	span_visible	span_visible_perc	n50	gc_mean	gc_std	bam0_mean	bam0_std	bam0_read_map	bam0_read_map_p
+all	None	20,529	100.0%	11,173,419	100.0%	635	0.39	0.092	259.8	774.3	12,629,604	52.5%
+no-hit	#d3d3d3	9,848	100.0%	4,313,102	100.0%	424	0.34	0.076	371.2	941.9	8,441,914	35.1%
+other	#ffffff	153	100.0%	60,167	100.0%	385	0.42	0.08	46.9	159.5	14,630	0.1%
+Chordata-undef	None	1	100.0%	483	100.0%	483	0.47	0.0	1.3	0.0	4	0.0%
+Coleoptera	None	17	100.0%	7,037	100.0%	394	0.44	0.037	6.4	9.8	528	0.0%
+Pinales	None	12	100.0%	4,269	100.0%	345	0.42	0.066	1.9	0.5	36	0.0%
+Plagiorchiida	None	2	100.0%	411	100.0%	210	0.52	0.0066	11.0	2.7	27	0.0%
+Actinomycetales	None	2	100.0%	781	100.0%	481	0.59	0.14	4.2	1.6	17	0.0%
+Haemosporida	None	41	100.0%	18,005	100.0%	440	0.36	0.012	81.5	167.3	6,935	0.0%
+Viruses-undef	None	1	100.0%	535	100.0%	535	0.53	0.0	1.9	0.0	4	0.0%
+Cetacea	None	1	100.0%	435	100.0%	435	0.37	0.0	1.4	0.0	2	0.0%
+Primates	None	59	100.0%	21,255	100.0%	347	0.42	0.072	59.8	209.6	6,742	0.0%
+Rhodospirillales	None	1	100.0%	385	100.0%	385	0.72	0.0	1.8	0.0	4	0.0%
+Bacteria-undef	None	2	100.0%	706	100.0%	371	0.47	0.052	1.8	0.2	5	0.0%
+Propionibacteriales	None	4	100.0%	1,742	100.0%	411	0.62	0.038	1.8	0.3	17	0.0%
+Enterobacterales	None	3	100.0%	1,036	100.0%	328	0.5	0.055	12.9	15.9	155	0.0%
+Spirurida	None	5	100.0%	2,342	100.0%	602	0.45	0.03	3.9	1.2	41	0.0%
+Strigeidida	None	1	100.0%	392	100.0%	392	0.39	0.0	61.1	0.0	109	0.0%
+Rhabditida	None	1	100.0%	353	100.0%	353	0.43	0.0	2.4	0.0	4	0.0%
+undef	#e2514a	2	100.0%	663	100.0%	345	0.46	0.051	2.7	0.3	9	0.0%
+Kinetoplastida	#fca55d	6,637	100.0%	5,242,763	100.0%	1,217	0.43	0.072	246.6	693.3	4,051,493	16.8%
+Rodentia	#fee999	3,584	100.0%	1,383,202	100.0%	374	0.43	0.061	9.0	25.7	117,996	0.5%
+Micrococcales	#edf8a3	267	100.0%	120,910	100.0%	441	0.7	0.042	2.5	3.5	1,880	0.0%
+Pseudomonadales	#a2d9a4	37	100.0%	28,581	100.0%	14,853	0.44	0.062	3.4	6.9	813	0.0%
+Caudovirales	#47a0b3	1	100.0%	24,031	100.0%	24,031	0.43	0.0	8.6	0.0	869	0.0%
