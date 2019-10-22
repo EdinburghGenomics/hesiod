@@ -55,10 +55,6 @@ if [ -e "$ENVIRON_SH" ] ; then
            PROJECT_NAME_LIST
 fi
 
-# Tools may reliably use this to report the version of Hesiod being run right now.
-# They should look at pipeline/start_times to see which versions have touched a given run.
-export HESIOD_VERSION=$(cat "$(dirname $BASH_SOURCE)"/version.txt || echo unknown)
-
 # LOG_DIR is ignored if MAINLOG is set explicitly.
 LOG_DIR="${LOG_DIR:-${HOME}/hesiod/logs}"
 RUN_NAME_REGEX="${RUN_NAME_REGEX:-.+_.+_.+}"
@@ -138,6 +134,13 @@ fi
 
 # Now fix the PATH
 PATH="$(readlink -m $BIN_LOCATION):$PATH"
+
+# Tools may reliably use this to report the version of Hesiod being run right now.
+# (You should look at pipeline/start_times to see which versions have touched a given run.)
+# Note we have to do this after the VEnv activation which is after the log start so we
+# can't log the version in the log header. This shouldn't matter for production as the
+# full path of this script will indicate the version being run.
+export HESIOD_VERSION=$(hesiod_version.py)
 
 ###--->>> ACTION CALLBACKS <<<---###
 
@@ -552,7 +555,7 @@ upload_report() {
 
     # usage: upload_report
 
-    # The Hesiod version was somewhat messier. This may get messier too.
+    # The SMRTino version was somewhat messier. This may get messier too.
 
     set +o | grep '+o errexit' && _ereset='set +e' || _ereset='set -e'
     set +e
