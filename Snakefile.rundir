@@ -65,7 +65,11 @@ rule list_fastq:
     run:
         # Just write all the input files to the output file.
         with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
+            try:
+                for fname in input.fastq: print(fname, file=fh)
+            except AttributeError:
+                # So there are no files. Make an empty list then.
+                pass
 
 
 rule concat_gzip_md5sum_fastq:

@@ -124,7 +124,7 @@ rule parse_blob_table:
                                                             **vars(wc) )
                          for cell in CELLS_PER_PROJECT[wc.project] ]
     params:
-        pct_limit = 1
+        pct_limit = 1.0
     shell:
         "parse_blob_table.py -t -o {output} -c {params.pct_limit} {input}"
 
