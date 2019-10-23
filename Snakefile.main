@@ -135,9 +135,9 @@ def sc_counts(sc_dict, width=140):
 # Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
 # FIXME - nothing is aggregated per-lib just yet?!
 SC, COUNTS = scan_cells()
+RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
 CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(RUN, c)['Project'], True)
-RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 
 def save_out_plist(yaml_files, out_file):
         plist = set()

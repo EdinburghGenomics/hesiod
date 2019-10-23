@@ -35,13 +35,14 @@ from scratch.
 Or can I find a way around this?
 
 I could make a script that renames the files. The YAML files will then be wrong, but we can just
-delete them. This will be doable but a faff.
+delete them. This will be doable.
 
 I could detect that a run has been processed with the old pipeline and revert to the old names?
 But this is extra cruft for code that was never even in production. Given that Urmi's request
 for extra files has made breaking changes anyway, it seems silly.
 
-Let's have a crack at that script.
+Let's have a crack at that script. I think I can see a hacky way to do it :-)
+No I can't. Any such script is useless :-(
 
 * In fact the change to the pipeline should be trivial, since it's just in the function cellname_to_base.
   I should be using this in Snakefile.blob though! OK, pipeline code is neatened up.
