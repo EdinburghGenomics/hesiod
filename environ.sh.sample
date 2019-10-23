@@ -4,6 +4,9 @@ LOG_DIR=~pipeline/hesiod/logs
 # Not yet used...
 STALL_TIME=''
 
+# Marks cells as deletable
+DEL_REMOTE_CELLS=yes
+
 # This is needed due to missing certs in the Python certifi package:
 export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
 

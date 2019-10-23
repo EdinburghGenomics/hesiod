@@ -9,6 +9,9 @@ UPSTREAM_EGS1=prom@promethion:/data
 # Or for local testing, just this:
 UPSTREAM=""
 
+# Marks cells as deletable
+DEL_REMOTE_CELLS=no
+
 PROM_RUNS=~/test_promethion/prom_runs
 FASTQDATA=~/test_promethion/prom_fastqdata
 

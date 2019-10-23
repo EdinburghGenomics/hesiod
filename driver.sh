@@ -52,7 +52,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
            RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE TOOLBOX \
-           PROJECT_NAME_LIST
+           DEL_REMOTE_CELLS PROJECT_NAME_LIST
 fi
 
 # LOG_DIR is ignored if MAINLOG is set explicitly.
@@ -310,10 +310,12 @@ action_cell_ready(){
 
     # Attempt deletion but don't fret if it fails
     _upstream="`cat pipeline/upstream`"
-    if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
-        log "Marking deletable cells on $_upstream."
-        plog "Marking cells as deletable on $_upstream: $CELLSREADY"
-        del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
+    if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
+        if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
+            log "Marking deletable cells on $_upstream."
+            plog "Marking cells as deletable on $_upstream: $CELLSREADY"
+            del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
+        fi
     fi
 }
 
