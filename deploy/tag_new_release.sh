@@ -96,4 +96,4 @@ git push --tags
 git push
 
 echo "All done. Now log in as the pipeline user and do:"
-echo "  cd ~/hesiod && $(dirname $(readlink -f "$BASH_SOURCE")/get_latest_tag.sh"
+echo "  cd ~/hesiod && $(dirname $(readlink -f "$BASH_SOURCE"))/get_latest_tag.sh"
