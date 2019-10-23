@@ -48,7 +48,7 @@ def main(args):
     rep.append("")
 
     # Now for each cell. Report them in slot order (how does one correctly sort that?)
-    cell_infos = sorted([ (c, parse_cell_name(c)) for c in cells ], key=lambda i: i[1].get('Slot', ''))
+    cell_infos = sorted([ (c, parse_cell_name(runid, c)) for c in cells ], key=lambda i: i[1].get('Slot', ''))
 
     # Could also get this from the caller??
     for cellname, ci in cell_infos:

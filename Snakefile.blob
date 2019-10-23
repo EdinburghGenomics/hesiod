@@ -39,19 +39,15 @@ rule fasta_numseqs:
 rule per_cell_blob_plots:
     output: "blob/{cell}/plots.yaml"
     input:
-        png = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}{thumb}.png",
-                      cell = wc.cell,
+        png = lambda wc: expand( "blob/{base}_{pf}.{taxlevel}.{extn}{thumb}.png",
+                      base = [cellname_to_base(wc.cell)],
                       pf = BLOB_PARTS,
-                      run = [RUN],
-                      ci = [parse_cell_name(wc.cell)],
                       taxlevel = BLOB_LEVELS,
                       extn = "cov0 read_cov.cov0".split(),
                       thumb = ['.__thumb', ''] ),
-        sample = lambda wc: expand( "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta.numseqs",
-                      cell = wc.cell,
+        sample = lambda wc: expand( "blob/{base}_{pf}+sub{ss}.fasta.numseqs",
+                      base = [cellname_to_base(wc.cell)],
                       pf = BLOB_PARTS,
-                      run = [RUN],
-                      ci = [parse_cell_name(wc.cell)],
                       ss = [BLOB_SUBSAMPLE] ),
     run:
         # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE, so check
@@ -64,17 +60,15 @@ rule per_cell_blob_plots:
         # cut it here in preserving order but I can make a nested list comprehension.
         # Group by BLOB_PARTS with an appropriate title.
         plots = [ dict(title = 'Taxonomy for {pf} reads ({c} sequences) by {l}'.format(
-                                                                            pf = PART_LABELS.get(pf, pf),
-                                                                            c = counts[pf],
-                                                                            l = ', '.join(BLOB_LEVELS) ),
+                                                                pf = PART_LABELS.get(pf, pf),
+                                                                c = counts[pf],
+                                                                l = ', '.join(BLOB_LEVELS) ),
 
-                       files = [ [ "{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.{extn}.png".format(
-                                                                            cell = wc.cell,
-                                                                            run = RUN,
-                                                                            ci = parse_cell_name(wc.cell),
-                                                                            pf = pf,
-                                                                            taxlevel = taxlevel,
-                                                                            extn = extn )
+                       files = [ [ "{basebase}_{pf}.{taxlevel}.{extn}.png".format(
+                                                                basebase = os.path.basename(cellname_to_base(wc.cell)),
+                                                                pf = pf,
+                                                                taxlevel = taxlevel,
+                                                                extn = extn )
                                     for taxlevel in BLOB_LEVELS ]
                                  for extn in "read_cov.cov0 cov0".split() ]
                       ) for pf in BLOB_PARTS ]
@@ -117,10 +111,8 @@ rule per_project_blob_tables:
 rule parse_blob_table:
     output: "blob/blobstats.{project}.{pf}.{taxlevel}.tsv"
     input:
-        lambda wc: [ "blob/{cell}/{run}_{ci[Library]}_{ci[CellID]}_{pf}.{taxlevel}.blobplot.stats.txt".format(
-                                                            cell = cell,
-                                                            run = RUN,
-                                                            ci = parse_cell_name(cell),
+        lambda wc: [ "blob/{base}_{pf}.{taxlevel}.blobplot.stats.txt".format(
+                                                            base = cellname_to_base(cell),
                                                             **vars(wc) )
                          for cell in CELLS_PER_PROJECT[wc.project] ]
     params:

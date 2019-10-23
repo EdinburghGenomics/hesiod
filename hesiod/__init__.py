@@ -50,9 +50,11 @@ def _determine_version():
 
     return vers
 
-def parse_cell_name(cell):
-    """Things we get from parsing wildcards.cell"""
+def parse_cell_name(run, cell):
+    """Things we get from parsing wildcards.cell
+    """
     res = OrderedDict()
+    res['Run'] = run
     res['Cell'] = cell
 
     # Now shred the filename.
@@ -64,6 +66,7 @@ def parse_cell_name(cell):
         # Not good, but we'll try
         res['Library'] = cell.split('/')[0]
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
+        res['Checksum'] = cell.split('_')[-1] if '_' in cell else 'UNKNOWN'
 
     # FIXME - not sure this is the right thing to do when the regex fails.
     mo =  re.match(r"([0-9]{5})[A-Z]{2}", res['Library'])
@@ -71,6 +74,10 @@ def parse_cell_name(cell):
         res['Project'] = mo.group(1)
     else:
         res['Project'] = res['Library']
+
+    # Given all this, what do we call output files releting to this cell?
+    # See doc/naming_convention.txt
+    res['Base'] = "{Cell}/{Run}_{Library}_{CellID}_{Checksum}".format(**res)
 
     return res
 

@@ -58,6 +58,11 @@ if not os.path.exists(RUNDIR):
     logger.warning(format("WARNING: {RUNDIR} is not a directory. Suppressing rules that reference RUNDIR."))
     RUNDIR = None
 
+def cellname_to_base(c):
+    """Given a cell name, what base name do we choose for the output files?
+    """
+    return parse_cell_name(RUN, c)['Base']
+
 def scan_cells():
     """ Work out all the cells to process. Should be simple since the list is passed
         by driver.sh in config['cellsready'] but I do want to be able to process all by default.
@@ -130,8 +135,8 @@ def sc_counts(sc_dict, width=140):
 # Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
 # FIXME - nothing is aggregated per-lib just yet?!
 SC, COUNTS = scan_cells()
-CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(c)['Library'], True)
-CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(c)['Project'], True)
+CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
+CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(RUN, c)['Project'], True)
 RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 
 def save_out_plist(yaml_files, out_file):
@@ -203,10 +208,6 @@ rule pack_fast5:
 #  All _pass.fastq files get split into nolambda (concat and compress) and lambda (merged BAM)
 #  but as requested by Urmi we also retain the combined 'pass' files.
 #  All of the files get an md5sum
-def cellname_to_base(c):
-    """Given a cell name, what base name do we choose for the output files?
-    """
-    return "{}/{}_{Library}_{CellID}".format(c, RUN, **parse_cell_name(c))
 
 # See also BLOB_PARTS in Snakefile.blob
 FASTQ_PARTS = ["pass", "nolambda", "fail"]
@@ -235,8 +236,7 @@ rule one_cell:
         nanoplot     = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
         #minionqc     = "minionqc/{cell}/summary.yaml",
     run:
-        ci = parse_cell_name(wildcards.cell)
-        ci['Run'] = RUN
+        ci = parse_cell_name(RUN, wildcards.cell)
 
         # Add pass/fail number of files. If the RUNDIR is not available we'll not attempt
         # to recalculate this. I could still count fast5 files but a better approach would be

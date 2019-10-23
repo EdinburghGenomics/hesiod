@@ -28,14 +28,14 @@ final filename, so that makes it:
 
 {run}_{lib}_{cellid}_{uid}_{pf}
 
-The change is not too bad to make in terms of fixing the Snakefiles, but it does mean that all
+The change is not too bad to make in terms of fixing the Snakefiles*, but it does mean that all
 the old runs can't be reprocessed with the new pipeline, or rather they need to be reprocessed
 from scratch.
 
 Or can I find a way around this?
 
 I could make a script that renames the files. The YAML files will then be wrong, but we can just
-delete them. OK, yes I think this might be doable.
+delete them. This will be doable but a faff.
 
 I could detect that a run has been processed with the old pipeline and revert to the old names?
 But this is extra cruft for code that was never even in production. Given that Urmi's request
@@ -43,3 +43,5 @@ for extra files has made breaking changes anyway, it seems silly.
 
 Let's have a crack at that script.
 
+* In fact the change to the pipeline should be trivial, since it's just in the function cellname_to_base.
+  I should be using this in Snakefile.blob though! OK, pipeline code is neatened up.
