@@ -176,6 +176,8 @@ action_new(){
     # Also a matching output directory and back/forth symlinks
     _cc=`twc $CELLS`
     if [ "$RUNUPSTREAM" = LOCAL ] ; then
+        # The run_status.py script will report 'LOCAL' if the upstream file is missing, but we then
+        # below write this value explicitly into the upstream file.
         log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
         _msg1="New run in $PROM_RUNS with $_cc cells."
     else
