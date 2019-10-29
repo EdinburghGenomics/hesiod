@@ -21,6 +21,11 @@ def read_blob_table(fh):
 
     for l in fh:
         l = l.strip()
+
+        # Special case - if the first line simpy says 'No data' then there was no data.
+        if l == 'No data' and not headerlines:
+            return ([], {}, [])
+
         if not l:
             # Not expecting blank lines, but skip them if seen.
             continue
@@ -70,6 +75,9 @@ def main(args):
     total_reads_per_lib = Counter()
 
     for colnames, name_map, datalines in all_tables:
+
+        # Empty file?
+        if not datalines: continue
 
         # Since I'm not using a table datatype, make my own index of the column names
         colidx = { n: i for i, n in enumerate(colnames) }

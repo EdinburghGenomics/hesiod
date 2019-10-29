@@ -105,19 +105,30 @@ rule concat_md5sum_nolambda_fastq:
         fastq = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.gz") for f in SC[wc.cell]['fastq_pass']],
         count = lambda wc: [format("fastq_pass_tmp/{f}.nlfq.count") for f in SC[wc.cell]['fastq_pass']]
     run:
-        # Avoid blowing the command line limit by listing files in a file. This could be
-        # marked temporary but it's small and handy for debugging.
-        with open(output.fofn, "w") as fh:
-            for fname in input.fastq: print(fname, file=fh)
+        try:
+            # Avoid blowing the command line limit by listing files in a file. This could be
+            # marked temporary but it's small and handy for debugging.
+            with open(output.fofn, "w") as fh:
+                for fname in input.fastq: print(fname, file=fh)
 
-        with open(output.fofn2, "w") as fh:
-            for fname in input.count: print(fname, file=fh)
+            with open(output.fofn2, "w") as fh:
+                for fname in input.count: print(fname, file=fh)
 
-        # Simply concatenate the gzipped files
-        shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
+            # Simply concatenate the gzipped files
+            shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
 
-        # Combine base counts
-        shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+            # Combine base counts
+            shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+
+
+        except AttributeError:
+            # We're merging nothing. But Snakemake must have her output file.
+            shell("touch {output.fofn} {output.fofn2}")
+
+            shell("true | {PIGZ} -c > {output.gz}")
+
+            # Generate an empty count.
+            shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
 
         # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
@@ -131,11 +142,16 @@ rule concat_md5sum_lambda_bam:
         bam  = lambda wc: [format("fastq_pass_tmp/{f}.lambda.bam") for f in SC[wc.cell]['fastq_pass']]
     threads: 4
     run:
-        with open(output.fofn, "w") as fh:
-            for fname in input.bam: print(fname, file=fh)
+        try:
+            with open(output.fofn, "w") as fh:
+                for fname in input.bam: print(fname, file=fh)
 
-        # samtools merge (files in fastq_pass_tmp should be pre-sorted)
-        shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
+            # samtools merge (files in fastq_pass_tmp should be pre-sorted)
+            shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
+
+        except AttributeError:
+            # We're merging nothing. But Snakemake must have her output file.
+            shell("touch {output.bam}")
 
         shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 

@@ -73,8 +73,8 @@ def scan_cells():
         # Believe what we are told
         cells = config['cells'].split('\t')
     elif RUNDIR:
-        # Look for valid cells
-        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_pass/")) ]
+        # Look for valid cells.
+        cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_????/")) ))
     else:
         # Look for cells here in the output (presumably the run already processed and the raw dir was removed)
         cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("*/*/sequencing_summary.txt.gz")) ]
