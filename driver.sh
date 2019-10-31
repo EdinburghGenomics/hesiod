@@ -51,7 +51,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     # Saves having to put 'export' on every line in the config.
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
-           RT_SYSTEM SYNC_CMD STALL_TIME VERBOSE TOOLBOX \
+           RT_SYSTEM STALL_TIME VERBOSE TOOLBOX \
            DEL_REMOTE_CELLS PROJECT_NAME_LIST
 fi
 
@@ -417,6 +417,12 @@ do_sync(){
         return
     fi
 
+    # Work out the right SYNC_CMD. The instrument/upstream name is the second part of the RUNID.
+    _instrument=`sed 's/[^_]\+_\([^_]\+\)_.*/\1/' <<<"$RUNID"`
+    eval _sync_cmd="\${SYNC_CMD_${_instrument}:-}"
+    _sync_cmd="${_sync_cmd:-$SYNC_CMD}"  # Or the default?
+    _sync_cmd="${_sync_cmd:-false}"      # Well there should be a command :-/
+
     # Loop through cells
     while read run upstream cell ; do
 
@@ -439,8 +445,8 @@ do_sync(){
             # Run the SYNC_CMD - if the return code is 130 or 20 then abort all
             # pending ops (presume Ctrl+C was pressed) else if there is an error
             # proceed to the next run. Note it is essential to redirect stdin!
-            eval echo "Running: $SYNC_CMD" | plog
-            if eval $SYNC_CMD </dev/null |&plog ; then
+            eval echo "Running: $_sync_cmd" | plog
+            if eval $_sync_cmd </dev/null |&plog ; then
                 true
             elif [ $? = 130 -o $? = 20 ] ; then
                 touch pipeline/sync.failed ; BREAK=1 ; return
@@ -688,18 +694,20 @@ get_run_status() { # run_dir
 
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
-UPSTREAM_INFO=""
-UPSTREAM_LOCS=""
-UPSTREAM_FAILS=""
-for UPSTREAM_NAME in $UPSTREAM ; do
+UPSTREAM_INFO="" UPSTREAM_LOCS="" UPSTREAM_FAILS=""
+
+# Note because of the IFS setting we need to munge $UPSTREAM
+for UPSTREAM_NAME in `tr ' ' '\t' <<<$UPSTREAM` ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
     UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
 
     # If this fails (network error or whatever) we still want to process local stuff
     log ">> Looking for ${UPSTREAM_NAME} upstream runs in $UPSTREAM_LOC"
-    UPSTREAM_INFO+="$(list_remote_cells.sh)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
+    UPSTREAM_INFO+="$(list_remote_cells.sh ; printf $)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
+    # https://stackoverflow.com/questions/15184358/how-to-avoid-bash-command-substitution-to-remove-the-newline-character
+    UPSTREAM_INFO=${UPSTREAM_INFO%$}
 done
-debug "$UPSTREAM_INFO"
+echo -n "$UPSTREAM_INFO" | debug
 log "Found `echo -n "$UPSTREAM_INFO" | wc -l` cells in upstream runs"
 unset UPSTREAM_LOC UPSTREAM_NAME
 

@@ -12,30 +12,33 @@ def main():
 
     all_lines = [l.strip() for l in sys.stdin]
 
-    assert all_lines[0] == "General summary:"
+    # Possibly the stats are empty? This can happen if nothing passes.
+    if all_lines:
 
-    res.append( [ all_lines[0].split(':')[0], [] ] )
-    summary_bits = res[-1][1]
+        assert all_lines[0] == "General summary:"
 
-    for l in all_lines[1:]:
-        if ':' in l:
-            summary_bits.append([v.strip() for v in l.split(':')])
-        else:
-            res.append( [ l, [] ] )
-            summary_bits = res[-1][1]
+        res.append( [ all_lines[0].split(':')[0], [] ] )
+        summary_bits = res[-1][1]
 
-    # Now see if we can parse out some numbers
-    for cat, lines in res:
-        for l in lines:
-            for bit in l[1].split():
-                bit = bit.strip('();')
-                try:
-                    if '.' in bit:
-                        l.append( float(re.sub('[,Mb%]', '', bit)) )
-                    else:
-                        l.append( int(re.sub('[,Mb%]', '', bit)) )
-                except ValueError:
-                    l.append(bit)
+        for l in all_lines[1:]:
+            if ':' in l:
+                summary_bits.append([v.strip() for v in l.split(':')])
+            else:
+                res.append( [ l, [] ] )
+                summary_bits = res[-1][1]
+
+        # Now see if we can parse out some numbers
+        for cat, lines in res:
+            for l in lines:
+                for bit in l[1].split():
+                    bit = bit.strip('();')
+                    try:
+                        if '.' in bit:
+                            l.append( float(re.sub('[,Mb%]', '', bit)) )
+                        else:
+                            l.append( int(re.sub('[,Mb%]', '', bit)) )
+                    except ValueError:
+                        l.append(bit)
 
     #pprint(res)
     print(yaml.safe_dump(res))

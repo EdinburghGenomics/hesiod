@@ -33,8 +33,8 @@ SYNC_CMD="rsync -vrltR --modify-window=5 \${upstream}/./\${cell} ${PROM_RUNS}/\$
 # SYNC_CMD="ssh -T \${upstream_host} rsync -vrltR --modify-window=5 \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
 # SYNC_CMD="ssh -T \${upstream_host} rsync -vrltR --size-only --append \${upstream_path}/./\${cell} /mnt/lustre/promethion/prom_runs/\${run}/"
 
-# If you want different sync commands for different upstream hosts then this is not yet supported.
-# I'm imagining if we get another Promethion we'll just set it up the same.
+# Note we can suppy different sync commands (SYNC_CMD_FOO) for different upstream hosts, or else default
+# to SYNC_CMD.
 
 # Reports reports reports
 REPORT_DESTINATION=web1.genepool.private:/var/runinfo/hesiod_reports

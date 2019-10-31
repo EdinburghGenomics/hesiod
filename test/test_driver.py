@@ -58,7 +58,7 @@ class T(unittest.TestCase):
                 ENVIRON_SH = '/dev/null',
                 VERBOSE = 'yes',
                 PY3_VENV = 'none',
-                STALL_TIME = '',
+                DEL_REMOTE_CELLS = 'yes',
             )
 
         # Now clear any of these environment variables that might have been set outside

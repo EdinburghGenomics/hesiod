@@ -39,8 +39,8 @@ SYNC_CMD="rsync -vrlptDR \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
 ## Or for super-fast lustre-to-lustre testing with the hard-link hack:
 # SYNC_CMD="rsync -vrlptR --link-dest=\${upstream}/ \${upstream}/./\${cell} ${PROM_RUNS}/\${run}/"
 
-# If you want different sync commands for different upstream hosts then this is not yet supported.
-# I'm imagining if we get another Promethion we'll just set it up the same.
+# Note we can suppy different sync commands (SYNC_CMD_FOO) for different upstream hosts, or else default
+# to SYNC_CMD.
 
 # Reports reports reports
 REPORT_DESTINATION=web1.genepool.private:/var/runinfo/hesiod_reports/test

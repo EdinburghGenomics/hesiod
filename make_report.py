@@ -170,28 +170,34 @@ def format_report( all_info,
             def _format(_k, _v):
                 """Coerce some floats to ints but not all of them"""
                 if not( _k.startswith("Mean") or _k.startswith("Median") ):
-                    # Seems the best way to detect if the float is really an int in disguise
+                    # We believe the float is really an int in disguise
                     if not modf(_v)[0]:
                         _v = int(_v)
                 return (_k, _v)
 
-            # So we just want the General summary. But do we want it as a table or a
-            # DL or a rotated table or what? Let's have all three.
-            nsgs, = [ i[1] for i in ns if i[0] == "General summary" ]
+            if ns:
+                # So we just want the General summary. But do we want it as a table or a
+                # DL or a rotated table or what? Let's have all three.
+                nsgs, = [ i[1] for i in ns if i[0] == "General summary" ]
 
-            # As I had it before
-            P( format_dl( [ (k, pv) for k, pv, *_ in nsgs ],
-                          title = "Nanoplot general summary" ) )
+                # As I had it before
+                P( format_dl( [ (k, pv) for k, pv, *_ in nsgs ],
+                              title = "Nanoplot general summary" ) )
 
-            # As a one-line table, using the number values
-            P( format_table( [ k for k, pv, nv, *_ in nsgs ],
-                             [ [ _format(k, nv)[1] for k, pv, nv, *_ in nsgs ] ],
-                             title = "Nanoplot general summary" ) )
+                # As a one-line table, using the number values
+                P( format_table( [ k for k, pv, nv, *_ in nsgs ],
+                                 [ [ _format(k, nv)[1] for k, pv, nv, *_ in nsgs ] ],
+                                 title = "Nanoplot general summary" ) )
 
-            # As a rotated table
-            P( format_table( ['Item', 'Printable', 'Value'],
-                             [ [k, pv, _format(k, nv)[1] ] for k, pv, nv, *_ in nsgs ],
-                             title = "Nanoplot general summary" ) )
+                # As a rotated table
+                P( format_table( ['Item', 'Printable', 'Value'],
+                                 [ [k, pv, _format(k, nv)[1] ] for k, pv, nv, *_ in nsgs ],
+                                 title = "Nanoplot general summary" ) )
+
+            else:
+                # Here we have an empty report (as opposed to a missing report)
+                P( format_dl( [ ('Number of passing reads', '0') ],
+                              title = "Nanoplot general summary" ) )
 
             # Version that prints everything...
             '''
