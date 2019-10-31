@@ -196,7 +196,7 @@ def format_report( all_info,
 
             else:
                 # Here we have an empty report (as opposed to a missing report)
-                P( format_dl( [ ('Number of passing reads', '0') ],
+                P( format_dl( [ ('Passing reads', '0') ],
                               title = "Nanoplot general summary" ) )
 
             # Version that prints everything...

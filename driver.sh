@@ -96,7 +96,7 @@ debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then log "$@" ; else [ $# = 0 ] && cat >/
 # directory. Obvously this can't be used in action_new until the directory is made.
 plog() {
     per_run_log="$RUN_OUTPUT/pipeline.log"
-    if ! { [ $# = 0 ] && cat >> "$per_run_log" || echo "$*" >> "$per_run_log" ; } ; then
+    if ! { [ $# = 0 ] && cat >> "$per_run_log" || echo "$@" >> "$per_run_log" ; } ; then
        log '!!'" Failed to write to $per_run_log"
        log "$@"
     fi
@@ -204,7 +204,9 @@ action_new(){
     # Now, this should fail if $FASTQDATA/$RUNID already exists or can't be created.
     RUN_OUTPUT="$FASTQDATA/$RUNID"
     if _msg2="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
+        debug "$_msg2"
         plog_start
+        log "Logging to $per_run_log"
         plog "$_msg1"
         plog "$_msg2"
         # Links both ways, as usual
@@ -475,14 +477,14 @@ touch_atomic(){
 cell_to_tfn(){
     # Cell names are lib/cell but this can't be used as a filename
     # I think the best option is just to chop the lib/ part. Note this must
-    # correspond to the locic in run_status.py which interprets the touch files.
-    echo "${1##*/}"
+    # correspond to the logic in run_status.py which interprets the touch files.
+    printf "%s" "${1##*/}"
 }
 
 twc(){
     # Count the number of words in a tab-separated string. This is
     # simple when IFS=$'\t'
-    echo $#
+    printf "%s" $#
 }
 
 tjoin(){
@@ -494,11 +496,11 @@ tjoin(){
         _tjoin_res="${_tjoin_res#${_tjoin_char}}"
         _tjoin_res="${_tjoin_res%${_tjoin_char}}"
     done
-    echo "$_tjoin_res"
+    printf "%s" "$_tjoin_res"
 }
 
 save_start_time(){
-    ( echo -n "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
+    ( printf "%s" "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
         >>pipeline/start_times
 }
 
@@ -707,8 +709,8 @@ for UPSTREAM_NAME in `tr ' ' '\t' <<<$UPSTREAM` ; do
     # https://stackoverflow.com/questions/15184358/how-to-avoid-bash-command-substitution-to-remove-the-newline-character
     UPSTREAM_INFO=${UPSTREAM_INFO%$}
 done
-echo -n "$UPSTREAM_INFO" | debug
-log "Found `echo -n "$UPSTREAM_INFO" | wc -l` cells in upstream runs"
+printf "%s" "$UPSTREAM_INFO" | debug
+log "Found `printf "%s" "$UPSTREAM_INFO" | wc -l` cells in upstream runs"
 unset UPSTREAM_LOC UPSTREAM_NAME
 
 ###--->>> SCANNING LOOP <<<---###
@@ -769,27 +771,26 @@ fi
 STATUS=new
 if [ -n "$UPSTREAM" ] ; then
     log ">> Handling new upstream runs matching regex $RUN_NAME_REGEX"
+    [[ -n "$UPSTREAM_INFO" ]] || log "No runs seen"
     while read RUNID ; do
-        if [[ -z "$RUNID" ]] ; then
-            log "No runs seen"
+        if [ -e "$PROM_RUNS/$RUNID" ] ; then
+            debug "Run $RUNID is not new"
+            continue
+        fi
+        if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
+            debug "Ignoring $RUNID due to regex"
             continue
         fi
 
-        if ! [ -e "$PROM_RUNS/$RUNID" ] ; then
-            if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
-                debug "Ignoring $RUNID"
-                continue
-            fi
+        # Set vars to match get_run_status. Remember we have IFS set to "\t" in this script.
+        RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
+        CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
+        CELLSPENDING=""
 
-            # Set vars to match get_run_status. Remember we have IFS set to "\t" in this script.
-            RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
-            CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
-            CELLSPENDING=""
+        { eval action_"$STATUS"
+        } || log "Error while trying to run action_$STATUS on $RUNID"
 
-            { eval action_"$STATUS"
-            } || log "Error while trying to run action_$STATUS on $RUNID"
-        fi
-    done < <(awk -F "$IFS" '{print $1}' <<<"$UPSTREAM_INFO" | uniq)
+    done < <(printf "%s" "$UPSTREAM_INFO" | awk -F "$IFS" '{print $1}' | uniq)
 fi
 
 # Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
