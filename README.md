@@ -2,7 +2,7 @@
 
 The ancient Greek author Hesiod wrote about the myth of Prometheus.
 
-This Hesiod writes reports about your Promethion (or NanoPore in general) data.
+This Hesiod writes reports about your Promethion (or other NanoPore) data.
 
 ## Features
 
@@ -15,6 +15,7 @@ This Hesiod writes reports about your Promethion (or NanoPore in general) data.
 * Checksums everything
 * Logs progress (by sending messages to Request Tracker, if available)
 * Tags processed runs for removal from work drive
+* State-machine-driven operation
 
 ## Cluster compatibility
 
@@ -22,7 +23,7 @@ Operation is highly parallel. Multiple cells will be processed at once as
 they complete on the device.
 
 The processing is initiated via Snakemake, which works on pretty much any
-cluster. We use SLURM and SGE.
+cluster so long as you have a shared file system. We use SLURM and SGE.
 
 ## Documentation
 
