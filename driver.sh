@@ -284,7 +284,8 @@ action_cell_ready(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       ( cd "$RUN_OUTPUT"
-        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" -- pack_fast5 main
+        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" \
+            -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }

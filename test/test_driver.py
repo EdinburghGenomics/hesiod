@@ -386,7 +386,7 @@ class T(unittest.TestCase):
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
                                              " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
-                                             " -- pack_fast5 main" ]
+                                             " -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",
@@ -417,7 +417,7 @@ class T(unittest.TestCase):
                                              " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
                                              " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
-                                             " -- pack_fast5 main" ]
+                                             " -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???" ]
@@ -460,7 +460,7 @@ class T(unittest.TestCase):
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
                                              " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
-                                             " -- pack_fast5 main" ]
+                                             " -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --reply"
                                                       " All 2 cells have run on the instrument. Full report will follow soon.",
@@ -507,7 +507,7 @@ class T(unittest.TestCase):
                                              " cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"
                                              " cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"
-                                             " -- pack_fast5 main" ]
+                                             " -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main" ]
         expected_calls['upload_report.sh'] = [ self.run_path + "/pipeline/output" ]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???",
                                                       "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???",

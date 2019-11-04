@@ -25,7 +25,7 @@ def format_report( all_info,
 
     # Get the run(s)
     runs = sorted(set([ i['Run'] for i in all_info.values() ]))
-    instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
+    #instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
     libs = sorted(set([ i['Cell'].split('/')[0] for i in all_info.values() ]))
 
     #########################################################################
@@ -105,7 +105,7 @@ def format_report( all_info,
                  for cat_counts in [{ k: [ c[row][k] for c in all_counts ]
                                       for k in ['total_reads', 'total_bases', 'max_length'] }] ]
 
-        P( format_table( ["Category", "Total Reads", "Total Bases", "Max Length"],
+        P( format_table( ["Part", "Total Reads", "Total Bases", "Max Length"],
                          rows,
                          title = "Read summary" ) )
 
@@ -133,6 +133,9 @@ def format_report( all_info,
         P()
         P( ":::::: {.bs-callout}" )
 
+        # We'll need this shortly. See copy_files
+        cell_uid = ci['Base'].split('/')[-1]
+
         # Basic cell metadata
         def _format(_k, _v):
             """Handle special case for dates"""
@@ -157,7 +160,7 @@ def format_report( all_info,
             rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
                      for c in ci['_counts'] ]
 
-            P( format_table( ["Part"] + headings,
+            P( format_table( ["Part"] + [ fixcase(h) for h in headings ],
                              rows,
                              title = "Read counts" ) )
             P()
@@ -180,6 +183,7 @@ def format_report( all_info,
                 # DL or a rotated table or what? Let's have all three.
                 nsgs, = [ i[1] for i in ns if i[0] == "General summary" ]
 
+                '''
                 # As I had it before
                 P( format_dl( [ (k, pv) for k, pv, *_ in nsgs ],
                               title = "Nanoplot general summary" ) )
@@ -188,6 +192,7 @@ def format_report( all_info,
                 P( format_table( [ k for k, pv, nv, *_ in nsgs ],
                                  [ [ _format(k, nv)[1] for k, pv, nv, *_ in nsgs ] ],
                                  title = "Nanoplot general summary" ) )
+                '''
 
                 # As a rotated table
                 P( format_table( ['Item', 'Printable', 'Value'],
@@ -196,7 +201,8 @@ def format_report( all_info,
 
             else:
                 # Here we have an empty report (as opposed to a missing report)
-                P( format_dl( [ ('Passing reads', '0') ],
+                P( format_table( ['Item', 'Printable', 'Value'],
+                                 [ ('Passing reads', '0', '0') ],
                               title = "Nanoplot general summary" ) )
 
             # Version that prints everything...
@@ -215,7 +221,7 @@ def format_report( all_info,
             P('\n### {}\n'.format("MinionQC: Length Histo ; Length vs Qual ; Yield over Time"))
             P("<div class='flex'>")
             P(" ".join(
-                "[plot](img/minqc_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
+                "[plot](img/minqc_{cell}_{f}.png){{.thumbnail}}".format(cell=cell_uid, f=f)
                 for f in ['length_histogram', 'length_vs_q', 'yield_over_time']
              ))
             P("</div>")
@@ -225,14 +231,14 @@ def format_report( all_info,
             P('\n### {}\n'.format("NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"))
             P("<div class='flex'>")
             P(" ".join(
-                "[plot](img/nanoplot_{ci[Library]}_{ci[CellID]}_{f}.png){{.thumbnail}}".format(ci=ci, f=f)
+                "[plot](img/nanoplot_{cell}_{f}.png){{.thumbnail}}".format(cell=cell_uid, f=f)
                 for f in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
              ))
             P("</div>")
 
 
             # Link to the NanoPlot report
-            P( "[Full NanoPlot Report](NanoPlot_{ci[Library]}_{ci[CellID]}-report.html)".format(ci=ci) )
+            P( "[Full NanoPlot Report](NanoPlot_{cell}-report.html)".format(cell=cell_uid) )
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
@@ -428,7 +434,7 @@ def list_projects(cells, realname_dict):
             # Do we know about this one?
             if n in realname_dict:
                 if realname_dict[n].get('url'):
-                    title = "Project [{}]({})".format(
+                    title = "Project {}\n\n[\[Go to project page\]]({})".format(
                                       realname_dict[n].get('name'),
                                           realname_dict[n].get('url') )
                 else:
@@ -445,41 +451,50 @@ def copy_files(all_info, base_path, minionqc=None):
     """ We need to copy the NanoPlot, MinionQC, Blob reports into here.
         Base path will normally be wherever the report is being made.
     """
-    os.makedirs(os.path.join(base_path, "img") , exist_ok=True)
+    # Flush anything that is there already and re-make the image directory
+    try:
+        shutil.rmtree(os.path.join(base_path, "img"))
+    except FileNotFoundError:
+        pass
+    os.makedirs(os.path.join(base_path, "img"))
 
     for cell, ci in sorted(all_info.items()):
+
+        # We're flattening files into a single directory, so need a unique naming scheme.
+        # This should work. Hopefully names won't get too long.
+        cell_uid = ci['Base'].split('/')[-1]
 
         if '_blobs' in ci:
             blob_base = os.path.dirname(ci['_blobs'])
 
             for png in glob(blob_base + '/*.png'):
                 dest_png = os.path.basename(png)
-                shutil.copy(png, os.path.join(base_path, "img", dest_png))
+                copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_nanoplot' in ci:
             nano_base = os.path.dirname(ci['_nanoplot'])
 
             src_rep = "{nb}/NanoPlot-report.html".format(nb=nano_base)
-            dest_rep = "NanoPlot_{ci[Library]}_{ci[CellID]}-report.html".format(ci=ci)
-            shutil.copy(src_rep, os.path.join(base_path, dest_rep))
+            dest_rep = "NanoPlot_{cell}-report.html".format(cell=cell_uid)
+            copy_file(src_rep, os.path.join(base_path, dest_rep))
 
             for png in glob(nano_base + '/*.png'):
-                dest_png = "nanoplot_{ci[Library]}_{ci[CellID]}_{f}".format(ci=ci, f=os.path.basename(png))
-                shutil.copy(png, os.path.join(base_path, "img", dest_png))
+                dest_png = "nanoplot_{cell}_{f}".format(cell=cell_uid, f=os.path.basename(png))
+                copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_minionqc' in ci:
             min_base = os.path.dirname(ci['_minionqc'])
 
             for png in glob(min_base + '/*.png'):
-                dest_png = "minqc_{ci[Library]}_{ci[CellID]}_{f}".format(ci=ci, f=os.path.basename(png))
-                shutil.copy(png, os.path.join(base_path, "img", dest_png))
+                dest_png = "minqc_{cell}_{f}".format(cell=cell_uid, f=os.path.basename(png))
+                copy_file(png, os.path.join(base_path, "img", dest_png))
 
     # Combined plots for MinionQC are separate
     if minionqc:
         cmin_base = os.path.dirname(minionqc)
         for png in glob(cmin_base + '/*.png'):
             dest_png = "minqc_combined_{f}".format(f=os.path.basename(png))
-            shutil.copy(png, os.path.join(base_path, "img", dest_png))
+            copy_file(png, os.path.join(base_path, "img", dest_png))
 
 def get_pipeline_metadata(pipe_dir):
     """ Read the files in the pipeline directory to find out some stuff about the
@@ -520,6 +535,19 @@ def escape(in_txt, backwhack=re.compile(r'([][\`*_{}()#+-.!<>])')):
     """ HTML escaping is not the same as markdown escaping
     """
     return re.sub(backwhack, r'\\\1', str(in_txt))
+
+def fixcase(in_txt):
+    """ Take a string_like_this and return a String Like This
+    """
+    return ' '.join(p.capitalize() for p in in_txt.split("_"))
+
+def copy_file(src, dest):
+    """ Wrapper around shutil.copyfile that won't clobber the destination file
+    """
+    if os.path.exists(dest):
+        raise FileExistsError(dest)
+
+    return shutil.copyfile(src, dest)
 
 def parse_args(*args):
     description = """ Makes a report (in PanDoc format) for a run (aka an experiment), by compiling the info from the

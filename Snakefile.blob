@@ -14,7 +14,8 @@ BLOB_LEVELS = "phylum order species".split()
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
 # final version. See PART_LABELS in the main Snakefile.
-BLOB_PARTS  = ["pass", "nolambda", "lambda"]
+#BLOB_PARTS  = ["pass", "nolambda", "lambda"]
+BLOB_PARTS  = ["pass"]
 
 # This is how I want to pass my plots into compile_cell_info.py
 # Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for

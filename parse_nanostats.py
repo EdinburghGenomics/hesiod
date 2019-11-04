@@ -7,6 +7,7 @@ from pprint import pprint
 def main():
     """Read lines from STDIN and make a YAML file, since NanoStats.txt
        is not properly structured text.
+       I'm using a list output so no need to worry about the OrderedDict hack here.
     """
     res = []
 
@@ -41,7 +42,7 @@ def main():
                         l.append(bit)
 
     #pprint(res)
-    print(yaml.safe_dump(res))
+    print(yaml.safe_dump(res), end='')
 
 if __name__ == '__main__':
     main()
