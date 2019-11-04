@@ -1,0 +1,18 @@
+Tim C suggested it would be nice to try and plot the raw error rate over time using the
+lambda alignments. This is a cool idea, but how do we calculate such a number?
+
+Well, for each base in a lambda-bam file we'll see if it was correct or not (according to the
+CIGAR string) and at what point in time the base passed through the pore.
+
+So, how do we get that time? Well the fast5 records:
+
+start_time - presumably the unixtime that the pore started being sampled. Is this when the first base passes through?
+duration - presumably the duration in seconds
+sampling_rate - presumably the smpling rate * the duration will equal the number of samples in the Signal
+
+Right, so I could assume that the read goes through the pore at a fixed rate, and then calculate based off that.
+I strongly suspect this is not right, in particular if temperature fluctuates then things will speed up.
+Stochastic differences should cancel out or just show as noise but the teperature related differences could
+screw the calculations. Hmmm.
+
+Still, I'd be interested to code this up and see what I can see.
