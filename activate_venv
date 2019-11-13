@@ -38,7 +38,7 @@ else
         "$(readlink -f "$_py3")" -mvenv ./_hesiod_venv
         activate_venv
 
-        pip_install pip==19.2.1
+        pip_install pip==19.3.1
         pip_install pyyaml==5.1.1
         pip_install yamlloader==0.5.5
         pip_install Rt==1.0.11
