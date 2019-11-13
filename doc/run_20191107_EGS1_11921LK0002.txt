@@ -1,0 +1,33 @@
+What is going on with this run?
+
+First it failed because nothing got aligned to lambda for one cell (PAE00889_c16432d0)
+and we got a BAM file that had a header but no reads. OK I fixed that.
+
+Then it failed because:
+
+"/lustre/home/pipeline/hesiod/v0.3.3/make_report.py", line 479, in copy_files
+FileExistsError: all_reports/NanoPlot_20191107_EGS1_11921LK0002_11921LK0002_PAE00889_eb80ac83-report.html
+
+Ok, because the files are being copied into the single all_reports directory this is going to happen
+whenever a new report is made. It's clearly a but I introduced late before the last release. What to do?
+Well, I think as I'm already removing img/ I'll just do the same for np/.
+
+Testing... OK, looks good.
+
+---
+
+But also, I see 2 cells in SC, but COUNTS[cells] says 3. Why is this?
+
+Well, because run_status.py shows:
+
+CellsPending: 11921LK0002L02/20191108_1527_2-A3-D3_PAE00889_65ecf29b
+
+If a run fails processing, further pipeline action stops including sync from upstream, so it's
+likely that this third cell is just stuck in the queue. Is it possible that the bad cell did
+not fully sync?? Nope - the file sizes all check out.
+
+Is this behaviour OK? Yes, I think so. In this case it would be nice if the sync kept going after
+the failure but in general I think that allowing the pipeline to continue after a failure is
+problematic, even if it does mean a potential delay while sync catches up after a restart.
+
+
