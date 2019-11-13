@@ -37,6 +37,7 @@ snakerun_drmaa "$0" "$@"
 from pprint import pformat
 
 from snakemake.utils import format
+from subprocess import CalledProcessError
 
 from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
 
@@ -372,10 +373,20 @@ rule qualimap:
         windows = 5000
     threads: 8
     run:
+        fail_reason = None
         if os.path.getsize(str(input)) == 0:
+            fail_reason = 'Zero-byte BAM File'
+        else:
+            # Inspect the file to see if it has some reads
+            try:
+                shell("set +o pipefail ; {TOOLBOX} samtools view {input} | grep -q .")
+            except CalledProcessError:
+                fail_reason = 'No reads in BAM File'
+
+        if fail_reason:
             # Nothing to QC. Make empty outputs to keep Snakemake happy.
-            shell("echo 'No Data' > {output.txt}")
-            shell("echo 'No Data' > {output.html}")
+            shell("echo {fail_reason:q} > {output.txt}")
+            shell("echo {fail_reason:q} > {output.html}")
             return
 
         outdir = os.path.dirname(output.html)
