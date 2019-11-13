@@ -238,7 +238,7 @@ def format_report( all_info,
 
 
             # Link to the NanoPlot report
-            P( "[Full NanoPlot Report](NanoPlot_{cell}-report.html)".format(cell=cell_uid) )
+            P( "[Full NanoPlot Report](np/NanoPlot_{cell}-report.html)".format(cell=cell_uid) )
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
@@ -452,11 +452,13 @@ def copy_files(all_info, base_path, minionqc=None):
         Base path will normally be wherever the report is being made.
     """
     # Flush anything that is there already and re-make the image directory
-    try:
-        shutil.rmtree(os.path.join(base_path, "img"))
-    except FileNotFoundError:
-        pass
-    os.makedirs(os.path.join(base_path, "img"))
+    # Same for the NanoPlot reports
+    for dirname in ["img", "np"]:
+        try:
+            shutil.rmtree(os.path.join(base_path, dirname))
+        except FileNotFoundError:
+            pass
+        os.makedirs(os.path.join(base_path, dirname))
 
     for cell, ci in sorted(all_info.items()):
 
@@ -475,7 +477,7 @@ def copy_files(all_info, base_path, minionqc=None):
             nano_base = os.path.dirname(ci['_nanoplot'])
 
             src_rep = "{nb}/NanoPlot-report.html".format(nb=nano_base)
-            dest_rep = "NanoPlot_{cell}-report.html".format(cell=cell_uid)
+            dest_rep = "np/NanoPlot_{cell}-report.html".format(cell=cell_uid)
             copy_file(src_rep, os.path.join(base_path, dest_rep))
 
             for png in glob(nano_base + '/*.png'):
