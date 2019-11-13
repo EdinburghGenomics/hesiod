@@ -20,6 +20,11 @@ activate_venv() {
     eval $reset
 }
 
+pip_install() {
+    # Send all output to stdout
+    pip3 install "$@" 2>&1
+}
+
 if [ -e ./_hesiod_venv/bin/activate ] ; then
 
     # We already got one!
@@ -33,29 +38,29 @@ else
         "$(readlink -f "$_py3")" -mvenv ./_hesiod_venv
         activate_venv
 
-        pip3 install pip==19.2.1
-        pip3 install pyyaml==5.1.1
-        pip3 install yamlloader==0.5.5
-        pip3 install Rt==1.0.11
-        pip3 install pystache==0.5.4
+        pip_install pip==19.2.1
+        pip_install pyyaml==5.1.1
+        pip_install yamlloader==0.5.5
+        pip_install Rt==1.0.11
+        pip_install pystache==0.5.4
 
         # things needed for Blobtools - we are using
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
-        pip install docopt==0.6.2
-        pip install matplotlib==3.0.3
-        pip install pysam==0.15.2
-        pip install tqdm==4.32.2
+        pip_install docopt==0.6.2
+        pip_install matplotlib==3.0.3
+        pip_install pysam==0.15.2
+        pip_install tqdm==4.32.2
 
         # snakemake and drmaa
-        pip install snakemake==5.5.3
-        pip install drmaa==0.7.9
+        pip_install snakemake==5.5.3
+        pip_install drmaa==0.7.9
 
         # For access the Clarity
-        pip3 install pyclarity_lims==0.4.8
-        pip3 install psycopg2-binary==2.8.3
+        pip_install pyclarity_lims==0.4.8
+        pip_install psycopg2-binary==2.8.3
 
         # Here’s the big one
-        pip install NanoPlot==1.26.1
+        pip_install NanoPlot==1.26.1
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell
