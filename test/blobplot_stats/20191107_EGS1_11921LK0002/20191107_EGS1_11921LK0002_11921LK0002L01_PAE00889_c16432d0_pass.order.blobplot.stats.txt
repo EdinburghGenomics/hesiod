@@ -1,0 +1,6 @@
+## 1.1.1
+## cov0=/lustre/home/tbooth2/test_promethion/fastqdata/20191107_EGS1_11921LK0002/.snakemake/shadow/tmp8og0m1p6/blob/11921LK0002L01/20191108_1522_2-A3-D3_PAE00889_c16432d0/20191107_EGS1_11921LK0002_11921LK0002L01_PAE00889_c16432d0_pass+sub10000.complexity
+# name	colour	count_visible	count_visible_perc	span_visible	span_visible_perc	n50	gc_mean	gc_std	cov0_mean	cov0_std	cov0_read_map	cov0_read_map_p
+all	None	9	100.0%	16,858	100.0%	2,354	0.39	0.041	0.8	0.1	9	100.0%
+no-hit	#d3d3d3	8	100.0%	14,681	100.0%	2,656	0.39	0.041	0.8	0.1	8	88.9%
+Primates	#00a4bb	1	100.0%	2,177	100.0%	2,177	0.35	0.0	0.8	0.0	1	11.1%

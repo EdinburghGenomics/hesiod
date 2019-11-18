@@ -19,11 +19,7 @@ def emit():
 """
 
 # But for blobtools we want something a little different.
-print("## count_dust v0.0")
-print("## Total Reads = 10000") # We assume?!
-print("## Mapped Reads = 10000")
-print("## Unmapped Reads = 0")
-print("# contig_id\tread_cov\tbase_cov")
+res = []
 def emit():
     if count:
         total = upper + lower
@@ -31,7 +27,22 @@ def emit():
         # With vanilla blobtools you need to cram the values into the log scale
         # print("{}\t1\t{:.3f}".format(contig, 10**(5*(frac-0.5))))
         # With the patched version you can avoid this.
-        print("{}\t1\t{:.3f}".format(contig, frac))
+        res.append("{}\t1\t{:.3f}".format(contig, frac))
+
+def print_result():
+    """Prints out the lines in res. Previously I printed them as I read the file but now
+       I need the total number to go into the header.
+    """
+    assert count == len(res)
+
+    print("## count_dust v0.1")
+    print("## Total Reads = {}".format(count))
+    print("## Mapped Reads = {}".format(count))
+    print("## Unmapped Reads = 0")
+    print("# contig_id\tread_cov\tbase_cov")
+
+    for l in res:
+        print(l)
 
 for l in sys.stdin:
     if l.startswith('>'):
@@ -43,3 +54,4 @@ for l in sys.stdin:
         upper += sum( 1 for n in l if n in 'ATCG' )
         lower += sum( 1 for n in l if n in 'atcg' )
 emit()
+print_result()

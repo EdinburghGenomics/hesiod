@@ -39,6 +39,9 @@ class T(unittest.TestCase):
         # See the errors in all their glory
         self.maxDiff = None
 
+        # Don't invert order of axes in cheese matrix
+        self.invert = False
+
     def tearDown(self):
         pass
 
@@ -110,7 +113,11 @@ class T(unittest.TestCase):
 
     def cheese(self, **kwargs):
         # Give me a chees matrix to play with (hey, why not?)
-        m = Matrix('cheese', 'quality', **kwargs)
+        if self.invert:
+            # Switching rows and cols should have no effect
+            m = Matrix('quality', 'cheese', **kwargs)
+        else:
+            m = Matrix('cheese', 'quality', **kwargs)
 
 
         m.add(5.0, cheese="Wensleydale", quality="strength")
@@ -142,9 +149,9 @@ class T(unittest.TestCase):
 
         self.assertEqual(m2.list_labels('cheese'),
                          ["Cheshire", "Danish"])
-        self.assertEqual(m2.get_vector('quality', 'crumbliness'),
+        self.assertEqual(m2.get_vector(axis='quality', label='crumbliness'),
                          [9.0, 4.0])
-        self.assertEqual(m2.get_vector('quality', 'strength'),
+        self.assertEqual(m2.get_vector(axis='quality', label='strength'),
                          [2.0, 9.0])
 
         # Now just the extreme lows. Ie . Cheshire for flavour strength
@@ -155,6 +162,10 @@ class T(unittest.TestCase):
         # Or if nothing passes the test
         m3.prune('cheese', lambda s: s <= 1.0)
         self.assertEqual(m3.list_labels('cheese'), [])
+
+    def test_basic_inverted(self):
+        self.invert = True
+        self.test_basic()
 
     def test_sort(self):
         # Now make it so that both columns and rows sort by highest first
@@ -168,6 +179,10 @@ class T(unittest.TestCase):
         self.assertEqual(m.get_vector('cheese', 'Cheshire'), [9.0, 2.0, 6.0])
         self.assertEqual(m.get_vector('quality', 'strength'), [2.0, 9.0, 5.0])
 
+    def test_sort_inverted(self):
+        self.invert = True
+        self.test_sort()
+
     def test_copy(self):
         # Just to be sure the copy constructor works properly
         m = self.cheese()
@@ -176,17 +191,25 @@ class T(unittest.TestCase):
         m2 = m.copy()
         m2.prune('cheese', lambda x: False)
         self.assertEqual(m2.list_labels('cheese'), [])
+        self.assertEqual(m2.list_labels('quality'), ["crumbliness", "firmness", "strength"])
+        m2.prune('quality', lambda x: False)
         self.assertEqual(m2.list_labels('quality'), [])
 
-        # And again
+        # And again but in the opposite order
         m3 = m.copy()
+        m3.prune('quality', lambda x: False)
+        self.assertEqual(m3.list_labels('cheese'), ["Cheshire", "Danish", "Wensleydale"])
+        self.assertEqual(m3.list_labels('quality'), [])
         m3.prune('cheese', lambda x: False)
         self.assertEqual(m3.list_labels('cheese'), [])
-        self.assertEqual(m3.list_labels('quality'), [])
 
         # But m is still intact?
         self.assertEqual(len(m.list_labels('cheese')), 3)
         self.assertEqual(len(m.list_labels('quality')), 3)
+
+    def test_copy_inverted(self):
+        self.invert = True
+        self.test_copy()
 
     def test_sparse(self):
 
@@ -228,6 +251,45 @@ class T(unittest.TestCase):
         self.assertEqual(m2.list_labels('quality'), ["crumbliness", "gooeyness"])
         # Now with the strength and firmess ratings gone the sort order changes...
         self.assertEqual(m2.list_labels('cheese'), ["Cheshire", "Brie", "Wensleydale", "Danish"])
+
+    def test_sparse_inverted(self):
+        self.invert = True
+        self.test_sparse()
+
+    def test_sparse_2(self):
+        """See bug discussed in doc/run_20191107_EGS1_11921LK0002.txt
+           Pruning on one axis must not remove items from the other axis.
+        """
+
+        # As above, use the standard cheeses and add Brie with only firmness=1.0
+        m = self.cheese(numsort=['cheese'])
+        m.add(1.0, cheese="Brie", quality="firmness")
+        self.assertEqual(m.list_labels('cheese'), ["Cheshire", "Danish", "Wensleydale", "Brie"])
+        self.assertEqual(m.list_labels('quality'), ["crumbliness", "firmness", "strength"])
+
+        # Now prune the dataset so firmness vanishes, but we still want to see Brie in the
+        # list of cheeses. (Max firmness is 7.0)
+        m.prune('quality', lambda s: s >= 8.0)
+
+        self.assertEqual(m.list_labels('quality'), ["crumbliness", "strength"])
+        self.assertEqual(m.list_labels('cheese'), ["Cheshire", "Danish", "Wensleydale", "Brie"])
+
+        # Should be the same if I'd added a parameter not shared with the other cheeses.
+        m2 = self.cheese(numsort=['cheese'])
+        m2.add(5.0, cheese="Brie", quality="smelliness")
+        self.assertEqual(m2.list_labels('cheese'), ["Cheshire", "Danish", "Wensleydale", "Brie"])
+        self.assertEqual(m2.list_labels('quality'), ["crumbliness", "firmness", "smelliness", "strength"])
+
+        # Now prune the dataset so firmness and smelliness vanish, but we still want to see Brie in the
+        # list of cheeses. (Max firmness is 7.0)
+        m2.prune('quality', lambda s: s >= 8.0)
+
+        self.assertEqual(m2.list_labels('quality'), ["crumbliness", "strength"])
+        self.assertEqual(m2.list_labels('cheese'), ["Cheshire", "Danish", "Wensleydale", "Brie"])
+
+    def test_sparse_2_inverted(self):
+        self.invert = True
+        self.test_sparse_2()
 
 if __name__ == '__main__':
     unittest.main()

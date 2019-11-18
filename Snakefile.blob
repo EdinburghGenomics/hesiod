@@ -101,7 +101,7 @@ rule per_project_blob_tables:
                                     taxlevel = tl )
                     assert "blob/" + tsv in [str(s) for s in input.tsv]
 
-                    tsv_list.append( dict( title = "BLAST hits for {pf} reads by {taxlevel}".format(
+                    tsv_list.append( dict( title = "BLAST hit percentages for {pf} reads by {taxlevel}".format(
                                                             pf = PART_LABELS.get(pf, pf),
                                                             taxlevel = tl ),
                                            tsv = tsv ) )
@@ -117,9 +117,10 @@ rule parse_blob_table:
                                                             **vars(wc) )
                          for cell in CELLS_PER_PROJECT[wc.project] ]
     params:
-        pct_limit = 1.0
+        pct_limit = 1.0,
+        label = 'Cell'
     shell:
-        "parse_blob_table.py -t -o {output} -c {params.pct_limit} {input}"
+        "parse_blob_table.py -l {params.label:q} -t -o {output} -c {params.pct_limit} {input}"
 
 # Convert to FASTA and subsample and munge the headers
 # seqtk seq -ACNU == to-fasta, no-comments, no-ambiguous, uppercase

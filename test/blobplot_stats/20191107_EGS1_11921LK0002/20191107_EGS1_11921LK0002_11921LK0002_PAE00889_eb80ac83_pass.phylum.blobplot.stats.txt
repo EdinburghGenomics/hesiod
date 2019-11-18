@@ -1,0 +1,10 @@
+## 1.1.1
+## cov0=/lustre/home/tbooth2/test_promethion/fastqdata/20191107_EGS1_11921LK0002/.snakemake/shadow/tmpbuq3z4f7/blob/11921LK0002/20191107_1746_2-A3-D3_PAE00889_eb80ac83/20191107_EGS1_11921LK0002_11921LK0002_PAE00889_eb80ac83_pass+sub10000.complexity
+# name	colour	count_visible	count_visible_perc	span_visible	span_visible_perc	n50	gc_mean	gc_std	cov0_mean	cov0_std	cov0_read_map	cov0_read_map_p
+all	None	10,000	100.0%	62,628,694	100.0%	9,515	0.38	0.041	0.7	0.1	10,000	100.0%
+no-hit	#d3d3d3	8,579	100.0%	51,804,621	100.0%	9,049	0.38	0.041	0.7	0.1	8,579	85.8%
+undef	#d3d3d3	312	100.0%	1,082,866	100.0%	3,497	0.44	0.009	0.9	0.0	312	3.1%
+Chordata	#1800a7	967	100.0%	9,319,226	100.0%	13,348	0.38	0.034	0.7	0.1	967	9.7%
+Viruses-undef	#0090dd	71	100.0%	223,305	100.0%	3,480	0.43	0.015	0.9	0.0	71	0.7%
+Proteobacteria	#00a13d	70	100.0%	168,216	100.0%	3,455	0.43	0.015	0.9	0.0	70	0.7%
+Arthropoda	#00ec00	1	100.0%	30,460	100.0%	30,460	0.39	0.0	0.8	0.0	1	0.0%

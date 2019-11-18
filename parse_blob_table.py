@@ -11,8 +11,9 @@ from copy import deepcopy
 from collections import Counter
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
-def read_blob_table(fh):
+def read_blob_table(fh, name_extractor):
     """Read the lines from the .blobplot.stats.txt, which is mostly a tab-separated file.
+       name_extractor must be a function that gets the library name from the full filename
        Return (colnames, name_map, datalines)
     """
     headerlines = []
@@ -39,7 +40,9 @@ def read_blob_table(fh):
             assert len(datalines[-1]) == len(colnames)
 
     # Now extract a name mapping dict from the headerlines
-    name_map = { l.split('=')[0] : re.sub('(\+.*|\.[^.]*)$', '', l.split('/')[-1])
+
+    # This gets the base of the filename...
+    name_map = { l.split('=')[0] : name_extractor(l)
                  for l in headerlines
                  if re.match(r'(bam|cov)[0-9]+=', l) }
 
@@ -59,6 +62,12 @@ def read_blob_table(fh):
     # That's what we need!
     return (colnames, name_map, datalines)
 
+def name_extractor_regular(l):
+    return re.sub('(\+.*|\.[^.]*)$', '', l.split('/')[-1])
+
+def name_extractor_hesiod(l):
+    return '/'.join( l.split('=')[-1].split('/')[-3:-1] )
+
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
@@ -68,7 +77,9 @@ def main(args):
     all_tables = []
     for f in args.statstxt:
         with open(f) as fh:
-            all_tables.append(read_blob_table(fh))
+            ne = globals()['name_extractor_' + args.name_extractor]
+
+            all_tables.append(read_blob_table(fh, ne))
 
     # Now I can have a master Matrix
     mm = Matrix('taxon', 'lib', numsort=('taxon'))
@@ -87,9 +98,9 @@ def main(args):
         # than Blobtools provides. Then we can see how close to 0 some of these 0
         # percentages are.
         #
-        # Blobtools' percentage values are relative to the origninal read counts
+        # Blobtools' percentage values are relative to the original read counts
         # (mapped and unmapped). If we want to re-calculate the percentages we need to
-        # re-infer that original read cout. We can use the 'all' percent to do that.
+        # re-infer that original read count. We can use the 'all' percent to do that.
         # It won't be completely right due to rounding error in the 'all' percentage
         # itself. But it should be close enough. Of course we might find it more
         # useful in future to have percentages relative to the mapped reads.
@@ -184,7 +195,7 @@ class Matrix:
        Yes I could use a Pandas DataFrame and copy the R logic but I don't see the need to
        depend on Pandas (which is big) and also I'd still need to define the sort/prune logic
        which is the trickiest bit of the code.
-       See test_blob_matrix.py for example usage.
+       See test_blob_matrix.py for example usage featuring cheese.
     """
     def __init__(self, colname='x', rowname='y', numsort=(),  empty=0.0):
 
@@ -195,6 +206,10 @@ class Matrix:
         self._row_numsort = self._rowname in numsort
         self._empty = empty
         self._data = dict()
+
+        # We need to keep an explicit list of row labels or else pruning a column
+        # may cause a row to vanish and we don't want this.
+        self._rowlabels = set()
 
     def copy(self):
         # This works. I assume the stored values won't be mutable
@@ -216,6 +231,9 @@ class Matrix:
         # existence.
         self._data.setdefault(kwargs[self._colname], dict())[kwargs[self._rowname]] = val
 
+        # Add to _rowlabels
+        self._rowlabels.add(kwargs[self._rowname])
+
     def add(self, val, **kwargs):
         """Add a value but check it's not already set.
            This is normally what we want.
@@ -225,27 +243,20 @@ class Matrix:
 
         self.add_overwrite(val, **kwargs)
 
-    def list_labels(self, name):
+    def list_labels(self, axis):
         """List all the labels for either the rows or columns.
            Sort order will be depend on the order specified at object creation.
         """
-        if name == self._colname:
+        if axis == self._colname:
             return self._list_col_labels()
 
-        elif name == self._rowname:
+        elif axis == self._rowname:
             return self._list_row_labels()
 
         else:
-            raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
-
-    def _scan_rowlabels(self):
-        """Calculate all the row labels.
-           If I cared at all about efficiency I'd keep the set stored, but I don't.
-        """
-        return set([ rl for cv in self._data.values() for rl in cv ])
+            raise KeyError("The axis may be {} or {}.", self._colname, self._rowname)
 
     def _list_col_labels(self):
-        rowlabels = self._scan_rowlabels()
 
         # Always sort by name first.
         res = sorted(self._data)
@@ -254,14 +265,14 @@ class Matrix:
             # The labels with the highest max values come first
             res.sort( reverse = True,
                       key = lambda cl:
-                        max(self._data[cl].get(rl, self._empty) for rl in rowlabels) )
+                        max(self._data[cl].get(rl, self._empty) for rl in self._rowlabels) )
 
         return res
 
     def _list_row_labels(self):
 
         # Always sort by name first.
-        res = sorted(self._scan_rowlabels())
+        res = sorted(self._rowlabels)
 
         if self._row_numsort:
             res.sort( reverse = True,
@@ -270,48 +281,50 @@ class Matrix:
 
         return res
 
-    def prune(self, name, func):
+    def prune(self, axis, func):
         """Prune out rows or columns where no item passes the test.
            Note that empty cells are also checked.
             func : a function on type(this.empty) => bool
         """
-        # Need this to correctly check empty values
-        rowlabels = self._scan_rowlabels()
-
-        if name == self._colname:
+        if axis == self._colname:
             # Scan through columns
             for cl in list(self._data):
                 if not any( func(self._data[cl].get(rl, self._empty))
-                            for rl in rowlabels ):
+                            for rl in self._rowlabels ):
                     del self._data[cl]
 
-        elif name == self._rowname:
+        elif axis == self._rowname:
             # Actually turns out to be simpler. Scan through rows
-            for rl in rowlabels:
+            for rl in list(self._rowlabels):
                 if not any( func(self._data[cl].get(rl, self._empty))
                             for cl in self._data ):
                     for cl in self._data:
-                        del self._data[cl][rl]
+                        try:
+                            del self._data[cl][rl]
+                        except KeyError:
+                            # It was empty anyway
+                            pass
+                    self._rowlabels.remove(rl)
 
         else:
-            raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
+            raise KeyError("The axis may be {} or {}.", self._colname, self._rowname)
 
 
-    def get_vector(self, name, label):
+    def get_vector(self, axis, label):
         """Get a whole row or column
         """
         # Opposite to list_labels since to fetch a whole row I need the column
         # labels and vice versa.
-        if name == self._colname:
+        if axis == self._colname:
 
             return [ self._data[label].get(rl, self._empty) for
                      rl in self._list_row_labels() ]
 
-        elif name == self._rowname:
+        elif axis == self._rowname:
             return [ self._data[cl].get(label, self._empty) for
                      cl in self._list_col_labels() ]
         else:
-            raise KeyError("The name may be {} or {}.", self._colname, self._rowname)
+            raise KeyError("The axis may be {} or {}.", self._colname, self._rowname)
 
 def parse_args(*args):
     description = """ Takes one or more .blobplot.stats.txt files and makes a TSV table
@@ -329,6 +342,8 @@ def parse_args(*args):
                             help="Add a 'Total Reads' column.")
     argparser.add_argument("-r", "--round", type=int, default=2,
                             help="Number of decimals to keep in floats.")
+    argparser.add_argument("-n", "--name_extractor", default='hesiod',
+                            help="Method to extract Library ID names from the header lines. May be regular or hesiod.")
     argparser.add_argument("statstxt", nargs="+",
                             help="One or more input files to scan.")
     argparser.add_argument("-d", "--debug", action="store_true",

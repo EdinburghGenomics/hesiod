@@ -2,7 +2,7 @@
 
 """Tests for parse_blob_table.py
    Mainly to see if the new script output matches the old, of which
-   we have may examples.
+   we have many examples.
 """
 
 # Note this will get discovered and run as a no-op test. This is fine.
@@ -54,6 +54,7 @@ class T(unittest.TestCase):
                       total_reads = False,
                       debug = False,
                       output = '-',
+                      name_extractor = "regular",
                       round = 2 )
 
     def check_with_csv(self, infiles, outfile, **kwargs):
@@ -74,6 +75,7 @@ class T(unittest.TestCase):
         args.statstxt = infiles
 
         # Load the outfile and convert commas to tabs
+        # If the file was already TSV this works too.
         with open(outfile) as fh:
             outlines = [ l.rstrip('\n').replace(',', '\t') for l in fh ]
 
@@ -190,6 +192,24 @@ class T(unittest.TestCase):
                              testdir + 'round4.csv',
                              round = 4
                              )
+
+    def test_20191107_EGS1_11921LK0002(self):
+        """Issues seen in Hesiod.
+           See doc/run_20191107_EGS1_11921LK0002.txt for info on what went wrong here.
+           Note that check_with_csv works on the TSV files too.
+        """
+        testdir = DATA_DIR + '/20191107_EGS1_11921LK0002/'
+        tmpl = testdir + '20191107_EGS1_11921LK0002_{}_pass.{}.blobplot.stats.txt'
+
+        for p_o_s in "phylum order species".split():
+            self.check_with_csv( [ tmpl.format('11921LK0002L01_PAE00889_c16432d0', p_o_s),
+                                   tmpl.format('11921LK0002L02_PAE00889_65ecf29b', p_o_s),
+                                   tmpl.format('11921LK0002_PAE00889_eb80ac83', p_o_s) ],
+                                 '{}blobstats.11921.pass.{}.tsv'.format(testdir, p_o_s),
+                                 total_reads = True,
+                                 name_extractor = 'hesiod',
+                                 label = 'Cell' )
+
 
 if __name__ == '__main__':
     unittest.main()

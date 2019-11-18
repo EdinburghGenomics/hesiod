@@ -30,4 +30,19 @@ Is this behaviour OK? Yes, I think so. In this case it would be nice if the sync
 the failure but in general I think that allowing the pipeline to continue after a failure is
 problematic, even if it does mean a potential delay while sync catches up after a restart.
 
+---
 
+OK, even with release 0.3.4 we have problems. The BLAST summary tables in the Stats per project are clearly
+wrong. I'm expecting each to have three lines (one per cell-run) but they have three/two/one.
+Also the Total Reads number is wrong and the percentages seem to be divided by this wrong number.
+And finally the 'Library ID' header is probably wrong as these are run elements or in fact the report
+is simple calling them 'cells'. Well Marian says you have to re-do the prep each time anyway so maybe
+'Library ID' is the better nomenclature?
+
+Anyway - what went wrong? How do we add a unit test? How do we fix it?
+
+Unit test is easy, since test/test_parse_blob_table.py is alreay testing inputs vs. outputs.
+
+The missing rows seem to be because I've added cell+taxon data points to the sparse matrix but then
+pruned out the rare taxa, and this takes all the data points out of a given cell and it vanishes.
+I need to do something similar to my cheese matrix in the unit test. Like add a cheese which has
