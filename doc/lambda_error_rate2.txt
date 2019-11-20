@@ -8,7 +8,7 @@ So, how do we get that time? Well the fast5 records:
 
 start_time - presumably the unixtime that the pore started being sampled. Is this when the first base passes through?
 duration - presumably the duration in seconds
-sampling_rate - presumably the smpling rate * the duration will equal the number of samples in the Signal
+sampling_rate - presumably the sampling rate * the duration will equal the number of samples in the Signal
 
 Right, so I could assume that the read goes through the pore at a fixed rate, and then calculate based off that.
 I strongly suspect this is not right, in particular if temperature fluctuates then things will speed up.
@@ -16,3 +16,40 @@ Stochastic differences should cancel out or just show as noise but the teperatur
 screw the calculations. Hmmm.
 
 Still, I'd be interested to code this up and see what I can see.
+
+---
+
+Having done some quick calculations, the bases are passing through the pore at 200 to 400 nucleotides per second,
+so the time to sequence a complete lambda fragment (and we only use a short stretch in any case) is a couple of
+minutes, and we want to plot the quality over several hours. Therefore we can just take the start time and the
+edit distance (or whatever - see the previous doc file). We can also divide the duration by the read length to
+get the read rate, which should concord with the speeds reported by NanoPlot but maybe lambda reads are slower/faster?
+It would be interesting to compare.
+
+Right, the BAM files we are producing are explicitly sorted by mapping location so matching the sequence ID's
+to the FAST5 by zipping the two in order is not possible. OTOH, we need all the values in memory anyway if we
+want to feed them to seaborne. How much data are we talking?
+
+I've found one with 1.5 million reads. So to be sure we can see if making a Pandas dataframe with 5 million rows
+blows anything up.
+Test file for 1.5 million is:
+/lustre/promethion/prom_fastqdata/20190322_EGS1_11608GE0009_Megaruptor_test/11608GE0009L04_25kb_shear/20190322_1629_2-A1-D1_PAD38585_9c8698a6/20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L04_25kb_shear_PAD38585_lambda.bam
+
+Cool, so the strategy is:
+
+1) Read the BAM file and record the read ID BLAST identity per read
+2) Go back to the fast5 and for each entry see if it's in the table and if so get us:
+  a - the start time
+  b - the number of bases read
+  c - the duration (so we get the read rate)
+
+Yeah!
+
+For the first part we need pysam. Take a look at the existing
+qc_tools_python/bin/get_alignment_scores_from_bam.py and note this calculates the alignment score ie. the number of perfect matches
+as a fraction of the query length. Which is the same as the BLAST identity (right?) so let's stick with this.
+
+Then I need to make a Pandas dataframe. How do I build one dynamically? Never done that before.
+
+Let's start with a tiny little BAM file from the 'gr' run and test out things in ./lambda_error_rate. I can commit this to GIT then remove it
+once everything is worked out.
