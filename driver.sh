@@ -412,7 +412,7 @@ do_sync(){
     fi
 
     log "\_DO_SYNC $RUNID"
-    plog_start
+    plog ">>> $0 starting sync (status=$STATUS) at `date`."
 
     # assertion - status should have been set already
     if ! [[ "$STATUS" =~ syncing ]] ; then
@@ -813,6 +813,7 @@ if [ -n "${SYNC_QUEUE:-}" ] ; then
     done
 
     for RUNID in $SYNC_QUEUE ; do
+        # Note this sets RUN_OUTPUT as needed for plog...
         get_run_status "$PROM_RUNS/$RUNID"
 
         { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_sync

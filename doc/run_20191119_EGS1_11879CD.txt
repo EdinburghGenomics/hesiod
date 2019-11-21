@@ -1,0 +1,67 @@
+This was a weird one. We got a failure processing cell 11879CD0003L02/20191120_1714_2-A7-D7_PAE01041_5ca9b6d3
+
+Because we were in the middle of processing cell       11879CD0003L01_sheared_g_tube_24kb/20191119_1135_2-A7-D7_PAE01041_a29a64ef
+
+Leading to the error from Snakemake: Directory cannot be locked.
+
+Now this shouldn't be possible, because the state diagram is supposed to prevent triggering a processing
+action on a run the is processing. However a sync action may occur in parallel with processing. Hmm.
+Can I work out the order of events?
+
+On line 18546 of the log, at 17:27:05 the pipeline records action_processing_syncing (should that be in the log?? - No?!)
+On line 35426 of the log, at 17:32:04 the pipeline tries to process the second cell (action_cell_ready) and fails.
+
+
+The action_processing_syncing should be a no-op and should not be plogged. As far as I can see plog_start must have been
+called from do_sync because the other calls to it are from other actions. But then then next part in do_sync
+validates the status and I should see this line:
+
+Error - unexpected status processing_syncing in do_sync
+
+Do I see this at 17:27 in ~pipeline/hesiod/logs/hesiod_driver.20191120.log? No, I see the status was picked up as
+'processing_sync_needed' which is correct, and then it goes into the SYNC_QUEUE and then the queue is processed.
+And the sync now triggers the cell being ready for processing.
+
+This pushes the run into status cell_ready.
+
+Hmmm. Not good.
+
+1) Why no error? Oh because the test is passing. The status matches 'syncing'. The status has been set
+   because 'get_run_status' is called immediately prior to sync. The status is correctly determined.
+   However the plog message is wrong because we're not "starting action_processing_syncing" we're actually
+   starting the sync.
+
+   So do_sync should not call plog_start, but instead should log its own message. Fixed.
+
+2) More seriously, why did the pipeline trigger and thus fail? The state diagram says that we go from
+   processing_syncing either to 'syncing' if the processing completes or, if the sync completes,
+   to 'processing_sync_needed' or to 'processing' depending on if the sync made the cell ready or not.
+
+   But here we seem to have gone directly from processing_syncing to cell_ready which is verboten.
+
+Let's look at the order of files in the pipeline dir:
+
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:18 20191119_1135_2-A7-D7_PAE01041_a29a64ef.synced
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:22 20191119_1135_2-A7-D7_PAE01041_a29a64ef.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:27 sync.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:27 20191120_1714_2-A7-D7_PAE01041_5ca9b6d3.synced
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 21 09:27 20191120_1714_2-A7-D7_PAE01041_5ca9b6d3.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 21 09:27 notify_2_cells_complete.done
+
+Eh? The first cell was .done at 17:22, according to the flags, but according to the log Snakemake
+finished with it at 18:01. Oh, that's because I use 'mv' to rename the .started file to .done but
+this keeps the timestamps. I never really thought about it but I should fix that. Or else how about
+I just use the '-c' flag to ls. Yes, that's simpler:
+
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:18 20191119_1135_2-A7-D7_PAE01041_a29a64ef.synced
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:27 sync.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 17:27 20191120_1714_2-A7-D7_PAE01041_5ca9b6d3.synced
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 20 18:01 20191119_1135_2-A7-D7_PAE01041_a29a64ef.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 21 09:27 notify_2_cells_complete.done
+-rw-rw-r-- 1 pipeline eg-bioinfo  0 Nov 21 09:31 20191120_1714_2-A7-D7_PAE01041_5ca9b6d3.done
+
+OK, so now I see that the two synced files were written before the first .done file, but at the
+time we'd have had 20191119_1135_2-A7-D7_PAE01041_a29a64ef.started. So let's add a unit test to
+test/test_run_status.py. Done. Bug detected and fixed.
+
+

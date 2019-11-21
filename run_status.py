@@ -202,17 +202,15 @@ class RunStatus:
             else:
                 return "complete"
 
-        # Is anything needing processed? We kick off processing in preference to sync.
-        if any( v in [self.CELL_READY] for v in all_cell_statuses ):
-            return "cell_ready"
-
         # Is anything waiting to sync?
         sync_needed = any( s in [self.CELL_PENDING, self.CELL_NEW] for s in all_cell_statuses )
 
         # Is anything being processed just now?
         processing_now = any( s in [self.CELL_PROCESSING] for s in all_cell_statuses )
 
-        if sync_needed and processing_now:
+        # If the run is processing we definitely need some sort of 'processing' status. This
+        # may possibly still trigger a sync if one is needed and none is on progress.
+        if processing_now and sync_needed:
             if sync_in_progress:
                 return "processing_syncing"
             else:
@@ -223,6 +221,10 @@ class RunStatus:
                 return "processing_syncing"
             else:
                 return "processing"
+        elif any( v in [self.CELL_READY] for v in all_cell_statuses ):
+            # Is anything needing processed? If no processing is ongoing we
+            # choose to kick off processing in preference to sync.
+            return "cell_ready"
         elif sync_in_progress:
             return "syncing"
         elif sync_needed:

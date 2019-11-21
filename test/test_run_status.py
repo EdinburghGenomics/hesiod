@@ -172,7 +172,6 @@ class T(unittest.TestCase):
                                 'a test lib/TEST123' )
 
 
-
     def test_parse_remote_cell_info(self):
         """Test that we can get info from list_remote_cells.sh
            This reads stdin directly so mock it
@@ -226,6 +225,24 @@ class T(unittest.TestCase):
 
         run_info = RunStatus( os.path.join(self.current_run_dir) )
         self.assertEqual( run_info.get_status(), 'syncing' )
+
+    def test_bug_20191119_EGS1_11879CD(self):
+        """Attempt to replicate a bug seen on run 20191119_EGS1_11879CD where a sync finished and the
+           run went into cell_ready rather than processing. We can still use 20000101_TEST_testrun2
+           as a basis.
+        """
+        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.started")
+        run_info = RunStatus( os.path.join(self.current_run_dir) )
+        self.assertEqual( run_info.get_status(), 'processing' )
+
+        # The processing status must overrride cell_ready since we can't start multiple
+        # Snakemake instances in parallel.
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
+        run_info = RunStatus( os.path.join(self.current_run_dir) )
+        self.assertEqual( run_info.get_status(), 'processing' )
 
 
 def dictify(s):
