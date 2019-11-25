@@ -1,0 +1,25 @@
+In lambda_splitter.awk and in plot_lambda_identity_by_time.py (work in progress just now) I've
+ignored (secondary and)supplementary alignments in the BAM file. But can I get rid of them entirely?
+
+They don't help with anything for this use case. Is there a flag to minimap2 that kills them?
+
+I'm already using --no-secondary, but I get a samll number of supplementary alignments.
+
+Let's look at
+/lustre/home/tbooth2/test_promethion/fastqdata/20190322_EGS1_11608GE0009_Megaruptor_test/11608GE0009L11_75kb/20190502_1735_2-E9-H9_PAD39475_49f9981b/20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L11_75kb_PAD39475_49f9981b_lambda.bam
+
+What's the first supplementary read in the file?
+
+>>> samiter = pysam.AlignmentFile("20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L11_75kb_PAD39475_49f9981b_lambda.bam", "rb").fetch(until_eof=True)
+>>> sec = [ t for t in samiter if t.flag & (pysam.FUNMAP | pysam.FSECONDARY | pysam.FSUPPLEMENTARY) ]
+
+568f973f-cee0-4b0b-b1c9-9ac4d84902db
+
+Or I could just use "samtools view -f 2048". There are 5 supplemenatary reads in the file.
+
+OK, so supplementary alignments can't just be suppressed because they represent non-contiguous alignments to the genome,
+and unlike secondary alignments which are alternatives to the primary they are actually part of the primary
+alignment. So I think for QC I still just need to ignore them (though maybe I could average the scores??)
+Thee number of supp. alignments may actually be a a useful QC tool as it should indicate the rate of PCR
+chimeras. However this only makes sense if the spike-in is being amplified alongside the sample and I don't
+think this is the case.

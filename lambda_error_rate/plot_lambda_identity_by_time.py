@@ -10,10 +10,17 @@
 
 import os, sys, re
 from time import time, sleep
-from glob import glob
 import logging
 import gzip
+from io import BytesIO
+import shutil
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+
+def glob():
+    """Regular glob() is useful but we want consistent sort order."""
+    from glob import glob
+    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))) )
+glob = glob()
 
 import pysam
 from tqdm import tqdm
@@ -25,6 +32,10 @@ def main(args):
     # Open the BAM file for reading
     bamfile, = args.bamfile
 
+    logging.basicConfig( level = logging.INFO,
+                         format = "{levelname}:{message}",
+                         style = '{')
+
     # For debugging
     start_time = time()
 
@@ -33,23 +44,35 @@ def main(args):
     with pysam.AlignmentFile(bamfile, "rb") as samfh:
 
         # Yes I could use the logging module here
-        print( "Opened {} for reading.".format(bamfile), file=sys.stderr )
+        logging.info( "Opened {} for reading.".format(os.path.basename(bamfile)) )
 
         df = sam_to_df(samfh, total=seqs_in_bam)
 
     # Now load the .fast5 infos. Add columns to df to collect the
-    # start times etc. as int64 values
-    # FIXME - set the DTYPE as per the HDF5
-    df['StartTime']  = 0
-    df['Duration']   = 0
+    # start times etc. as float values (in seconds)
+    df['StartTime']  = 0.0
+    df['Duration']   = 0.0
 
-    for f5_file in tqdm(glob(os.path.join(args.fast5, '*.fast5.gz'))):
-        collect_from_fast5(info_from_fast5(gzip.open(f5_file)), df)
+    if args.seq_summary:
+        logging.info("Getting values from '{}'".format(args.seq_summary) )
 
-    print( "DONE", file=sys.stderr )
+        collect_from_seqsum(args.seq_summary, df)
+
+    elif args.fast5:
+        logging.info("Scanning .fast5.gz files in '{}'".format(args.fast5) )
+
+        collect_from_fast5(glob(os.path.join(args.fast5, '*.fast5.gz')), df)
+
+    else:
+        # Should be impossible as default is to scan for fast5 files in CWD.
+        exit("No fast5 or summary info provided")
+
+    logging.info( "DONE" )
 
     time_taken = int(time() - start_time)
-    print( "There are {} records loaded in {} seconds.".format(len(df), time_taken) )
+    logging.info( "There are {} records loaded in {} seconds.".format(len(df), time_taken) )
+
+    print(df)
 
 def seqs_from_stats(statfile):
     """Looks in the specified file for a line "SN    sequences:  {\d+}" and
@@ -68,32 +91,88 @@ def seqs_from_stats(statfile):
     # Or if we hit the end of the file with no match, also
     return None
 
-def collect_from_fast5(f5, df):
-    """Read from the iterator in f5 and add to the data frame provided.
-       Note that adding values one-at-a-time to a Pandas data frame is supposed to
-       be an anti-pattern but I can't see a better way to do it just now.
+def collect_from_seqsum(seqsum_file, df):
+    """Read from the sequencing summary file and add to the data frame provided.
     """
     # Establish the columns in the data frame, since I plan to use ds.iat to
     # set things by position (which should be fast).
     assert list(df)[2:4] == ['StartTime', 'Duration']
 
-    # TODO - tqdm here or not?
-    for read_attrs in f5:
+    header_map = dict()
+    pbar = tqdm(total=len(df))
 
-        # Does this test work?? Should I get the index at the same time??
-        try:
-            loc = df.index.get_loc(read_attrs['read_id'].decode())
-        except KeyError:
-            continue
+    def _collect(fh):
+        # Extract info from lines in fh
+        for aline in fh:
 
-        # FIXME - Handling an exception per read can't be efficient?!
-        # Maybe I should check explicitly??
-        #if ri.read_id not in df.index:
-        #    import pdb ; pdb.set_trace()
+            lparts = aline.rstrip().split('\t')
+            ri = lparts[header_map['read_id']]
 
-        df.iat[loc, 2] = read_attrs['start_time']
-        df.iat[loc, 3] = read_attrs['duration']
+            if ri in df.index:
+                # Write into the data frame.
+                loc = df.index.get_loc(ri)
+                df.iat[loc, 2] = float(lparts[header_map['start_time']])
+                df.iat[loc, 3] = float(lparts[header_map['duration']])
 
+                pbar.update()
+
+    _open = gzip.open if seqsum_file.endswith('.gz') else open
+    with _open(seqsum_file, 'rt') as fh:
+        for n, h in enumerate(next(fh).rstrip().split('\t')):
+            header_map[h] = n
+
+        _collect(fh)
+
+    pbar.close()
+
+def collect_from_fast5(f5_list, df):
+    """Read from the list of fast5 files and add to the data frame provided.
+       Note that adding values one-at-a-time to a Pandas data frame is supposed to
+       be an anti-pattern but I can't see a better way to do it just now, and
+       most of the time is spent reading the fast5 anyway.
+    """
+    # Establish the columns in the data frame, since I plan to use ds.iat to
+    # set things by position (which should be fast).
+    assert list(df)[2:4] == ['StartTime', 'Duration']
+
+    pbar = tqdm(total=len(df))
+
+    def _collect(f5):
+        """Internal function to add info from one f5 file to the dataframe.
+        """
+        for read_group in f5:
+
+            read_attrs = read_group['Raw'].attrs
+            ri = read_attrs['read_id'].decode()
+
+            # This test is slightly faster then catching the exaception if most entries
+            # are not in the index (which is the case here).
+            if ri in df.index:
+                # Check out the sampling rate (which should be the same for all reads??)
+                srate = read_group['channel_id'].attrs['sampling_rate']
+
+                # Write into the data frame.
+                loc = df.index.get_loc(ri)
+                df.iat[loc, 2] = read_attrs['start_time'] / srate
+                df.iat[loc, 3] = read_attrs['duration'] / srate
+
+                pbar.update()
+
+    for f5_file in f5_list:
+
+        if f5_file.endswith('.gz'):
+            # Unpack the entire file in memory - much faster than a direct read from gzip handle
+            with BytesIO() as bfh:
+                with gzip.open(f5_file, 'rb') as zfh:
+                    shutil.copyfileobj(zfh, bfh)
+                bfh.seek(0)
+
+                _collect(info_from_fast5(bfh))
+        else:
+            # Let h5py open the file directly
+            _collect(info_from_fast5(f5_file))
+
+    pbar.close()
 
 def sam_to_df(sf, total = None):
     """ Reads form an open AlignmentFile object and returns a Pandas DataFrame with
@@ -108,30 +187,39 @@ def sam_to_df(sf, total = None):
 
     # FIXME - progress needs to be switch-offable
     # FIXME2 - could get the number of reads from the stats file.
-    for read in tqdm(sf.fetch(until_eof=True), total=total):
+    with tqdm(total=total) as pbar:
+        for read in sf.fetch(until_eof=True):
 
-        # Always ignore unmapped reads - though we shouldn't see any
-        if read.is_unmapped:
-            pass
+            # Always ignore unmapped reads - though we shouldn't see any
+            # We do see some supplementary (ie. split) mappings, which I'm just going to ignore
+            # here.
+            if read.flag & (pysam.FUNMAP | pysam.FSECONDARY | pysam.FSUPPLEMENTARY):
+                continue
 
-        sleep(1)
-
-        # Either we have the Alignment Score or we need to calculate it
-        # from the CIGAR string.
-        try:
-            ascore = read.get_tag('AS')
-        except KeyError:
+            # Either we have the Alignment Score or we need to calculate it
+            # from the CIGAR string.
+            # Note for minimap2 I don't actually know how the AS is calculated so I'll
+            # ignore it! - see https://www.biostars.org/p/409568/
+            """
+            try:
+                ascore = read.get_tag('AS')
+            except KeyError:
+                ...
+            """
             # See https://pysam.readthedocs.io/en/latest/api.html#pysam.AlignedSegment.cigartuples
             ascore = sum( t[1] for t in read.cigartuples if t[0] == 0 )
 
-        # Add to the lists
-        read_ids.append(read.query_name)
-        rl = read.query_length # could use read.infer_read_length()?
-        alignment_scores.append( ( ascore ) / rl )
-        read_lengths.append(rl)
+            # Add to the lists
+            read_ids.append(read.query_name)
+            rl = read.query_length # could use read.infer_read_length()?
+            alignment_scores.append(ascore)
+            read_lengths.append(rl)
+
+            # Print progress
+            pbar.update()
 
     # And here's your result, as a Pandas thingy, with the read ID as the index
-    print( "Generating dataframe with {} rows.".format(len(read_ids)), file=sys.stderr )
+    logging.info( "Generating dataframe with {} rows.".format(len(read_ids)) )
     return pd.DataFrame( { 'AlignmentScore' : alignment_scores,
                            'ReadLength' : read_lengths,
                          },
@@ -140,7 +228,7 @@ def sam_to_df(sf, total = None):
 def info_from_fast5(fobj):
     """Returns a list of infos from a fast5 file.
        I'd assumed I could do this using ont_fast5_api but for various reasons it seems
-       far simpler to code it myself. However I have used code from
+       far simpler to code it myself. However I have looked at code from
        https://github.com/nanoporetech/ont_fast5_api/blob/master/ont_fast5_api/fast5_info.py
        as a starting point.
     """
@@ -159,9 +247,9 @@ def info_from_fast5(fobj):
         # for read in handle['Raw/Reads'].keys():
         #   read_group = handle['Raw/Reads/{}'.format(read)]
 
-        # But I think we can just do this?
-        for v in handle.values():
-            yield v['Raw'].attrs
+        # Since I realised I need v['Raw'].attrs and also v['channel_id'].attrs
+        # just do this.
+        yield from handle.values()
 
 def parse_args(*args):
     description = """Plots alignment scores in BAM over time"""
@@ -171,6 +259,8 @@ def parse_args(*args):
 
     parser.add_argument("-f", "--fast5", default='.',
                         help="Directory to scan for .fast5[.gz] files")
+    parser.add_argument("-q", "--seq_summary",
+                        help="File to read for sequence summary info (rather than fast5)")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print progress to stderr")
     parser.add_argument("-s", "--stats",
