@@ -501,7 +501,7 @@ tjoin(){
 }
 
 save_start_time(){
-    ( printf "%s" "$HESIOD_VERSION@" ; date +'%a %b %_d %H:%M:%S %Y' ) \
+    ( printf "%s" "$HESIOD_VERSION@" ; date +'%A, %d %b %Y %H:%M:%S' ) \
         >>pipeline/start_times
 }
 
