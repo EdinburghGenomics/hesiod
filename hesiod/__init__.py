@@ -100,7 +100,7 @@ def abspath(filename, relative_to=None):
 
 def dump_yaml(foo, filename=None):
     """Return YAML string and optionally dump to a file (not a file handle)."""
-    ydoc = yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper)
+    ydoc = yaml.dump(foo, Dumper=yamlloader.ordereddict.CSafeDumper, default_flow_style=False)
     if filename:
         with open(filename, 'w') as yfh:
             print(ydoc, file=yfh, end='')

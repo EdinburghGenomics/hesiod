@@ -1,0 +1,7 @@
+Murray sent me some info on Flappie and how it can detect methylation.
+
+Let's have a crack. First to compile the thing...
+
+in /lustre/software/flappie
+
+To cut a long story short, flappie is obsolete and the functionality is in Guppy (sadly not open source).

@@ -9,6 +9,7 @@ import os, sys, re
 import logging as L
 from copy import deepcopy
 from collections import Counter
+from contextlib import suppress
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 def read_blob_table(fh, name_extractor):
@@ -299,11 +300,8 @@ class Matrix:
                 if not any( func(self._data[cl].get(rl, self._empty))
                             for cl in self._data ):
                     for cl in self._data:
-                        try:
+                        with suppress(KeyError):
                             del self._data[cl][rl]
-                        except KeyError:
-                            # It was empty anyway
-                            pass
                     self._rowlabels.remove(rl)
 
         else:

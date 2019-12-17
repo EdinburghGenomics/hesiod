@@ -53,3 +53,9 @@ Then I need to make a Pandas dataframe. How do I build one dynamically? Never do
 
 Let's start with a tiny little BAM file from the 'gr' run and test out things in ./lambda_error_rate. I can commit this to GIT then remove it
 once everything is worked out.
+
+---
+
+OK, between the script and the notebook in lambda_error_rate I have both a way to efficiently extract the data and also
+some nice defintions for seaborne plots which could be scripted. So I'll consider what if anything I want to add to the QC
+reports. See also my talk from Ion Bru December 2019.

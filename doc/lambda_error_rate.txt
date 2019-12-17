@@ -54,3 +54,5 @@ OK, how to generate this? First off load the BAM into PySAM.
 ( I'll use the gr dataset as it's tiny )
 
 ... and so on ...
+
+I was messing around with this in ~/notebooks/lambda_bam.ipynb on my own laptop.
