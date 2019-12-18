@@ -16,6 +16,11 @@ import shutil
 import math
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
+from contextlib import suppress
+
+# For parsing of ISO/RFC format dates (note that newer Python has datetime.datetime.fromisoformat
+# but we're using dateutil.parser.isoparse from python-dateutil 2.8)
+from dateutil.parser import isoparse
 
 # For reading teh fast5...
 import h5py
@@ -30,10 +35,14 @@ def main(args):
                          format = "{levelname}:{message}",
                          style = '{')
 
-    logging.debug("Scanning .fast5.gz files in '{}'".format(args.fast5) )
-    md = md_from_fast5_dir(args.fast5)
+    if os.path.isdir(args.fast5):
+        logging.debug("Scanning .fast5[.gz] files in '{}'".format(args.fast5) )
+        md = md_from_fast5_dir(args.fast5)
+    else:
+        logging.debug("Reading from single file '{}'".format(args.fast5) )
+        md = md_from_fast5_file(args.fast5)
 
-    print(dump_yaml(md))
+    print(dump_yaml(md), end='')
 
 def md_from_fast5_dir(f5_dir):
     """Read from the directory of fast5 files and return a dict of metadata.
@@ -48,8 +57,11 @@ def md_from_fast5_dir(f5_dir):
     assert f5_files, "No fast5[.gz] files found."
 
     # Use the first one
-    f5_file = f5_files[0]
+    return md_from_fast5_file(f5_files[0])
 
+def md_from_fast5_file(f5_file):
+    """Read from a specified fast5 file and return a dict of metadata
+    """
     if f5_file.endswith('.gz'):
         # Unpack the entire file in memory - much faster than a direct read from gzip handle
         with BytesIO() as bfh:
@@ -90,13 +102,13 @@ def read_fast5(fobj):
         # Stuff from 'context_tags'
         for x in ['ExperimentType', 'SequencingKit', 'FlowcellType']:
             res[x] = 'unknown'
-        try:
+        # Sometimes keys are missing, I guess.
+        with suppress(KeyError):
             res['ExperimentType'] = read0['context_tags'].attrs['experiment_type']
+        with suppress(KeyError):
             res['SequencingKit'] = read0['context_tags'].attrs['sequencing_kit']
+        with suppress(KeyError):
             res['FlowcellType'] = read0['context_tags'].attrs['flowcell_type']
-        except KeyError:
-            # Sometimes keys are missing, I guess.
-            pass
 
         res['StartTime'] = read0['tracking_id'].attrs['exp_start_time']
 
@@ -113,13 +125,13 @@ def read_fast5(fobj):
         else:
             logging.debug("Found {} basecall sections".format(len(bks)))
 
-    # Decode all byte strings in res.
+    # Decode all byte strings in res, and re-format dates.
     for k in list(res):
-        try:
+        with suppress(AttributeError):
             res[k] = res[k].decode()
-        except AttributeError:
-            # Guess it's already decoded?
-            pass
+
+        if k.endswith("Time"):
+            res[k] = isoparse(res[k]).strftime('%A, %d %b %Y %H:%M:%S')
 
     return res
 
@@ -150,7 +162,7 @@ def read_fast5(fobj):
 """
 
 def parse_args(*args):
-    description = """Plots alignment scores in BAM over time"""
+    description = """Extract various bits of metadata from the first read in a .fast5 file."""
 
     parser = ArgumentParser( description = description,
                              formatter_class = ArgumentDefaultsHelpFormatter)

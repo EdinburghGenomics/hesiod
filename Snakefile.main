@@ -193,7 +193,7 @@ rule main:
         shell("ln -snr {output.rep} {output.replink}")
 
 # I've split out the fast5 packing in order to allow me to re-run everything else without
-# doing this.
+# doing this. So to fully process a run you need to call main AND pack_fast5
 rule pack_fast5:
     input:
         fast5_gz   = lambda wc: [ "{}.gz".format(f) for cell in SC
@@ -235,6 +235,7 @@ rule one_cell:
                                             base = [cellname_to_base(wc.cell)] ),
         blobs        = "blob/{cell}/plots.yaml",
         nanoplot     = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
+        fast5_meta   = "{cell}/cell_fast5_metadata.yaml",
         #minionqc     = "minionqc/{cell}/summary.yaml",
     run:
         ci = parse_cell_name(RUN, wildcards.cell)
@@ -270,7 +271,22 @@ rule one_cell:
         ci['_nanoplot'] = "../../{}".format(input.nanoplot[0])
         #ci['_minionqc'] = str(input.minionqc)
 
+        # Fold in the fast5_metadata
+        mdata = load_yaml(str(input.fast5_meta))
+        ci.update(mdata)
+
         dump_yaml(ci, str(output))
+
+# Note this currently gets the metadata from the gzipped fast5 meaning it could be run
+# even after the originals are deleted, except that in this case SC will not be populated.
+# I'm not going to worry too much about this, but the weird input defintion at least
+# stops the Snakemake refusing to run at all when SC is empty.
+rule fast5_metadata:
+    output: "{cell}/cell_fast5_metadata.yaml"
+    input:
+        fast5 = lambda wc: [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_pass'] ][:1]
+    shell:
+        "get_fast5_metadata.py -v {input.fast5} > {output}"
 
 # Only if the run directory is in place, load the rules that filter, compress and combine the
 # original files.

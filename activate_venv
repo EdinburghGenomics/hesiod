@@ -43,6 +43,7 @@ else
         pip_install yamlloader==0.5.5
         pip_install Rt==1.0.11
         pip_install pystache==0.5.4
+        pip_install python-dateutil==2.8.1
 
         # things needed for Blobtools - we are using
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches

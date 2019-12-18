@@ -10,6 +10,12 @@ import shutil
 
 from hesiod import hesiod_version, glob, load_yaml, abspath
 
+# Things we don't want to see in the Metadata section (as it's too cluttered)
+METADATA_HIDE = set('''
+    Run         Cell            Base            Date            Number
+    Checksum    Fast5Version    BaseCallerTime
+'''.split())
+
 def format_report( all_info,
                    pipedata,
                    aborted_list = (),
@@ -144,7 +150,9 @@ def format_report( all_info,
             return (_k, _v)
 
 
-        P( format_dl( [ _format( k, v ) for k, v in ci.items() if not k.startswith("_") ],
+        P( format_dl( [ _format( k, v ) for k, v in ci.items()
+                        if not ( k.startswith("_")
+                                 or k in METADATA_HIDE ) ],
                       title="Metadata") )
 
         # Stuff from the .count files that's been embedded in the YAML.
