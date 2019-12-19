@@ -137,7 +137,7 @@ rule concat_md5sum_lambda_bam:
     output:
         bam  = "{cell}/{all,[^/]+}_lambda.bam",
         md5  = "md5sums/{cell}/{all,[^/]+}_lambda.bam.md5",
-        fofn = "{cell}/{all,[^/]+}_lambda_bam.list"
+        fofn = temp("{cell}/{all,[^/]+}_lambda_bam.list")
     input:
         bam  = lambda wc: [format("fastq_pass_tmp/{f}.lambda.bam") for f in SC[wc.cell]['fastq_pass']]
     threads: 4
