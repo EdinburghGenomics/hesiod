@@ -15,4 +15,10 @@ Then the script would check that the run has nothing beyond the completed cells 
 
 I'll write to $UPSTREAM/run/cells_processed.txt
 
+--
 
+This is now done by del_remote_cells.sh but how to actually delete them. I thought I started
+making a script?
+
+Maybe not - but there's one now. See scripts/clean_upstream.sh. This want to be on the desktop
+of the workstation PC.
