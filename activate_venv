@@ -52,13 +52,16 @@ else
         pip_install pysam==0.15.2
         pip_install tqdm==4.32.2
 
-        # snakemake and drmaa
+        # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
         pip_install snakemake==5.5.3
         pip_install drmaa==0.7.9
 
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8
         pip_install psycopg2-binary==2.8.3
+
+        # For get_fast5_metadata.py
+        pip_install h5py==2.10.0
 
         # Here’s the big one
         pip_install NanoPlot==1.26.1
