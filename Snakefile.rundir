@@ -161,8 +161,7 @@ rule concat_md5sum_lambda_bam:
 # Note this type of construct is vulnerable to the kill-before-flush bug but it seems with
 # this arrangement we are OK. See:
 #  https://www.pixelbeat.org/docs/coreutils-gotchas.html
-# I plan to fully clean out the temp dir as a separate op outside of Snakemake,
-# deleting it once a cell is done.
+# In normal operation the temp dir will be removed by the "onsuccess" handler below.
 rule map_lambda:
     output:
         fq    = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
@@ -184,3 +183,9 @@ rule map_lambda:
            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
            {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.count}
         '''
+
+# Remove the fastq_pass_tmp directory which should normally be empty of files if
+# everything worked.
+onsuccess:
+    shell("find fastq_pass_tmp/ -type d -delete || true")
+
