@@ -608,6 +608,9 @@ send_summary_to_rt() {
         _run_status=()
     fi
 
+    # The --fudge flag just fixes the status so the final summary doesn't show completed
+    # cells as being "in_qc". Because sending the RT notification does actually complete
+    # the processing.
     if [ -n "$_fudge" ] ; then
         _fudge=--fudge
     fi
@@ -632,7 +635,8 @@ send_summary_to_rt() {
            echo
            echo "----------"
            echo
-           echo "$_run_summary" ) ) 2>&1
+           echo "$_run_summary"
+           echo ) ) 2>&1
 }
 
 pipeline_fail() {
@@ -783,9 +787,10 @@ if [ -n "$UPSTREAM" ] ; then
             continue
         fi
 
-        # Set vars to match get_run_status. Remember we have IFS set to "\t" in this script.
+        # Set vars to match get_run_status. Remember we have IFS set globally to "\t" in this script.
         RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
         CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
+        CELLS="${CELLS%$IFS}" # chop trailing tab
         CELLSPENDING=""
 
         { eval action_"$STATUS"
