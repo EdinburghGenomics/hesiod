@@ -54,10 +54,24 @@ function zenq(){
 }
 
 # Let's have a look then
+if [ ! -e "$alldirs" ] ; then
+    echo "DATADIR $DATADIR is missing or empty"
+    exit 1
+fi
+
 for (( i=0; i<${#alldirs[@]}; i++ )) ; do
     allflags[$i]=`check_list "${alldirs[$i]}"`
     eval "count_${allflags[$i]}=\$(( count_${allflags[$i]} + 1 ))"
 done
+
+if [ "$MODE" = gui ] ; then
+    # Have a fake progress bar so it really looks like we're thinking about it.
+    ( for (( i=0; i<${#alldirs[@]}; i++ )) ; do
+        echo $(( 100 * $i / ${#alldirs[@]} ))
+        sleep 0.1
+      done ; echo 100
+    ) | zenity --progress --text="Scanning..." --auto-close
+fi
 
 # Report to console in any case
 echo "Saw ${#alldirs[@]} subdirectories in $DATADIR:"
