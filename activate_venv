@@ -68,6 +68,7 @@ else
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell
+        echo "VEnv provisioned OK"
         activate_venv
     else
         echo "Provisioning VEnv Failed!"
