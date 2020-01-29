@@ -18,19 +18,19 @@ def find_sequencing_summary(wc):
 
     return found
 
-# Compress the file discovered by the above function and link it to a fixed name.
+# Compress the file discovered by the above function and rename it, matching the base of
+# the FASTQ and BAM files. Note the original name is preserved in the GZIP header and can
+# be revealed by 'gunzip -Nlv {output.gz}'.
 rule gzip_sequencing_summary:
     output:
-        link = "{cell}/sequencing_summary.txt.gz"
-    input:
-        summary = find_sequencing_summary
+        gz  = "{cell}/{all,[^/]+}_sequencing_summary.txt.gz",
+        md5 = "md5sums/{cell}/{all,[^/]+}_sequencing_summary.txt.gz.md5"
+    input:  find_sequencing_summary
     threads: 2
-    run:
-        # First copy the file, preserving the name. Then link.
-        gzfile = "{}/{}.gz".format(wildcards.cell, os.path.basename(str(input.summary)))
-        shell(r"{PIGZ} -p{threads} -c <{input.summary} >{gzfile}")
-
-        shell(r"ln -snr {gzfile} {output.link}")
+    shell:
+        r"""{PIGZ} -v -p{threads} -Nc {input} >{output.gz}
+            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
+         """
 
 # gzipper that uses pigz and compresses from RUNDIR to CWD
 # md5summer that keeps the file path out of the .md5 file
@@ -45,7 +45,7 @@ rule gzip_md5sum_fast5:
         RUNDIR + "/{foo}.fast5"
     threads: 2
     shell:
-       r"""{PIGZ} -v -p{threads} -c {input} > {output.gz}
+       r"""{PIGZ} -v -p{threads} -Nc {input} > {output.gz}
            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
         """
 

@@ -78,7 +78,7 @@ def scan_cells():
         cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_????/")) ))
     else:
         # Look for cells here in the output (presumably the run already processed and the raw dir was removed)
-        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("*/*/sequencing_summary.txt.gz")) ]
+        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("*/*/cell_info.yaml")) ]
 
     if 'cellsready' in config:
         # This should include the cells to be processed now AND those already processed.
@@ -87,7 +87,7 @@ def scan_cells():
         for c in cellsready:
             assert c in cells, format("Invalid cell (no fastq_pass or not listed in config[cells]): {c}")
     elif RUNDIR:
-        # Look for cells with a final_summary.txt
+        # Look for cells with a final_summary.txt (as made by MinKNOW)
         cellsready = [ c for c in cells if os.path.exists(format("{RUNDIR}/{c}/final_summary.txt")) ]
     else:
         # If there is no RUNDIR this makes most sense by default.
@@ -224,6 +224,8 @@ rule one_cell:
         fastq_gz     = lambda wc: expand( "{base}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
                                             pf = FASTQ_PARTS ),
+        seq_summary  = lambda wc: expand( "{base}_sequencing_summary.txt.gz",
+                                            base = [cellname_to_base(wc.cell)] ),
         counts       = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
                                             pf = FASTQ_PARTS ),
@@ -277,16 +279,27 @@ rule one_cell:
 
         dump_yaml(ci, str(output))
 
-# Note this currently gets the metadata from the gzipped fast5 meaning it could be run
+# Note this currently gets the metadata from the gzipped fast5 meaning it can be run
 # even after the originals are deleted, except that in this case SC will not be populated.
-# I'm not going to worry too much about this, but the weird input defintion at least
-# stops the Snakemake refusing to run at all when SC is empty.
+# The weird input definition tries to handle this case by looking for the output file
+# directly. In either case we only need a single file, so return the first.
+def i_fast5_metadata(wc):
+    if SC[wc.cell]['fast5_pass']:
+        # Depend on the first file provided by SC[wc.cell]
+        return [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_pass'] ][:1]
+    elif SC[wc.cell]['fast5_fail']:
+        # Somethimes everything fails
+        return [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_fail'] ][:1]
+    else:
+        # Look for an existing output file.
+        return glob("{cell}/fast5_????/*.fast5.gz".format(**vars(wc)))[:1]
+
 rule fast5_metadata:
     output: "{cell}/cell_fast5_metadata.yaml"
     input:
-        fast5 = lambda wc: [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_pass'] ][:1]
+        fast5 = i_fast5_metadata
     shell:
-        "get_fast5_metadata.py -v {input.fast5} > {output}"
+        "get_fast5_metadata.py -v {input} > {output}"
 
 # Only if the run directory is in place, load the rules that filter, compress and combine the
 # original files.
@@ -300,7 +313,7 @@ rule nanoplot:
         stats = "nanoplot/{cell}/NanoStats.txt",
         rep   = "nanoplot/{cell}/NanoPlot-report.html"
     input:
-        summary = "{cell}/sequencing_summary.txt.gz",
+        summary  = lambda wc: "{base}_sequencing_summary.txt.gz".format(base=cellname_to_base(wc.cell)),
         passlist = lambda wc: "{base}_pass_fastq.list".format(base=cellname_to_base(wc.cell))
     params:
         thumbsize = "320x320"
@@ -340,7 +353,7 @@ rule minionqc:
         combined = "minionqc/combinedQC/summary.yaml",
         per_cell = expand("minionqc/{cell}/summary.yaml", cell=SC),
     input:
-        expand("{cell}/sequencing_summary.txt.gz", cell=SC)
+        expand("{base}_sequencing_summary.txt.gz", base=[cellname_to_base(c) for c in SC]),
     params:
         thumbsize = "320x320"
     threads: 6
