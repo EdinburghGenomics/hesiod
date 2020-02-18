@@ -82,7 +82,8 @@ def read_fast5(fobj):
        as a starting point.
     """
     res = OrderedDict()
-    for x in ['Fast5Version', 'StartTime', 'BaseCaller', 'BaseCallerTime', 'BaseCallerVersion']:
+    for x in ['Fast5Version', 'StartTime', 'BaseCaller', 'BaseCallerTime',
+              'BaseCallerVersion', 'GuppyVersion']:
         res[x] = 'unknown'
 
     with h5py.File(fobj, 'r') as handle:
@@ -106,11 +107,13 @@ def read_fast5(fobj):
         with suppress(KeyError):
             res['ExperimentType'] = read0['context_tags'].attrs['experiment_type']
         with suppress(KeyError):
-            res['SequencingKit'] = read0['context_tags'].attrs['sequencing_kit']
+            res['SequencingKit']  = read0['context_tags'].attrs['sequencing_kit']
         with suppress(KeyError):
-            res['FlowcellType'] = read0['context_tags'].attrs['flowcell_type']
+            res['FlowcellType']   = read0['context_tags'].attrs['flowcell_type']
 
-        res['StartTime'] = read0['tracking_id'].attrs['exp_start_time']
+        # Stuff from 'tracking_id'
+        res['StartTime']    = read0['tracking_id'].attrs['exp_start_time']
+        res['GuppyVersion'] = read0['tracking_id'].attrs['guppy_version']
 
         # Now look for basecalling metadata - there is some possible ambiguity
         # in the names here.
@@ -159,6 +162,44 @@ def read_fast5(fobj):
 {'name': b'MinKNOW-Live-Basecalling',
  'time_stamp': b'2019-04-25T16:25:18Z',
  'version': b'3.1.23'}
+"""
+
+""" Here's what we expect to see in the tracking_id part
+(Pdb) pp dict(read0['tracking_id'].attrs)
+{'asic_id': b'0004A30B00250C3F',
+ 'asic_id_eeprom': b'0004A30B00250C3F',
+ 'asic_temp': b'33.691181',
+ 'asic_version': b'Unknown',
+ 'auto_update': b'0',
+ 'auto_update_source': b'https://mirror.oxfordnanoportal.com/software/MinKNOW/',
+ 'bream_is_standard': b'0',
+ 'device_id': b'2-E1-H1',
+ 'device_type': b'promethion',
+ 'distribution_status': b'stable',
+ 'distribution_version': b'19.06.8',
+ 'exp_script_name': b'629db1f5c6439aa6be9a65613d0f255b66f59bf3',
+ 'exp_script_purpose': b'sequencing_run',
+ 'exp_start_time': b'2019-07-05T15:33:25Z',
+ 'flow_cell_id': b'PAD49515',
+ 'guppy_version': b'3.0.4+e7dbc23',
+ 'heatsink_temp': b'36.932358',
+ 'hostname': b'PCT0112',
+ 'hublett_board_id': b'01377e66769b58da',
+ 'hublett_firmware_version': b'2.0.12',
+ 'installation_type': b'nc',
+ 'ip_address': b'',
+ 'local_firmware_file': b'1',
+ 'mac_address': b'',
+ 'operating_system': b'ubuntu 16.04',
+ 'protocol_group_id': b'20190705_11800AA0001',
+ 'protocol_run_id': b'4ead8234-7d9b-43ec-99b4-6931aad36237',
+ 'protocols_version': b'4.1.8',
+ 'run_id': b'c44e8c0e965e6f9874255389cafda392630dd64e',
+ 'sample_id': b'11800AA0001L01_25kb_shear',
+ 'satellite_board_id': b'0000000000000000',
+ 'satellite_firmware_version': b'2.0.12',
+ 'usb_config': b'firm_1.2.3_ware#rbt_4.5.6_rbt#ctrl#USB3',
+ 'version': b'3.4.5'}
 """
 
 def parse_args(*args):
