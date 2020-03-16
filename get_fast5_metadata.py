@@ -113,7 +113,12 @@ def read_fast5(fobj):
 
         # Stuff from 'tracking_id'
         res['StartTime']    = read0['tracking_id'].attrs['exp_start_time']
-        res['GuppyVersion'] = read0['tracking_id'].attrs['guppy_version']
+        try:
+            res['GuppyVersion'] = read0['tracking_id'].attrs['guppy_version']
+        except KeyError:
+            # Some old files have no Guppy version. In which case remove the placeholder
+            # entirely.
+            del res['GuppyVersion']
 
         # Now look for basecalling metadata - there is some possible ambiguity
         # in the names here.

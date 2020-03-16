@@ -340,12 +340,13 @@ class T(unittest.TestCase):
            For good measure there is a space in the directory name.
         """
         # Note the upstream2 example is also used by test_run_status.py so check all is well
-        # with those before trying to diagnose fualts here.
+        # with those before trying to diagnose faults here.
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
         self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
         self.copy_run('20000101_TEST_testrun2')
 
-        self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
+        #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
+        self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary_PAD00000_1ea085ce.txt")
 
         self.bm_rundriver()
 

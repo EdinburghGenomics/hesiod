@@ -87,8 +87,10 @@ def scan_cells():
         for c in cellsready:
             assert c in cells, format("Invalid cell (no fastq_pass or not listed in config[cells]): {c}")
     elif RUNDIR:
-        # Look for cells with a final_summary.txt (as made by MinKNOW)
-        cellsready = [ c for c in cells if os.path.exists(format("{RUNDIR}/{c}/final_summary.txt")) ]
+        # Look for cells with a final_summary.txt (as made by MinKNOW). Note the new name in MinKNOW 3.6+
+        cellsready = [ c for c in cells if (
+                       glob(format("{RUNDIR}/{c}/final_summary.txt")) or
+                       glob(format("{RUNDIR}/{c}/final_summary_*_*.txt")) ) ]
     else:
         # If there is no RUNDIR this makes most sense by default.
         cellsready = cells

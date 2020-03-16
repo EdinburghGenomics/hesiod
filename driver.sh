@@ -347,12 +347,12 @@ action_incomplete(){
     # When there are cells with no .synced flag but also no upstream to fetch from.
     # Possibly we are writing files directly into the run dir?
     # No BREAK here since there is the potential for sticking in a loop. Incomplete
-    # cells that will never be completed should be aborted as soom as possible.
+    # cells that will never be completed should be aborted as soon as possible.
     plog_start
 
     # There is one gotcha problem with this logic. If the sync fails due to upstream going
     # down then it's possible the final_summary.txt file will be there even though the
-    # sync did not complete. And then with the upstream missing on the next run of the
+    # sync did not complete. And then, with the upstream missing, on the next run of the
     # driver we end up here. Therefore only allow the check if no upstream scanning failed.
     if [ -z "$UPSTREAM_FAILS" ] ; then
         check_for_ready_cells
@@ -500,6 +500,12 @@ tjoin(){
     printf "%s" "$_tjoin_res"
 }
 
+qglob(){
+    # Given a directory and a glob pattern, see if the pattern matches within
+    # the directory.
+    ( cd "$1" && compgen -G "$2" ) >/dev/null 2>&1 || return 1
+}
+
 save_start_time(){
     ( printf "%s" "$HESIOD_VERSION@" ; date +'%A, %d %b %Y %H:%M:%S' ) \
         >>pipeline/start_times
@@ -515,12 +521,15 @@ check_for_ready_cells(){
     # After a sync completes, check if any cells are now ready for processing and
     # if so write the {cell}.synced files
 
-    # If for some reason you need to manually force all cells to be synced:
+    # If for some reason you need to manually force all cells to be synced so the pipeline
+    # will proceed:
     # $ for d in */20* ; do touch pipeline/`basename $d`.synced ; done
 
+    # Change for MinKNOW 3.6+ the file is now named final_summary_*_*.txt but permit the
+    # old name (final_summary.txt) too.
     _count=0
     for cell in $CELLSPENDING ; do
-        if [ -e "$cell/final_summary.txt" ] ; then
+        if qglob "$cell" "final_summary.txt" || qglob "$cell" "final_summary_*_*.txt" ; then
             _count=$(( $_count + 1 ))
             touch_atomic "pipeline/$(cell_to_tfn "$cell").synced"
         fi

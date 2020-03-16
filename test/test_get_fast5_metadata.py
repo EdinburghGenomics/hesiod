@@ -4,7 +4,8 @@
 
 # The file used, small2.fast5.gz, is from the gr dataset specifically the fail file.
 # I removed all but one read and the signal to minimize the file size, then I repacked
-# with h5repack and gzipped to make it teeny.
+# with h5repack and gzipped to make it teeny. Note this file has no Guppy version in
+# the metadata.
 
 import sys, os, re
 import unittest
