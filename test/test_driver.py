@@ -303,6 +303,25 @@ class T(unittest.TestCase):
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
+    def test_empty_upstream(self):
+        """With nothing to process and no upstream, we should also fail. However the error coming from
+           list_remote_cells.sh shouldn't leak to STDERR as was happening in 0.6.0.
+        """
+        # Make a run but it's aborted so we'll ignore it.
+        self.copy_run("20000101_TEST_testrun2")
+        self.touch("pipeline/aborted")
+
+        # An empty upstream location
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/empty'
+
+        # This should be OK
+        self.bm_rundriver(expected_retval=0)
+
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+
+        self.assertInStdout("Found 0 cells in upstream runs")
+        self.assertInStdout("ls: cannot access */*/20??????_*_????????/fast?_????: No such file or directory")
+
     def test_new_but_output_exists(self):
         """There should be an error if the directory in fastqdata already exists
         """

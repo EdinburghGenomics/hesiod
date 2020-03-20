@@ -719,7 +719,7 @@ for UPSTREAM_NAME in `tr ' ' '\t' <<<$UPSTREAM` ; do
 
     # If this fails (network error or whatever) we still want to process local stuff
     log ">> Looking for ${UPSTREAM_NAME} upstream runs in $UPSTREAM_LOC"
-    UPSTREAM_INFO+="$(list_remote_cells.sh ; printf $)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
+    UPSTREAM_INFO+="$(list_remote_cells.sh 2> >(log) ; printf $)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
     # https://stackoverflow.com/questions/15184358/how-to-avoid-bash-command-substitution-to-remove-the-newline-character
     UPSTREAM_INFO=${UPSTREAM_INFO%$}
 done
