@@ -1,7 +1,7 @@
 #!/bin/bash -l
 set -euo pipefail
 shopt -sq failglob
-IFS=$'\t' # I'm using tab-separated lists instead of arrays
+IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry.
 
 #  Contents:
 #    - Configuration
@@ -52,7 +52,8 @@ if [ -e "$ENVIRON_SH" ] ; then
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
            RT_SYSTEM STALL_TIME VERBOSE TOOLBOX \
-           DEL_REMOTE_CELLS PROJECT_NAME_LIST
+           DEL_REMOTE_CELLS PROJECT_NAME_LIST \
+           EXTRA_SNAKE_FLAGS EXTRA_SNAKE_CONFIG MAIN_SNAKE_TARGETS
 fi
 
 # LOG_DIR is ignored if MAINLOG is set explicitly.
@@ -126,7 +127,7 @@ if [ "${py_venv}" != none ] ; then
     else
         log -n "Activating Python3 VEnv from ${py_venv} ..."
         reset=`set +o | grep -w nounset` ; set +o nounset
-        source "${py_venv}/bin/activate" || { log 'FAILED' ; exit 1 ; }
+        source "${py_venv}/bin/activate" >&5 || { log 'FAILED' ; exit 1 ; }
         $reset
     fi
     log 'VEnv ACTIVATED'
@@ -283,9 +284,12 @@ action_cell_ready(){
 
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
+      # TODO - document the reason for this list of rules to always run...
+      _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats"
       ( cd "$RUN_OUTPUT"
-        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" \
-            -R per_cell_blob_plots per_project_blob_tables one_cell nanostats -- pack_fast5 main
+        unset IFS
+        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" ${EXTRA_SNAKE_CONFIG:-} \
+            -R $_force_rerun -- ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }

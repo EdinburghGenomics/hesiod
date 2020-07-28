@@ -8,14 +8,14 @@ from hesiod import slurp_file
 # Y-axis scale. This change needs to be ported back to SMRTino. Also note I'm running the plots on the
 # nolambda files so we'll never see lambda in the blobs. Maybe we should reconsider this??
 # BLAST S sequences in C chunks
-BLOB_SUBSAMPLE = 10000
-BLOB_CHUNKS = 100
-BLOB_LEVELS = "phylum order species".split()
+BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
+BLOB_CHUNKS    = int(config.get('blob_chunks', 100))
+BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
 # final version. See PART_LABELS in the main Snakefile.
-#BLOB_PARTS  = ["pass", "nolambda", "lambda"]
-BLOB_PARTS  = ["pass"]
+#BLOB_PARTS  = "pass nolambda lambda".split()
+BLOB_PARTS  = config.get('blob_parts', ["pass"])
 
 # This is how I want to pass my plots into compile_cell_info.py
 # Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for

@@ -22,7 +22,7 @@ activate_venv() {
 
 pip_install() {
     # Send all output to stdout
-    pip3 install "$@" 2>&1
+    pip3 --disable-pip-version-check install "$@" 2>&1
 }
 
 if [ -e ./_hesiod_venv/bin/activate ] ; then

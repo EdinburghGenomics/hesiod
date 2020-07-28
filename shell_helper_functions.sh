@@ -111,7 +111,7 @@ snakerun_single() {
     echo
     echo "Running $snakefile in `pwd -P` in local mode"
     snakemake \
-         -s "$snakefile" -j $__LOCALJOBS -p -T --rerun-incomplete \
+         -s "$snakefile" -j $__LOCALJOBS -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-} \
          "$@"
 }
 

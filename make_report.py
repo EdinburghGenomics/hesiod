@@ -5,7 +5,7 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from pprint import pformat
 from math import modf
 from datetime import datetime
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 import shutil
 
 from hesiod import hesiod_version, glob, load_yaml, abspath

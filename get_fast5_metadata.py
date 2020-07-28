@@ -24,8 +24,6 @@ from dateutil.parser import isoparse
 
 # For reading teh fast5...
 import h5py
-# For data handling and plotting
-import numpy as np
 
 from hesiod import dump_yaml, glob
 
