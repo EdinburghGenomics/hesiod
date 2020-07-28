@@ -64,6 +64,7 @@ else
         pip_install h5py==2.10.0
 
         # Here’s the big one
+        pip_install biopython==1.76
         pip_install NanoPlot==1.26.1
     )
     if [ $? = 0 ] ; then
