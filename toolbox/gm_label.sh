@@ -7,6 +7,6 @@ _size="$1"
 _text="$2"
 _out="$3"
 
-/lustre/software/graphicsmagick/GraphicsMagick-1.3.28/bin/gm convert -pointsize 20 -background lightblue1 -fill black \
+/lustre-gseg/software/graphicsmagick/GraphicsMagick-1.3.34/bin/gm convert -pointsize 20 -background lightblue1 -fill black \
     -font /usr/share/fonts/dejavu/DejaVuSansMono-BoldOblique.ttf \
     label:"$_text" -background lightblue1 -extent "$_size" "$_out"

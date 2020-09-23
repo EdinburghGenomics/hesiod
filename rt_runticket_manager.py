@@ -295,8 +295,7 @@ class RTManager():
             self.tracker.edit_ticket(ticket_id, **kwargs)
 
 def parse_args(*args):
-    description = """This script allows you to manipulate a ticket for a Promethion (or PacBio or
-                     Illumina) run.
+    description = """This script allows you to manipulate a ticket for an instrument run.
                      You can reply, comment, open, stall, resolve tickets.
                      Replying or commenting on a closed or non-existent ticket will create a new one,
                      unless you specify --no-create.
