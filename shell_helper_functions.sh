@@ -7,7 +7,7 @@ __EXEC_DIR="${EXEC_DIR:-`dirname $BASH_SOURCE`}"
 # will run snakemake directly via the shell helper functions.
 export DRY_RUN=${DRY_RUN:-0}
 LOCAL_CORES=${LOCAL_CORES:-4}
-SNAKE_THREADS=${SNAKE_THREADS:-200}
+SNAKE_THREADS=${SNAKE_THREADS:-100}
 EXTRA_SNAKE_FLAGS="${EXTRA_SNAKE_FLAGS:-}"
 EXTRA_SLURM_FLAGS="${EXTRA_SLURM_FLAGS:--t 24:00}"
 
@@ -26,7 +26,6 @@ find_toolbox() {
         echo "WARNING - find_toolbox - No such directory ${_toolbox}" >&2
     fi
 }
-
 
 find_templates() {
     #Similarly for PanDoc templates
@@ -88,9 +87,6 @@ snakerun_drmaa() {
 
     echo
     echo "Running $snakefile in `pwd` on the SLURM cluster"
-    SNAKE_THREADS="${SNAKE_THREADS:-100}"
-    EXTRA_SNAKE_FLAGS="${EXTRA_SNAKE_FLAGS:-}"
-    EXTRA_SLURM_FLAGS="${EXTRA_SLURM_FLAGS:--t 24:00}"
 
     mkdir -p ./slurm_output
     set -x

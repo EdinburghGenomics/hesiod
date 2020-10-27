@@ -70,4 +70,4 @@ echo "Checked out version $latest_tag.  If you are happy, copy the config and bo
 echo "  cd `pwd`"
 echo "  cp -i $latest_checked_out/environ.sh $latest_tag/"
 echo "  (cd $latest_tag && source ./activate_venv )"
-echo "  rm current ; ln -s $latest_tag current"
+echo "  ln -snf $latest_tag current"
