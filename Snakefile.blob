@@ -232,6 +232,7 @@ rule blob_plot_png:
     input:
         json = "blob/{foo}.blobDB.json"
     params:
+        maxsize = "1750x1750",
         thumbsize = "320x320"
     shadow: 'shallow'
     shell:
@@ -241,14 +242,16 @@ rule blob_plot_png:
                {TOOLBOX} blobtools plot -i {input.json} -o blob_tmp/ --dustplot --sort_first no-hit,other,undef -r {wildcards.taxlevel}
                ls blob_tmp
                mv blob_tmp/tmp.*.stats.txt {output.stats}
-               mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png {output.plotc[0]}
-               mv blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png {output.plotr[0]}
+               {TOOLBOX} convert blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.cov0.png \
+                   -resize {params.maxsize}'>' {output.plotc[0]}
+               {TOOLBOX} convert blob_tmp/tmp.*.{wildcards.taxlevel}.*.blobplot.read_cov.cov0.png \
+                   -resize {params.maxsize}'>' {output.plotr[0]}
            else
                echo "No data" > {output.stats}
                {TOOLBOX} gm_label.sh {params.thumbsize} "No data to plot" {output.plotc[0]}
                {TOOLBOX} gm_label.sh {params.thumbsize} "No data to plot" {output.plotr[0]}
            fi
-           {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize} {output.plotc[1]}
-           {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize} {output.plotr[1]}
+           {TOOLBOX} convert {output.plotc[0]} -resize {params.thumbsize}'>' {output.plotc[1]}
+           {TOOLBOX} convert {output.plotr[0]} -resize {params.thumbsize}'>' {output.plotr[1]}
         '''
 

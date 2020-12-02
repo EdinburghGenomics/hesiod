@@ -433,7 +433,7 @@ do_sync(){
     # Loop through cells
     while read run upstream cell ; do
 
-        plog "Checking status of cell $cell"
+        plog ">>> $0 checking sync status of cell $cell at `date`"
 
         _cell_tfn="$(cell_to_tfn "$cell")"
         if ! [ -e "pipeline/${_cell_tfn}.synced" -o \
