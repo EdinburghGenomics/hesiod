@@ -1,0 +1,18 @@
+So when thinking about a good way to implement data deletion, we'd like to put the old run directories
+into per-year subdirectories like with Illumina. The problem is that when the folders are moved the
+symlinks break (fixed with Illumina by the deleter) and also if you discard a directory which is still
+on the instrument it will just run again.
+
+So my thought is - put the runs into per-year directories right from the start. Have an extra option:
+
+PROM_RUNS_BATCH=year|month|none
+
+That tells the driver to make the right directories, like 2020 or 2020-01. Then everything goes in there.
+This should only need a modification to the driver.sh.
+
+This will only be for the prom_runs, not the prom_fastqdata. If we did the same for prom_fastqdata then
+we'd need a modification to get_npdata_for_project.py and get_np_yml.py to actually find the reads.
+But these scripts don't care about prom_runs.
+
+Note that any change to PROM_RUNS_BATCH will cause runs to be reprocessed unless they are moved.
+Let's make a renamer script to help me out here.

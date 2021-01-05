@@ -752,6 +752,7 @@ fi
 
 # Now scan through each prom_run dir until we find something that needs dealing with.
 BREAK=0
+# FIXME - respect PROM_RUNS_BATCH
 if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
 
     if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
@@ -791,6 +792,7 @@ if [ -n "$UPSTREAM" ] ; then
     log ">> Handling new upstream runs matching regex $RUN_NAME_REGEX"
     [[ -n "$UPSTREAM_INFO" ]] || log "No runs seen"
     while read RUNID ; do
+# FIXME - respect PROM_RUNS_BATCH
         if [ -e "$PROM_RUNS/$RUNID" ] ; then
             debug "Run $RUNID is not new"
             continue
@@ -820,6 +822,7 @@ if [ -n "${SYNC_QUEUE:-}" ] ; then
     for RUNID in $SYNC_QUEUE ; do
         # Not using touch_atomic since it's possible sync.started and sync.failed are both
         # present.
+# FIXME - respect PROM_RUNS_BATCH - probably by adding the year to items in SYNC_QUEUE
         rm -f "$PROM_RUNS/$RUNID/pipeline/sync."{done,failed}
         touch "$PROM_RUNS/$RUNID/pipeline/sync.started"
 

@@ -16,6 +16,7 @@ UPSTREAM="EGS1"
 UPSTREAM_EGS1=prom@promethion:/data
 
 PROM_RUNS=/lustre/promethion/prom_runs
+PROM_RUNS_BATCH=year
 FASTQDATA=/lustre/promethion/prom_fastqdata
 
 # For production, use the real RT and use the global partition on SLURM
