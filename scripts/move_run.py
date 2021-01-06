@@ -9,6 +9,13 @@ DRY_RUN = []
 TALLIES = dict( runs = 0,
                 fastqdirs = 0 )
 
+# Could import this from hesiod/__init__.py but I don't want the deps.
+def glob():
+    """Regular glob() is useful but we want consistent sort order."""
+    from glob import glob
+    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))) )
+glob = glob()
+
 def main(args):
 
     if args.debug:
@@ -81,8 +88,9 @@ def move_rundir(arun, dest_name):
     """Given a run and a destination, move it.
        The pipeline/output and pipeline/output/rundata symlinks will be fixed.
     """
-    # This should be already done by the caller.
-    dest_name = os.path.realpath(dest_name)
+    # This should be already done by the caller. Doing it here is problematic for
+    # dry runs where the directory may in fact not exist!
+    #dest_name = os.path.realpath(dest_name)
 
     # Read the pipeline/output symlink. This may be a relative link so we always
     # convert it to an absolute link by putting it through os.path.realpath()
@@ -185,8 +193,63 @@ def move_fastqdir(afqd, dest_name):
     TALLIES['fastqdirs'] += 1
 
 def rebatch_main(args):
-    # TODO
-    pprint(args)
+    """Performs a batch of move_rundir operations to reflact a desired PROM_RUNS_BATCH mode.
+       Rebatching always happens in the CWD.
+    """
+    runglobs = dict( year  = '0000/00000000_*/',
+                     month = '0000-00/00000000_*/',
+                     none  = '00000000_*/' )
+
+    # We need to search for directoried matching patterns other than args.mode
+    scanglobs = [ v.replace('0', '[0-9]') for k, v in runglobs.items() if k != args.mode ]
+
+    # Now actually look for candidates to rename.
+    runs_found = [ d for p in scanglobs for d in glob(p) ]
+    L.debug("{} directories match the glob patterns {}".format(len(runs_found), scanglobs))
+
+    runs_found = [ d for d in runs_found if is_rundir(d) ]
+    L.debug("{} of these look like actual runs".format(len(runs_found)))
+    if not runs_found:
+        L.error("Nothing suitable found to rebatch.")
+        return
+
+    all_run_bases = set()
+    for arun in runs_found:
+        # See where it is now.
+        run_base, run_name = os.path.split(arun)
+
+        # Work out where it belongs.
+        subdir = dict( year  = '{}'.format(run_name[0:4]),
+                       month = '{}-{}'.format(run_name[0:4], run_name[4:6]),
+                       none  = '' )[args.mode]
+
+        # Remember the run base for later
+        if run_base:
+            all_run_bases.add(run_base)
+
+        # Make a home for it
+        if subdir:
+            try:
+                if not DRY_RUN:
+                    os.mkdir(subdir)
+                L.debug("Created subdir {}".format(subdir))
+            except OSError:
+                # Presumably it exists
+                pass
+
+        # Finally move the thing.
+        dest_name = os.path.join(os.path.realpath('.'), subdir, run_name)
+        move_rundir(arun, dest_name)
+
+    # After renaming all, clean empty directories.
+    for d in all_run_bases:
+        try:
+            if not DRY_RUN:
+                os.rmdir(d)
+            L.debug("Removed now-empty directory {}".format(d))
+        except OSError:
+            # Probably not empty.
+            pass
 
 def parse_args(*args):
     description = """Moves a Hesiod rundir or fastqdir, or else bulk moves all directories
