@@ -75,7 +75,7 @@ def is_rundir(somedir):
 def is_fastqdir(somedir):
     """Fasqdata dirs have a rundata symlink.
     """
-    return os.path.islink(os.path.join(somedir, fastqdata))
+    return os.path.islink(os.path.join(somedir, 'rundata'))
 
 def move_rundir(arun, dest_name):
     """Given a run and a destination, move it.
@@ -129,6 +129,60 @@ def move_rundir(arun, dest_name):
 
     L.info("Renamed {} to {}{}".format(arun, dest_name, " [DRY_RUN]" if DRY_RUN else ""))
     TALLIES['runs'] += 1
+
+# Note - I could abstract this function and avoid copy-paste but it would be a lot less legible.
+def move_fastqdir(afqd, dest_name):
+    """Given a fastqdata directory and a destination, move it.
+       The rundata/pipeline/output and rundata symlinks will be fixed.
+    """
+    # This should be already done by the caller.
+    dest_name = os.path.realpath(dest_name)
+
+    # Read the rundata symlink. This may be a relative link so we always
+    # convert it to an absolute link by putting it through os.path.realpath()
+    rundata_link = os.path.join(afqd, 'rundata')
+    rundata_link_dest = os.readlink(rundata_link)
+    rundata_link_abs = os.path.realpath(rundata_link)
+
+    if not os.path.isdir(rundata_link_abs):
+        # The link is broken. So we'll not touch it.
+        L.warning("{} link is invalid. Will not modify links.".format(rundata_link))
+        rundata_link_abs = None
+    else:
+        # output_link needs to be the real path of the link (as opposed to the real path of
+        # where the link points!)
+        output_link = os.path.join(rundata_link_abs, 'pipeline', 'output')
+        output_link_dest = os.readlink(output_link)
+        output_link_abs = os.path.realpath(output_link)
+
+        # Now the output_link should point back to afqd or we're in trouble!
+        if not output_link_abs == os.path.realpath(afqd):
+            L.error("{} link does not point back to {}".format(output_link, afqd))
+            return
+
+    # OK we're ready to move the run
+    L.info("shutil.move({!r}, {!r})".format(afqd, dest_name))
+    if not DRY_RUN:
+        shutil.move(afqd, dest_name)
+    # And this changes where the rundata link is
+    rundata_link = os.path.join(dest_name, 'rundata')
+
+    if rundata_link_abs and rundata_link_abs != rundata_link_dest:
+        L.warning("Converting rundata link to an absolute path")
+        L.info("os.symlink({!r}, {!r})".format(rundata_link_abs, rundata_link))
+        if not DRY_RUN:
+            os.unlink(rundata_link)
+            os.symlink(rundata_link_abs, rundata_link)
+
+    # And finally, output_link must change unless rundata_link was dangling.
+    if rundata_link_abs:
+        L.info("os.symlink({!r}, {!r})".format(dest_name, output_link))
+        if not DRY_RUN:
+            os.unlink(output_link)
+            os.symlink(dest_name, output_link)
+
+    L.info("Renamed {} to {}{}".format(afqd, dest_name, " [DRY_RUN]" if DRY_RUN else ""))
+    TALLIES['fastqdirs'] += 1
 
 def rebatch_main(args):
     # TODO
