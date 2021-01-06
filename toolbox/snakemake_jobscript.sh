@@ -1,6 +1,6 @@
-#!/bin/bash -l
+#!/bin/bash
 
-# Default jobscript for Snakemake on the SLURM environment.
+# Default jobscript for Snakemake on the GSEG environment.
 # Made by Tim B on 2016-11-01
 # Updated after DRMAA fix on 2017-06-13
 
