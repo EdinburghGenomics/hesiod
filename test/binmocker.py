@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+"""BinMocker - a hack for testing shell scripts in Python"""
+
 import sys, os
 
 import subprocess
@@ -38,10 +40,17 @@ class BinMocker:
         """Internal function for making mock scripts.
         """
 
+        # To make the saving of args robust I had this idea:
+        # for x in "$@" ; do _fs+=(%q) ; done
+        # printf "%q %d ${_fs[*]}\n" "$0" "$#" "$@"
+        # But using zeros seems better.
+
         mockscript = r'''
             #!/bin/bash
             {side_effect}
-            echo "`basename $0` $@" | sed ':a; N; s/\n/\\n/; ta' >> "`dirname $0`"/_MOCKCALLS ; exit {retcode}
+            _fs='%s\0%d\0' ; for x in "$@" ; do _fs+='%s\0' ; done ; _fs+='\n'
+            printf "$_fs" "$(basename "$0")" "$#" "$@" >> "$(dirname "$0")"/_MOCKCALLS
+            exit {retcode}
         '''.format(**locals())
 
         with open(os.path.join(self.mock_bin_dir, mockname), 'w') as fh:
@@ -55,13 +64,16 @@ class BinMocker:
         """Internal function for writing mock functions.
            Note these will only apply to scripts that explicitly use #!/bin/bash
            as the interpreter, not #!/bin/sh or any other way that commands are
-           called indirectly, line 'env /bin/true ...'.
+           called indirectly, like 'env /bin/true ...'.
         """
         calls_file = os.path.join(self.mock_bin_dir, "_MOCKCALLS")
 
-        mockfunc = '''
-            {funcname}(){{ {side_effect}
-            echo '{funcname} '"$@" >> '{calls_file}'
+        mockfunc = r'''
+            {funcname}(){{
+            {side_effect}
+            local _fs
+            _fs='%s\0%d\0' ; for x in "$@" ; do _fs+='%s\0' ; done ; _fs+='\n'
+            printf "$_fs" '{funcname}' "$#" "$@" >> "$(dirname "$BASH_SOURCE")"/_MOCKCALLS
             return {retcode} ; }}
         '''.format(**locals())
 
@@ -76,7 +88,6 @@ class BinMocker:
            place of the real version.
            Except if mock contains a / character - then we need to use
            functions instead.
-           side_effect may be a line to be inserted in the shell script
         """
         if '/' in mock:
             #We can still mock these by defining BASH functions.
@@ -136,8 +147,8 @@ class BinMocker:
                 full_env['PATH'] = os.path.abspath(self.mock_bin_dir)
 
             if self._bash_env:
-                #Note - interactive scripts shouldn't normally depend on BASH_ENV,
-                #so complain if I'm clobbering it. Ditto for ENV.
+                # Note - interactive scripts shouldn't normally depend on BASH_ENV,
+                # so complain if I'm clobbering it. Ditto for ENV.
                 if full_env.get('BASH_ENV'):
                     raise RuntimeError("BASH_ENV was already set")
 
@@ -156,9 +167,15 @@ class BinMocker:
         #Fish the MOCK calls out of _MOCKCALLS
         calls = self.empty_calls()
         try:
-            with open(calls_file) as fh:
+            with open(calls_file, newline='\n') as fh:
                 for l in fh:
-                    mock_name, mock_args = l.rstrip('\n').split(' ', 1)
+                    # Each line is \0 delimited
+                    mock_name, mock_argc, mock_argv = l.split('\0', 2)
+                    while mock_argv.count('\0') < int(mock_argc):
+                        # Must be an embedded newline; pull the next line
+                        mock_argv += next(fh)
+                    # The line should end in \0 so discard the last ''
+                    mock_args = mock_argv.rstrip('\n').split('\0')[:-1]
                     calls[mock_name].append(mock_args)
         except FileNotFoundError:
             #So, nothing ran

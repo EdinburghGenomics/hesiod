@@ -99,8 +99,8 @@ class T(unittest.TestCase):
         self.assertEqual(bm.last_stdout, '')
 
         self.assertEqual(len(bm.last_calls['ssh']), 1)
-        self.assertEqual(bm.last_calls['ssh'][0][:57],
-                                    "-o ConnectTimeout=5 -T foo@bar.example.com cd whatever &&")
+        self.assertEqual( bm.last_calls['ssh'][0][:7],
+                          ["-o", "ConnectTimeout=5", "-T", "foo@bar.example.com", "cd", "whatever", "&&"] )
 
 if __name__ == '__main__':
     unittest.main()
