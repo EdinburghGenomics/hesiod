@@ -101,7 +101,7 @@ class T(unittest.TestCase):
 
         return self.bm.last_stdout.split("\n")
 
-    def copy_run(self, run):
+    def copy_run(self, run, subdir=None):
         """Utility function to add a run from examples/runs into temp_dir/runs.
            Returns the path to the run copied.
         """
@@ -109,7 +109,11 @@ class T(unittest.TestCase):
 
         # We want to know the desired output location
         # Note if you copy multiple runs then self.run_path will just be the last
-        self.run_path = os.path.join(self.temp_dir, 'runs', run)
+        if subdir:
+            os.mkdir(os.path.join(self.temp_dir, 'runs', subdir))
+            self.run_path = os.path.join(self.temp_dir, 'runs', subdir, run)
+        else:
+            self.run_path = os.path.join(self.temp_dir, 'runs', run)
 
         # Annoyingly, copytree gives me no way to avoid running copystat on the files.
         # But that doesn't mean it's impossible...
@@ -183,6 +187,12 @@ class T(unittest.TestCase):
         self.assertInStdout("Found 0 cells in upstream runs")
         self.assertInStderr('Nothing found in {}/runs or any upstream locations'.format(self.temp_dir))
 
+    def test_nop_withbatch(self):
+        """Check that setting PROM_RUNS_BATCH doesn't break it.
+        """
+        self.environment['PROM_RUNS_BATCH'] = 'month'
+        self.test_nop()
+
     def test_no_venv(self):
         """With a missing virtualenv the script should fail and not even scan.
            Normally there will be an active virtualenv in the test directory so
@@ -249,6 +259,26 @@ class T(unittest.TestCase):
         self.assertTrue('STDERR upload_report.sh') in log_lines
         self.assertTrue('cat: pipeline/report_upload_url.txt: No such file or directory') in log_lines
 
+    def test_new_upstream_withbatch(self):
+        """Check that setting PROM_RUNS_BATCH works.
+        """
+        self.environment['PROM_RUNS_BATCH'] = 'month'
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream1'
+
+        self.bm_rundriver()
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
+        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun/pipeline"))
+        self.assertTrue(os.path.isdir(self.temp_dir + "/fastqdata/20190226_TEST_testrun"))
+        self.assertEqual( os.path.realpath(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun/pipeline/output"),
+                          os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun") )
+        self.assertEqual( os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun/rundata"),
+                          os.path.realpath(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun") )
+
+
     def test_new_upstream2(self):
         """A slightly more complex run with spaces in the lib name.
            Note that the spaces may well break downstream parts.
@@ -262,9 +292,28 @@ class T(unittest.TestCase):
         self.assertTrue(os.path.isdir(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline"))
 
         # Did we correctly see the three cells?
-        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells".format(
-                                 self.environment['UPSTREAM_TEST'],
-                                                        self.temp_dir + "/runs/20000101_TEST_testrun2" ))
+        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells")
+
+        # Is the upstream written correctly?
+        with open(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline/upstream") as fh:
+            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun2\n')
+
+    def test_new_upstream2_withbatch(self):
+        """Same with PROM_RUNS_BATCH=year
+        """
+        self.environment['PROM_RUNS_BATCH'] = 'year'
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.bm_rundriver()
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/2000/20000101_TEST_testrun2/pipeline"))
+
+        # Did we correctly see the three cells?
+        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells")
+        self.assertInStdout(self.environment['UPSTREAM_TEST'])
+        self.assertInStdout(self.temp_dir + "/runs/2000/20000101_TEST_testrun2")
 
         # Is the upstream written correctly?
         with open(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline/upstream") as fh:
@@ -320,7 +369,7 @@ class T(unittest.TestCase):
         self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
 
         self.assertInStdout("Found 0 cells in upstream runs")
-        self.assertInStdout("ls: cannot access */*/20??????_*_????????/fast?_????: No such file or directory")
+        self.assertInStdout("ls: cannot access '*/*/20??????_*_????????/fast?_????': No such file or directory")
 
     def test_new_but_output_exists(self):
         """There should be an error if the directory in fastqdata already exists
@@ -380,6 +429,29 @@ class T(unittest.TestCase):
                                     rsync_first_bit + " =another test/20000101_0000_3-C1-C1_PAD00000_cccccccc=" ]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
+    def test_sync_needed_withbatch(self):
+        """Same with PROM_RUNS_BATCH=year
+        """
+        self.environment['PROM_RUNS_BATCH'] = 'year'
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
+        self.copy_run('20000101_TEST_testrun2', subdir="2000")
+
+        #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
+        self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary_PAD00000_1ea085ce.txt")
+
+        self.bm_rundriver()
+
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        # Because of final_summary.txt we should see this:
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced"))
+
+        expected_calls = self.bm.empty_calls()
+        rsync_first_bit = "== ={}= =20000101_TEST_testrun2=".format(EXAMPLES + '/upstream2/testrun2')
+        expected_calls['rsync'] = [ rsync_first_bit + " =a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa=",
+                                    rsync_first_bit + " =a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb=",
+                                    rsync_first_bit + " =another test/20000101_0000_3-C1-C1_PAD00000_cccccccc=" ]
+        self.assertEqual(self.bm.last_calls, expected_calls)
 
     def test_run_complete(self):
         """Same run as above, but skip past the syncing part.

@@ -1,6 +1,6 @@
 #!/bin/bash -l
 set -euo pipefail
-shopt -sq failglob
+shopt -sq nullglob
 IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry.
 
 #  Contents:
@@ -52,7 +52,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
            PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
            RT_SYSTEM STALL_TIME VERBOSE TOOLBOX \
-           DEL_REMOTE_CELLS PROJECT_NAME_LIST \
+           DEL_REMOTE_CELLS PROJECT_NAME_LIST PROM_RUNS_BATCH \
            EXTRA_SNAKE_FLAGS EXTRA_SNAKE_CONFIG MAIN_SNAKE_TARGETS
 fi
 
@@ -176,29 +176,32 @@ action_new(){
     # Have a 'from' file containing the upstream location
     # Also a matching output directory and back/forth symlinks
     _cc=`twc $CELLS`
+    _run_dir="$(dir_for_run "$RUNID")"
+    _run_dir_dir="$(dirname "$PROM_RUNS/$_run_dir")"
+
     if [ "$RUNUPSTREAM" = LOCAL ] ; then
-        # The run_status.py script will report 'LOCAL' if the upstream file is missing, but we then
+        # The run_status.py script will report 'LOCAL' if the upstream record is missing, but we then
         # below write this value explicitly into the upstream file.
         log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
         _msg1="New run in $PROM_RUNS with $_cc cells."
     else
-        log "\_NEW $RUNID with $_cc cells. Creating skeleton directories in $PROM_RUNS and $FASTQDATA."
-        _msg1="Syncing new run from $RUNUPSTREAM to $PROM_RUNS with $_cc cells."
+        log "\_NEW $RUNID with $_cc cells. Creating skeleton directories in $_run_dir_dir and $FASTQDATA."
+        _msg1="Syncing new run from $RUNUPSTREAM to $_run_dir_dir with $_cc cells."
     fi
 
-    # This is ignored when processing new runs from upstream, because that loop doesn't check BREAK,
+    # BREAK=1 is ignored when processing new runs from upstream, because that loop doesn't check BREAK,
     # but causes the main loop to halt when processing new local runs found by 'compgen -G'.
     # Is this ideal?
     # If something fails we should assume that something is wrong  with the FS and not try to
     # process more runs. However, if nothing fails we can process multiple new runs in one go,
     # be they local or remote.
     BREAK=1
-    if mkdir -vp "$PROM_RUNS/$RUNID/pipeline" |&debug ; then
-        cd "$PROM_RUNS/$RUNID"
+    if mkdir -vp "$PROM_RUNS/$_run_dir/pipeline" |&debug ; then
+        cd "$PROM_RUNS/$_run_dir"
         echo "$RUNUPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
-        log "FAILED $RUNID (creating $PROM_RUNS/$RUNID/pipeline)"
+        log "FAILED $RUNID (creating $PROM_RUNS/$_run_dir/pipeline)"
         return
     fi
 
@@ -216,7 +219,7 @@ action_new(){
     else
         # Possibly the directory in $PROM_RUNS had been deleted and there is old data
         # in $FASTQDATA. In which case it should have been moved off the machine!
-        # An error in any case. But here we do keep going.
+        # An error in any case, so try and fail gracefully.
         set +e
         log "$_msg2"
         # Prevent writing to the pipeline log during failure handling as we don't own it!
@@ -329,13 +332,13 @@ action_cell_ready(){
 }
 
 
-SYNC_QUEUE=""
+SYNC_QUEUE=()
 action_sync_needed(){
     # Deferred action - add to the sync queue. No plogging just yet.
     # Note that if another run needs attention we may never actually get to process
     # the contents of the SYNC_QUEUE
-    SYNC_QUEUE+="$RUNID"$'\t'
-    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (`twc $SYNC_QUEUE` items in queue)."
+    SYNC_QUEUE+=("$(pwd)")
+    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
 }
 
 action_processing_sync_needed(){
@@ -548,8 +551,6 @@ notify_run_complete(){
     # Tell RT that the run finished. Ie. that all cells seen are synced and ready to process.
     # As the number of cells in a run is open-ended, this may happen more than once, but only
     # once for any given number of cells.
-
-    # TODO - still needs to trigger from cell_ready and be tested
     _cc=`twc $CELLS`
     _ca=`twc $CELLSABORTED`
     _cr=`twc $CELLSREADY`
@@ -652,6 +653,17 @@ send_summary_to_rt() {
            echo ) ) 2>&1
 }
 
+dir_for_run(){
+    # Decide where a run should live based upon PROM_RUNS_BATCH
+    if [ "${PROM_RUNS_BATCH:-none}" = year ] ; then
+        echo "${foo:0:4}/$1"
+    elif [ "${PROM_RUNS_BATCH:-none}" = month ] ; then
+        echo "${foo:0:4}-${foo:4:2}/$1"
+    else
+        echo "$1"
+    fi
+}
+
 pipeline_fail() {
     # Record a failure of the pipeline. The failure may be due to network outage so try
     # to report to RT but be prepared for that to fail too.
@@ -714,12 +726,12 @@ get_run_status() { # run_dir
 
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
-UPSTREAM_INFO="" UPSTREAM_LOCS="" UPSTREAM_FAILS=""
+UPSTREAM_INFO="" UPSTREAM_LOCS=() UPSTREAM_FAILS=""
 
 # Note because of the IFS setting we need to munge $UPSTREAM
 for UPSTREAM_NAME in `tr ' ' '\t' <<<$UPSTREAM` ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
-    UPSTREAM_LOCS+="$UPSTREAM_LOC"$'\t'
+    UPSTREAM_LOCS+=("$UPSTREAM_LOC")
 
     # If this fails (network error or whatever) we still want to process local stuff
     log ">> Looking for ${UPSTREAM_NAME} upstream runs in $UPSTREAM_LOC"
@@ -739,26 +751,40 @@ unset UPSTREAM_LOC UPSTREAM_NAME
 # 2) Process all new runs from $UPSTREAM_INFO
 # 3) Commence all syncs (see doc/syncing.sh for why this works the way it does)
 
-log ">> Looking for run directories matching regex $PROM_RUNS/$RUN_NAME_REGEX/"
+# First, account for PROM_RUNS_BATCH and see what runs are here locally.
+# Remember we have nullglob set but also -u so be careful trying to access an empty list
+if [ "${PROM_RUNS_BATCH:-none}" = year ] ; then
+    prom_runs_prefix="$PROM_RUNS/\d{4}"
+    prom_runs_list=("$PROM_RUNS"/[0-9][0-9][0-9][0-9]/*_*/)
+elif [ "${PROM_RUNS_BATCH:-none}" = month ] ; then
+    prom_runs_prefix="$PROM_RUNS/\d{4}-\d{2}"
+    prom_runs_list=("$PROM_RUNS"/[0-9][0-9][0-9][0-9]-[0-9][0-9]/*_*/)
+else
+    prom_runs_prefix="$PROM_RUNS"
+    prom_runs_list=("$PROM_RUNS"/*_*/)
+fi
+
+log ">> Looking for run directories matching regex $prom_runs_prefix/$RUN_NAME_REGEX/"
 
 # If there is nothing in "$PROM_RUNS" and nothing in "$UPSTREAM_INFO" it's an error.
-# Seems best to be explicit checking this.
-if ! compgen -G "$PROM_RUNS/*/" >/dev/null && [ -z "$UPSTREAM_INFO" ] ; then
-    _msg="Nothing found in $PROM_RUNS or any upstream locations (${UPSTREAM_LOCS% })"
+# Seems best to be explicit checking this. Could be an error in the batch setting?
+if [ -z "${prom_runs_list:-}" ] && [ -z "$UPSTREAM_INFO" ] ; then
+    _msg="Nothing found matching $prom_runs_prefix/*_* or in any upstream locations (${UPSTREAM_LOCS[*]})"
     log "$_msg"
     echo "$_msg" >&2 # This will go out as a CRON error
     exit 1
 fi
 
-# Now scan through each prom_run dir until we find something that needs dealing with.
+# For starters scan through each prom_run dir until we find something that needs dealing with.
 BREAK=0
-# FIXME - respect PROM_RUNS_BATCH
-if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
+for run in "${prom_runs_list[@]}" ; do
 
     if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
         debug "Ignoring `basename $run`"
         continue
     fi
+
+    # TODO - consider pruning the list of runs to avoid get_run_status on every old run.
 
     # This sets RUNID, STATUS, etc.
     get_run_status "$run"
@@ -780,7 +806,7 @@ if compgen -G "$PROM_RUNS/*/" >/dev/null ; then for run in "$PROM_RUNS"/*/ ; do
     # want a problem run to gum up the pipeline if every instance of the script tries to process
     # it, fails, and then exits.
     [ "$BREAK" = 0 ] || break
-done ; fi
+done
 
 if [ "$BREAK" != 0 ] ; then
     wait ; exit
@@ -792,8 +818,11 @@ if [ -n "$UPSTREAM" ] ; then
     log ">> Handling new upstream runs matching regex $RUN_NAME_REGEX"
     [[ -n "$UPSTREAM_INFO" ]] || log "No runs seen"
     while read RUNID ; do
-# FIXME - respect PROM_RUNS_BATCH
-        if [ -e "$PROM_RUNS/$RUNID" ] ; then
+
+        # Work out where it should go based on PROM_RUNS_BATCH
+        run_dir="$(dir_for_run "$RUNID")"
+
+        if [ -e "$PROM_RUNS/$run_dir" ] ; then
             debug "Run $RUNID is not new"
             continue
         fi
@@ -814,31 +843,32 @@ if [ -n "$UPSTREAM" ] ; then
     done < <(printf "%s" "$UPSTREAM_INFO" | awk -F "$IFS" '{print $1}' | uniq)
 fi
 
-# Now start sync events. Note that due to set -eu I need to check explicitly for the empty list.
+# Now start sync events, if there are any.
 BREAK=0
-if [ -n "${SYNC_QUEUE:-}" ] ; then
+if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
     log ">> Processing SYNC_QUEUE"
-    _nn=1
-    for RUNID in $SYNC_QUEUE ; do
+    nn=1
+    for run_dir in "${SYNC_QUEUE[@]}" ; do
+        RUNID="$(basename "$run_dir")"
         # Not using touch_atomic since it's possible sync.started and sync.failed are both
         # present.
-# FIXME - respect PROM_RUNS_BATCH - probably by adding the year to items in SYNC_QUEUE
-        rm -f "$PROM_RUNS/$RUNID/pipeline/sync."{done,failed}
-        touch "$PROM_RUNS/$RUNID/pipeline/sync.started"
+        rm -f "$run_dir/pipeline/sync."{done,failed}
+        touch "$run_dir/pipeline/sync.started"
 
         # This must be set for plog to operate
-        RUN_OUTPUT="$(readlink -f "$PROM_RUNS/$RUNID/pipeline/output")"
+        RUN_OUTPUT="$(readlink -f "$run_dir/pipeline/output")"
 
-        plog ">>> $0 preparing to sync at `date`. This run is #$_nn in the queue."
-        _nn=$(( $_nn + 1 ))
+        plog ">>> $0 preparing to sync at `date`. This run is #$nn in the queue."
+        nn=$(( $nn + 1 ))
     done
 
-    for RUNID in $SYNC_QUEUE ; do
+    for run_dir in "${SYNC_QUEUE[@]}" ; do
+        RUNID="$(basename "$run_dir")"
         # Note this sets RUN_OUTPUT as needed for plog...
-        get_run_status "$PROM_RUNS/$RUNID"
+        get_run_status "$run_dir"
 
-        { pushd "$PROM_RUNS/$RUNID" >/dev/null && eval do_sync
-        } || log "Error while trying to run Rsync on $PROM_RUNS/$RUNID"
+        { pushd "$run_dir" >/dev/null && eval do_sync
+        } || log "Error while trying to run Rsync on $run_dir"
         popd >/dev/null
     done
 fi
