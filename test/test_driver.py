@@ -185,13 +185,19 @@ class T(unittest.TestCase):
         self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
 
         self.assertInStdout("Found 0 cells in upstream runs")
-        self.assertInStderr('Nothing found in {}/runs or any upstream locations'.format(self.temp_dir))
+        self.assertInStderr('Nothing found matching {}/runs/.*_.* or in any upstream locations'.format(self.temp_dir))
 
     def test_nop_withbatch(self):
-        """Check that setting PROM_RUNS_BATCH doesn't break it.
+        """Check that setting PROM_RUNS_BATCH does the same as above, with a slightly
+           different error.
         """
         self.environment['PROM_RUNS_BATCH'] = 'month'
-        self.test_nop()
+        self.bm_rundriver(expected_retval=1)
+
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+
+        self.assertInStdout("Found 0 cells in upstream runs")
+        self.assertInStderr(r'Nothing found matching ' + self.temp_dir + '/runs/\d{4}-\d{2}/.*_.* or in any upstream locations')
 
     def test_no_venv(self):
         """With a missing virtualenv the script should fail and not even scan.
@@ -316,7 +322,7 @@ class T(unittest.TestCase):
         self.assertInStdout(self.temp_dir + "/runs/2000/20000101_TEST_testrun2")
 
         # Is the upstream written correctly?
-        with open(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline/upstream") as fh:
+        with open(self.temp_dir + "/runs/2000/20000101_TEST_testrun2/pipeline/upstream") as fh:
             self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun2\n')
 
     def test_new_without_upstream(self):

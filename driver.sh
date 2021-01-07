@@ -303,16 +303,17 @@ action_cell_ready(){
       # ever have one of these running at a time.
       upload_report | plog && log DONE
 
-      # At the moment, notifying RT after making a report is always a failure condition, even if there
+      # At the moment, failing notify RT after making a report is always a failure condition, even if there
       # is more data to sync/process. This should probably be addressed so we can keep syncing, but it
       # requires complex changes to the state machine.
-      send_summary_to_rt "$_report_level" \
-                         "$_report_status" \
-                         "Processing completed for cells $_cellsready. Run report is at" \
-                         FUDGE || \
-      { log "Failed to send summary to RT. See $per_run_log"
+      if ! send_summary_to_rt "$_report_level" \
+                              "$_report_status" \
+                              "Processing completed for cells $_cellsready. Run report is at" \
+                              FUDGE ;
+      then
+        log "Failed to send summary to RT. See $per_run_log"
         false
-      }
+      fi
 
       for _c in $CELLSREADY ; do
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
@@ -612,7 +613,7 @@ send_summary_to_rt() {
     _reply_or_comment="${1:-}"
     _run_status="${2:-}"
     _preamble="${3:-Run report is at}"
-    _fudge="${4:-}"
+    _fudge="${4:-}"   # Set status complete after processing?
 
     # Quoting of a subject with spaces requires use of arrays but beware this:
     # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
@@ -656,9 +657,9 @@ send_summary_to_rt() {
 dir_for_run(){
     # Decide where a run should live based upon PROM_RUNS_BATCH
     if [ "${PROM_RUNS_BATCH:-none}" = year ] ; then
-        echo "${foo:0:4}/$1"
+        echo "${1:0:4}/$1"
     elif [ "${PROM_RUNS_BATCH:-none}" = month ] ; then
-        echo "${foo:0:4}-${foo:4:2}/$1"
+        echo "${1:0:4}-${1:4:2}/$1"
     else
         echo "$1"
     fi
@@ -769,7 +770,7 @@ log ">> Looking for run directories matching regex $prom_runs_prefix/$RUN_NAME_R
 # If there is nothing in "$PROM_RUNS" and nothing in "$UPSTREAM_INFO" it's an error.
 # Seems best to be explicit checking this. Could be an error in the batch setting?
 if [ -z "${prom_runs_list:-}" ] && [ -z "$UPSTREAM_INFO" ] ; then
-    _msg="Nothing found matching $prom_runs_prefix/*_* or in any upstream locations (${UPSTREAM_LOCS[*]})"
+    _msg="Nothing found matching $prom_runs_prefix/.*_.* or in any upstream locations (${UPSTREAM_LOCS[*]})"
     log "$_msg"
     echo "$_msg" >&2 # This will go out as a CRON error
     exit 1
@@ -786,19 +787,21 @@ for run in "${prom_runs_list[@]}" ; do
 
     # TODO - consider pruning the list of runs to avoid get_run_status on every old run.
 
-    # This sets RUNID, STATUS, etc.
+    # This sets RUNID, STATUS, etc. as a side-effect
     get_run_status "$run"
 
     # Taken from SMRTino - normally we don't log all the boring stuff
     if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
     $_log "$RUNID with `twc $CELLS` cell(s) and status=$STATUS"
 
-    #Call the appropriate function in the appropriate directory.
-    { pushd "$run" >/dev/null && eval action_"$STATUS"
-    } || log "Error while trying to run action_$STATUS on $run"
-    popd >/dev/null
+    # Call the appropriate function in the appropriate directory.
+    pushd "$run" >/dev/null
+    eval action_"$STATUS"
+    # Should never actually get an error here unless the called function calls "set +e"
+    [ $? = 0 ] || log "Error while trying to run action_$STATUS on $run"
     #in case this setting got clobbered...
     set -e
+    popd >/dev/null
 
     # If the driver started some actual work it should request to break, as the CRON will start
     # a new scan at regular intervals in any case. We don't want an instance of the driver to
@@ -837,8 +840,10 @@ if [ -n "$UPSTREAM" ] ; then
         CELLS="${CELLS%$IFS}" # chop trailing tab
         CELLSPENDING=""
 
-        { eval action_"$STATUS"
-        } || log "Error while trying to run action_$STATUS on $RUNID"
+        eval action_"$STATUS"
+        # Should never actually get an error here unless the called function calls "set +e"
+        [ $? = 0 ] || log "Error while trying to run action_$STATUS on $RUNID"
+        set -e
 
     done < <(printf "%s" "$UPSTREAM_INFO" | awk -F "$IFS" '{print $1}' | uniq)
 fi
@@ -867,8 +872,11 @@ if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
         # Note this sets RUN_OUTPUT as needed for plog...
         get_run_status "$run_dir"
 
-        { pushd "$run_dir" >/dev/null && eval do_sync
-        } || log "Error while trying to run Rsync on $run_dir"
+        pushd "$run_dir" >/dev/null
+        eval do_sync
+        # Should never actually get an error here unless do_sync calls "set +e"
+        [ $? = 0 ] || log "Error while trying to run Rsync on $run_dir"
+        set -e
         popd >/dev/null
     done
 fi
