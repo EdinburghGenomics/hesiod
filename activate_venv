@@ -48,7 +48,7 @@ else
         # things needed for Blobtools - we are using
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
         pip_install docopt==0.6.2
-        pip_install matplotlib==3.0.3
+        pip_install matplotlib==3.3.3
         pip_install pysam==0.15.2
         pip_install tqdm==4.32.2
 
@@ -64,9 +64,14 @@ else
         pip_install h5py==2.10.0
 
         # Here’s the big one
-        pip_install seaborn==0.9.1
+        pip_install pauvre==0.2
+        pip_install pillow==8.1.0
+        pip_install pyarrow==2.0.0
+        pip_install seaborn==0.10.1
+        pip_install kaleido==0.1.0
+        pip_install threadpoolctl==2.1.0
         pip_install biopython==1.76
-        pip_install NanoPlot==1.26.1
+        pip_install NanoPlot==1.33.1
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell

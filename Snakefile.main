@@ -219,6 +219,8 @@ PART_LABELS = { 'pass'     : "all passed",
                 'nolambda' : "lambda-filtered passed",
                 'lambda'   : "lambda-mapping passed" }
 
+# NanoPlot makes many plots, but here are the ones we care about:
+NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", "NumberOfReads_Over_Time" ]
 
 rule one_cell:
     output: "{cell}/cell_info.yaml"
@@ -238,7 +240,9 @@ rule one_cell:
         lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_lambda.bam.qmap",
                                             base = [cellname_to_base(wc.cell)] ),
         blobs        = "blob/{cell}/plots.yaml",
-        nanoplot     = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
+        nanoplot_r   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
+        nanoplot_p   = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
+        nanoplot_t   = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
         fast5_meta   = "{cell}/cell_fast5_metadata.yaml",
         #minionqc     = "minionqc/{cell}/summary.yaml",
     run:
@@ -272,7 +276,7 @@ rule one_cell:
         # Link to other reports. I'm now using paths relative to the file rather than the
         # root of the run dir.
         ci['_blobs'] = "../../{}".format(input.blobs)
-        ci['_nanoplot'] = "../../{}".format(input.nanoplot[0])
+        ci['_nanoplot'] = "../../{}".format(input.nanoplot_r[0])
         #ci['_minionqc'] = str(input.minionqc)
 
         # Fold in the fast5_metadata
@@ -310,10 +314,13 @@ if RUNDIR:
 
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
+# Note this will produce many plots but there are only a few we care to check.
 rule nanoplot:
     output:
-        stats = "nanoplot/{cell}/NanoStats.txt",
-        rep   = "nanoplot/{cell}/NanoPlot-report.html"
+        stats  = "nanoplot/{cell}/NanoStats.txt",
+        rep    = "nanoplot/{cell}/NanoPlot-report.html",
+        plots  = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
+        thumbs = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
     input:
         summary  = lambda wc: "{base}_sequencing_summary.txt.gz".format(base=cellname_to_base(wc.cell)),
         passlist = lambda wc: "{base}_pass_fastq.list".format(base=cellname_to_base(wc.cell))
