@@ -104,7 +104,7 @@ for run in "$FASTQDATA"/*/ ; do
   # triggered again and again.
   rsync -sbav --exclude='**/.snakemake' --exclude='**/slurm_output' --exclude={rundata,projects_deleted.txt,pipeline.log} \
     "$run" "$BACKUP_LOCATION/$run_name"
-  rsync -svrt --exclude='**' \
+  rsync -svrtg --exclude='**' \
     "$run" "$BACKUP_LOCATION/$run_name"
 
   # Just to test the log catcher below we can...
