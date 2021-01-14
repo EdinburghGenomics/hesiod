@@ -2,9 +2,6 @@
 set -euo pipefail
 shopt -s nullglob
 
-# Optional echo
-debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then echo "$@" ; fi ; }
-
 # Load the settings for this pipeline.
 HESIOD_HOME="$(readlink -f $(dirname $BASH_SOURCE)/..)"
 ENVIRON_SH="${ENVIRON_SH:-$HESIOD_HOME/environ.sh}"
@@ -19,6 +16,10 @@ fi
 
 # Add the PATH
 export PATH="$HESIOD_HOME:$PATH"
+export VERBOSE="${VERBOSE:-0}"
+
+# Optional echo
+debug(){ if [ "${VERBOSE}" != 0 ] ; then echo "$@" ; fi ; }
 
 # The config file must provide FASTQDATA and BACKUP_LOCATION, assuming they
 # were not already set in the environment. To explicitly ignore the environ.sh
@@ -40,6 +41,8 @@ echo ===
 # But note we loop through $FASTQDATA_LOCATION not $SEQDATA_LOCATION.
 for run in "$FASTQDATA"/*/ ; do
 
+  debug "Considering $run"
+
   # This also lops the trailing /, but we rely on $run still having one.
   run_name="$(basename $run)"
 
@@ -51,7 +54,8 @@ for run in "$FASTQDATA"/*/ ; do
 
   # Invoke run_status.py to see if the run is done. Same as in
   # deletion_management_tools/find_prom_runs_to_delete.sh
-  run_status=$(run_status.py "$d" | sed -n '/^PipelineStatus:/s/.*: *//p')
+  run_status=$(run_status.py "$run" | sed -n '/^PipelineStatus:/s/.*: *//p')
+  debug "Status is reported as $run_status"
 
   if [ "$run_status" = "aborted" ] ; then
     debug "Ignoring aborted $run_name"
@@ -61,7 +65,7 @@ for run in "$FASTQDATA"/*/ ; do
   # Wait for qc to complete before running the sync.
   # Maybe I should RSYNC anyway here and not wait for final QC? But that gets messy.
   # If the pipeline dir is missing this check will be skipped, but we do need the log - see the next check.
-  if [ "$run_status" = "complete" ] ; then
+  if [ "$run_status" != "complete" ] ; then
     echo "Ignoring incomplete $run_name"
     continue
   fi
@@ -91,7 +95,7 @@ for run in "$FASTQDATA"/*/ ; do
     continue
   fi
 
-  if [ "${VERBOSE:-0}" != 0 ] ; then set -x ; fi
+  if [ "${VERBOSE}" != 0 ] ; then set -x ; fi
 
   # Note there is no --delete flag so if the sample list changes the old files will remain on the backup.
   # This should not be a problem. If --delete is added below then the --backup flag should prevent cascading data
