@@ -266,13 +266,13 @@ class RunStatus:
             return "unknown"
 
     def get_start_time(self):
-        """ Is there a good way to do this? For remote runs? Hmmm.
+        """ Is there a good way to do this? For remote runs this depends on RSYNC
+            fixing the local time stamps.
         """
-        # FIXME - this is still the SMRTino code
-        txtfiles = glob( os.path.join(self.run_path, '[0-9]_???/*.txt') )
+        somefiles = glob( os.path.join(self.run_path, '*/*_*_*_*/*_*') )
 
         try:
-            oldest_time = min( os.stat(t).st_mtime for t in txtfiles )
+            oldest_time = min( os.stat(t).st_mtime for t in somefiles )
 
             return datetime.datetime.fromtimestamp(oldest_time).ctime()
 
