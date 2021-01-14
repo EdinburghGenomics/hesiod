@@ -112,7 +112,7 @@ for run in "$FASTQDATA"/*/ ; do
 
   # Now add the pipeline directory from the rundata dir (if it still exists)
   [ ! -e "$run"/rundata/ ] || \
-  rsync -sbav --del --include='pipeline**' --exclude='*' \
+  rsync -sbav --del --exclude='pipeline/output' --include='pipeline**' --exclude='*' \
     "$run"rundata/ "$BACKUP_LOCATION/$run_name/rundata"
 
   # And finally the log. Do this last so if copying was interrupted/incomplete it will be obvious.
