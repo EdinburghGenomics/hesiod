@@ -22,6 +22,7 @@ EXAMPLES = os.path.dirname(__file__) + '/examples'
 DRIVER = os.path.abspath(os.path.dirname(__file__) + '/../driver.sh')
 
 PROGS_TO_MOCK = {
+    "chgrp": None,
     "ssh" : None,
     "rsync" : None,
     "Snakefile.main" : None,
@@ -250,6 +251,7 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
+        expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/20190226_TEST_testrun", './pipeline']]
         expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --subject new --comment @???'.split()]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
@@ -350,6 +352,7 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
+        expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/201907010_LOCALTEST_newrun", './pipeline']]
         expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject new --comment @???'.split()]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...

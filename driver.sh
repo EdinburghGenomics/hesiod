@@ -213,6 +213,7 @@ action_new(){
         log "Logging to $per_run_log"
         plog "$_msg1"
         plog "$_msg2"
+        chgrp -c --reference="$RUN_OUTPUT" ./pipeline |&plog
         # Links both ways, as usual
         ln -svn "$(readlink -f .)" "$RUN_OUTPUT/rundata" |&plog
         ln -svn "$(readlink -f "$RUN_OUTPUT")" "pipeline/output" |&plog
