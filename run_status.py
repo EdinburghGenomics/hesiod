@@ -25,8 +25,6 @@ class RunStatus:
         # Are we auto-aborting stalled cells like SMRTino?
         self.stall_time = int(stall_time) if stall_time is not None else None
 
-        self._error = None
-
         if os.path.exists(os.path.join(run_dir, 'rundata', 'pipeline')):
             # We seem to be running in an existing output directory
             self.fastqdata_path = run_dir
@@ -36,12 +34,6 @@ class RunStatus:
             # a valid pipeline/output link already, unless it's local and new.
             self.fastqdata_path = os.path.join(run_dir, 'pipeline', 'output')
             self.run_path = run_dir
-
-            # If the output path is missing the run status is unknown, unless
-            # it is new or aborted.
-            if not os.path.isdir(self.fastqdata_path):
-                # Status will be unknown but we might still get some further info
-                self._error = "Missing pipeline/output directory"
 
         remote_info_for_run = (upstream or {}).get(self.get_run_id(), dict())
         self.remote_cells = remote_info_for_run.get('cells', set())
@@ -169,12 +161,6 @@ class RunStatus:
         if self._was_aborted():
             return "aborted"
 
-        # Otherwise if one of the sanity checks failed the status must be unknown - any action
-        # would be dangerous.
-        # TODO - actually do something with the message?
-        if self._error:
-            return "unknown"
-
         # No provision for 'redo' state just now, but if there was this would need to
         # go in here to override the failed and complete statuses.
 
@@ -201,6 +187,10 @@ class RunStatus:
                 return "syncing"
             else:
                 return "complete"
+
+        # If the output path is missing then we don't want to trigger any actions.
+        if not os.path.isdir(self.fastqdata_path):
+            return "unknown"
 
         # Is anything waiting to sync?
         sync_needed = any( s in [self.CELL_PENDING, self.CELL_NEW] for s in all_cell_statuses )
