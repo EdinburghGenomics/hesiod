@@ -443,7 +443,7 @@ class T(unittest.TestCase):
         """
         self.environment['PROM_RUNS_BATCH'] = 'year'
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
-        self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
+        self.environment['SYNC_CMD'] = 'rsync "$upstream_host" "$upstream_path" "$run" "$run_dir" "$run_dir_full" "$cell"'
         self.copy_run('20000101_TEST_testrun2', subdir="2000")
 
         #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
@@ -456,10 +456,15 @@ class T(unittest.TestCase):
         self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced"))
 
         expected_calls = self.bm.empty_calls()
-        rsync_first_bit = ["==", "={}=".format(EXAMPLES + '/upstream2/testrun2'), "=20000101_TEST_testrun2="]
-        expected_calls['rsync'] = [ rsync_first_bit + ["=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa="],
-                                    rsync_first_bit + ["=a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb="],
-                                    rsync_first_bit + ["=another test/20000101_0000_3-C1-C1_PAD00000_cccccccc="] ]
+        rsync_first_bit = [ "",                               # No upstream host
+                            EXAMPLES + "/upstream2/testrun2", # Upstream source of example run
+                            "20000101_TEST_testrun2",         # The name of the run
+                            "2000/20000101_TEST_testrun2",    # The target directory, including the year
+                            self.run_path                     # The full target directory
+                          ]
+        expected_calls['rsync'] = [ rsync_first_bit + ["a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"],
+                                    rsync_first_bit + ["a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"],
+                                    rsync_first_bit + ["another test/20000101_0000_3-C1-C1_PAD00000_cccccccc"] ]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
     def test_run_complete(self):

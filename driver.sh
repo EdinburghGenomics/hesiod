@@ -339,7 +339,7 @@ action_sync_needed(){
     # Deferred action - add to the sync queue. No plogging just yet.
     # Note that if another run needs attention we may never actually get to process
     # the contents of the SYNC_QUEUE
-    SYNC_QUEUE+=("$(pwd)")
+    SYNC_QUEUE+=("$RUNID")
     log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
 }
 
@@ -437,6 +437,10 @@ do_sync(){
 
     # Loop through cells
     while read run upstream cell ; do
+
+        # Note as well as $run we also have $run_dir set which incorporates the batch directory,
+        # and $run_dir_full which is the full local path.
+        # This is what should be used in the sync_cmd templates.
 
         plog ">>> $0 checking sync status of cell $cell at `date`"
 
@@ -854,26 +858,30 @@ BREAK=0
 if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
     log ">> Processing SYNC_QUEUE"
     nn=1
-    for run_dir in "${SYNC_QUEUE[@]}" ; do
-        RUNID="$(basename "$run_dir")"
+    # First loop prepares to sync
+    for RUNID in "${SYNC_QUEUE[@]}" ; do
+        run_dir="$(dir_for_run "$RUNID")"
+        run_dir_full="$PROM_RUNS/$run_dir"
         # Not using touch_atomic since it's possible sync.started and sync.failed are both
         # present.
-        rm -f "$run_dir/pipeline/sync."{done,failed}
-        touch "$run_dir/pipeline/sync.started"
+        rm -f "$run_dir_full/pipeline/sync."{done,failed}
+        touch "$run_dir_full/pipeline/sync.started"
 
         # This must be set for plog to operate
-        RUN_OUTPUT="$(readlink -f "$run_dir/pipeline/output")"
+        RUN_OUTPUT="$(readlink -f "$run_dir_full/pipeline/output")"
 
         plog ">>> $0 preparing to sync at `date`. This run is #$nn in the queue."
         nn=$(( $nn + 1 ))
     done
 
-    for run_dir in "${SYNC_QUEUE[@]}" ; do
-        RUNID="$(basename "$run_dir")"
+    # Second loop actually syncs
+    for RUNID in "${SYNC_QUEUE[@]}" ; do
+        run_dir="$(dir_for_run "$RUNID")"
+        run_dir_full="$PROM_RUNS/$run_dir"
         # Note this sets RUN_OUTPUT as needed for plog...
-        get_run_status "$run_dir"
+        get_run_status "$run_dir_full"
 
-        pushd "$run_dir" >/dev/null
+        pushd "$run_dir_full" >/dev/null
         eval do_sync
         # Should never actually get an error here unless do_sync calls "set +e"
         [ $? = 0 ] || log "Error while trying to run Rsync on $run_dir"

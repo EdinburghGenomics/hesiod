@@ -1,0 +1,56 @@
+# Config parameters for Hesiod
+VERBOSE=0
+
+# This is needed due to missing certs in the Python certifi package:
+export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+
+# Marks cells as deletable once done (actual deletion is confirmed by operator)
+DEL_REMOTE_CELLS=yes
+
+# We may have multiple UPSTREAM locations, ie. instruments. Here we have EGS1 which is our
+# Promethion and MIN1 which represents all Minion imports.
+UPSTREAM="EGS1 MIN1"
+UPSTREAM_EGS1=prom@promethion.genepool.private:/data
+UPSTREAM_MIN1=/fluidfs/f1/minion
+
+PROM_RUNS_BATCH=year
+PROM_RUNS=/lustre-gseg/promethion/prom_runs
+FASTQDATA=/lustre-gseg/promethion/prom_fastqdata
+
+# For production, use the real RT and use the casava partition on SLURM
+RT_SYSTEM="production-rt"
+CLUSTER_QUEUE=edgen-casava
+
+# Provide a sync command as a template that may access:
+#   {upstream}      - The full path as per column 2 of the remote info
+#   {upstream_host} - eg prom@promethion
+#   {upstream_path} - eg /data/testrun
+#   {cell}          - col 3 - eg. testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b
+#   {run}           - col 1 - eg. 20190710_TEST_testrun
+#   {run_dir}       - run incorporating batch dir - eg. 2019/20190710_TEST_testrun
+#   {run_dir_full}  - full location of run, ie. $PROM_RUNS/$run_dir
+# eg.
+# SYNC_CMD="rsync -vrltR --modify-window=5 \${upstream}/./\${cell} \${run_dir}/"
+
+# Here's a basic one for Minion runs placed directly in /fluidfs
+SYNC_CMD_MIN1="rsync -vrltR \${upstream}/./\${cell} \${run_dir_full}/"
+
+## This uses the SMB mount and is faster than RSYNC-over-SSH but only works if
+## /mnt/lustre-gseg/prometion is mounted on the host. Line from /etc/fstab on promethion is:
+# //edgen-login0.genepool.private/promethion /mnt/lustre-gseg/promethion cifs _netdev,uid=1000,username=pipeline,password=******,iocharset=utf8,rw  0  0
+SYNC_CMD_EGS1="ssh -T \${upstream_host} rsync -vrltR --size-only --append \${upstream_path}/./\${cell} /mnt/lustre-gseg/promethion/prom_runs/\${run_dir}/"
+
+# Reports reports reports
+REPORT_DESTINATION=web1.genepool.private:/var/runinfo/hesiod_reports
+REPORT_LINK=http://web1.genepool.private/runinfo/hesiod_reports
+PROJECT_PAGE_URL=https://www.wiki.ed.ac.uk/display/GenePool/
+
+# SPECIAL CASE
+# For running when there is minimal processing power - avoid fast5 compression and minimize blasting.
+#MAIN_SNAKE_TARGETS=main
+#EXTRA_SNAKE_CONFIG="blob_subsample=2000 blob_chunks=10"
+#CLUSTER_QUEUE=none
+
+# And for the RSYNC backups...
+BACKUP_NAME_REGEX='[0-9]{8}_.*_.*'
+BACKUP_LOCATION=/fluidfs/f1/prom_fastqdata_copy
