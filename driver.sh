@@ -1,7 +1,7 @@
-#!/bin/bash -l
+#!/bin/bash
 set -euo pipefail
 shopt -sq nullglob
-IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry.
+IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix...
 
 #  Contents:
 #    - Configuration
