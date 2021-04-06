@@ -116,6 +116,10 @@ class RunStatus:
     def _was_aborted(self):
         return self._exists_pipeline( 'aborted' )
 
+    def _was_stripped(self):
+        # The data deleter adds this
+        return self._exists_pipeline( 'stripped' )
+
     def _is_stalled(self):
         """ This works in SMRTino. It may or may not be sensible here.
             FIXME or DELETEME
@@ -160,6 +164,11 @@ class RunStatus:
         # Run in aborted state should not be subject to any further processing
         if self._was_aborted():
             return "aborted"
+
+        # If the data deletion process has stripped out the run. But then I'd expect
+        # archive_pack_prom_runs.sh to quickly mop up the remains? Hmmmm.
+        if self._was_stripped():
+            return "stripped"
 
         # No provision for 'redo' state just now, but if there was this would need to
         # go in here to override the failed and complete statuses.

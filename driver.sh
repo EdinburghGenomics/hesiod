@@ -403,6 +403,11 @@ action_complete() {
     true
 }
 
+action_stripped() {
+    # The data deleter is currently cleaning the run up. Nothing for us here.
+    true
+}
+
 action_unknown() {
     # this run is broken somehow ... nothing to be done...
     log "\_skipping `pwd` because status is $STATUS"
