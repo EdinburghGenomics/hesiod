@@ -36,14 +36,14 @@ snakerun_drmaa "$0" "$@"
 #!/usr/bin/env snakemake
 from pprint import pformat
 
-from snakemake.utils import format
+from itertools import product
 from subprocess import CalledProcessError
 
 from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
 
 logger = snakemake.logging.logger
 
-TOOLBOX = format('env PATH="{os.environ[TOOLBOX]}:$PATH"')
+TOOLBOX = f'env PATH="{os.environ["TOOLBOX"]}:$PATH"'
 PIGZ    = 'pigz -nT -9 -b512'
 
 for p in os.environ['PATH'].split(':'):
@@ -56,7 +56,7 @@ else:
 # If not supplied, just assume the usual symlink will work...
 RUNDIR = config.get('rundata', 'rundata')
 if not os.path.exists(RUNDIR):
-    logger.warning(format("WARNING: {RUNDIR} is not a directory. Suppressing rules that reference RUNDIR."))
+    logger.warning(f"WARNING: {RUNDIR} is not a directory. Suppressing rules that reference RUNDIR.")
     RUNDIR = None
 
 def cellname_to_base(c):
@@ -64,33 +64,38 @@ def cellname_to_base(c):
     """
     return parse_cell_name(RUN, c)['Base']
 
-def scan_cells():
-    """ Work out all the cells to process. Should be simple since the list is passed
-        by driver.sh in config['cellsready'] but I do want to be able to process all by default.
+def scan_cells(rundir, config):
+    """ Work out all the cells to process. Normally simple since the list is just passed in
+        by driver.sh in config['cellsready'] but I do want to be able to process all by default so
+        there is some scanning capability too.
         Then get a list of all the files per cell.
-        TODO - can we avoid doing this if --allowed-rules is specified?
+        This function must not fail if files are missing because that blocks the whole Snakefile from
+        running even if you want to use an unrelated rule.
+
+        res structure is { cell : barcode : 'fastX_pass' : [ list of files ] }
     """
     if 'cells' in config:
         # Believe what we are told
         cells = config['cells'].split('\t')
-    elif RUNDIR:
+    elif rundir:
         # Look for valid cells.
-        cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("{RUNDIR}/*/*/fastq_????/")) ))
+        cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{rundir}/*/*/fastq_????/") ))
     else:
         # Look for cells here in the output (presumably the run already processed and the raw dir was removed)
-        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(format("*/*/cell_info.yaml")) ]
+        cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"*/*/cell_info.yaml") ]
 
     if 'cellsready' in config:
         # This should include the cells to be processed now AND those already processed.
         cellsready = config['cellsready'].split('\t')
 
         for c in cellsready:
-            assert c in cells, format("Invalid cell (no fastq_pass or not listed in config[cells]): {c}")
-    elif RUNDIR:
+            # FIXME - test this condition
+            assert c in cells, f'Invalid cell (no fastq_pass or not listed in config["cells"]): {c}'
+    elif rundir:
         # Look for cells with a final_summary.txt (as made by MinKNOW). Note the new name in MinKNOW 3.6+
         cellsready = [ c for c in cells if (
-                       glob(format("{RUNDIR}/{c}/final_summary.txt")) or
-                       glob(format("{RUNDIR}/{c}/final_summary_*_*.txt")) ) ]
+                       glob(f"{rundir}/{c}/final_summary.txt") or
+                       glob(f"{rundir}/{c}/final_summary_*_*.txt") ) ]
     else:
         # If there is no RUNDIR this makes most sense by default.
         cellsready = cells
@@ -101,21 +106,37 @@ def scan_cells():
 
     res = { c: dict() for c in cellsready }
 
-    if RUNDIR:
+    if rundir:
         for c, d in res.items():
-            for pf in "pass fail".split():
-                for filetype in "fastq fast5".split():
-                    category = format("{filetype}_{pf}")
-                    d[category] = [ f[len(RUNDIR) + 1:]
-                                    for f in glob(format("{RUNDIR}/{c}/{category}/*.{filetype}")) ]
+            for pf, filetype in product(["pass", "fail"], ["fastq", "fast5"]):
+                category = f"{filetype}_{pf}"
+                # Collect un-barcoded files
+                non_barcoded_files = [ f[len(rundir) + 1:]
+                                       for f in glob(f"{rundir}/{c}/{category}/*.{filetype}") ]
+                barcoded_files = [ f[len(rundir) + 1:]
+                                   for f in glob(f"{rundir}/{c}/{category}/*/*.{filetype}") ]
+                if non_barcoded_files:
+                    d.setdefault('.', dict())[category] = non_barcoded_files
+                for bf in barcoded_files:
+                    _, barcode, _ = bf[len(c) + 1:].split('/')
+                    d.setdefault(barcode, dict()).setdefault(category, list()).append(bf)
+
+        # Add in empty lists for missing items.
+        for c, d in res.items():
+            for bcdict in d.values():
+                for pf, filetype in product(["pass", "fail"], ["fastq", "fast5"]):
+                    # If the barcode is there we should have all four categories
+                    bcdict.setdefault(f"{filetype}_{pf}", [])
 
         # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
         # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so this
         # is definitely a bad thing.
         for c, d in res.items():
-            for pf in "pass fail".split():
-                if len(d[format("fastq_{pf}")]) != len(d[format("fast5_{pf}")]):
-                    raise RuntimeError( format("Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n") +
+            for pf in ["pass", "fail"]:
+                fastq_sum = sum( len(fileslist[f"fastq_{pf}"]) for fileslist in d.values() )
+                fast5_sum = sum( len(fileslist[f"fast5_{pf}"]) for fileslist in d.values() )
+                if fastq_sum != fast5_sum:
+                    raise RuntimeError( f"Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
                                         sc_counts(res) )
 
     # Return the dict of stuff to process, and other counts we've calculated
@@ -127,17 +148,20 @@ def sc_counts(sc_dict, width=140):
     """ Make a printable summary of SC
     """
     # Make a dict that just shows the counts
-    sc_counts = { c : { category: "<{} files>".format(len(filelist))
-                        for category, filelist in d.items() }
-                  for c, d in sc_dict.items() }
+    sc_counts = { c : { bc: { category: f"<{len(filelist)} files>"
+                              for category, filelist in d.items() } }
+                  for c, bc_dict in sc_dict.items()
+                  for bc, d in bc_dict.items() }
 
+    # Ideally I'd use sort_dicts=False but that needs Py3.8
     return pformat(sc_counts, width=width)
 
+## End of functions ## Leave this comment in place to help the unit tests.
 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
 # Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
 # FIXME - nothing is aggregated per-lib just yet?!
-SC, COUNTS = scan_cells()
+SC, COUNTS = scan_cells(RUNDIR, config)
 RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
 CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(RUN, c)['Project'], True)
@@ -150,7 +174,7 @@ def save_out_plist(yaml_files, out_file):
             print( *sorted(plist), file=ofh, sep='\n' )
 
 if 'logger' in globals():
-    logger.info( "RUN {}, SC =\n{}".format(RUN, sc_counts(SC)) )
+    logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
@@ -162,8 +186,8 @@ localrules: main, one_cell, pack_fast5
 rule main:
     output:
         plist     = "projects_ready.txt",
-        panrep    = "all_reports/report.{}cells.pan".format(len(SC)),
-        rep       = "all_reports/report.{}cells.pan.html".format(len(SC)),
+        panrep    = f"all_reports/report.{len(SC)}cells.pan",
+        rep       = f"all_reports/report.{len(SC)}cells.pan.html",
         replink   = "all_reports/report.html",
     input:
         yaml      = expand("{cell}/cell_info.yaml", cell=SC),
@@ -198,11 +222,11 @@ rule main:
 # doing this. So to fully process a run you need to call main AND pack_fast5
 rule pack_fast5:
     input:
-        fast5_gz   = lambda wc: [ "{}.gz".format(f) for cell in SC
-                                                    for pf in 'fast5_pass fast5_fail'.split()
-                                                    for f in SC[cell][pf] ],
-        fast5_md5  = lambda wc: [ "md5sums/{}.gz.md5".format(f) for cell in SC
-                                                    for pf in 'fast5_pass fast5_fail'.split()
+        fast5_gz   = lambda wc: [ f"{f}.gz" for cell in SC
+                                            for pf in ['fast5_pass', 'fast5_fail']
+                                            for f in SC[cell][pf] ],
+        fast5_md5  = lambda wc: [ f"md5sums/{f}.gz.md5" for cell in SC
+                                                    for pf in ['fast5_pass', 'fast5_fail']
                                                     for f in SC[cell][pf] ],
 
 # Per-cell driver rule. In short:
@@ -256,11 +280,11 @@ rule one_cell:
             try:
                 # Maybe we can't guarantee the counts in fastq and fast5 match?!
                 # Nope - they should always match.
-                if len(cell_files[format('fastq_{pf}')]) == len(cell_files[format('fast5_{pf}')]):
-                    ci['Files in '+pf] = len(cell_files[format('fastq_{pf}')])
+                if len(cell_files[f'fastq_{pf}']) == len(cell_files[f'fast5_{pf}')]):
+                    ci['Files in '+pf] = len(cell_files[f'fastq_{pf}'])
                 else:
-                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[format('fastq_{pf}')]),
-                                                                         len(cell_files[format('fast5_{pf}')]),
+                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[f'fastq_{pf}']),
+                                                                         len(cell_files[f'fast5_{pf}']),
                                                                          pf = pf )
             except KeyError:
                 # FIXME - see comment above.
@@ -270,13 +294,13 @@ rule one_cell:
         ci['_counts'] = []
         for label, cf in zip(FASTQ_PARTS, input.counts):
             cdata = load_yaml(cf)
-            cdata['_label'] = "{} reads".format(PART_LABELS.get(label, label).capitalize())
+            cdata['_label'] = f"{PART_LABELS.get(label, label).capitalize()} reads"
             ci['_counts'].append(cdata)
 
         # Link to other reports. I'm now using paths relative to the file rather than the
         # root of the run dir.
-        ci['_blobs'] = "../../{}".format(input.blobs)
-        ci['_nanoplot'] = "../../{}".format(input.nanoplot_r[0])
+        ci['_blobs'] = f"../../{input.blobs}"
+        ci['_nanoplot'] = f"../../{input.nanoplot_r[0]}"
         #ci['_minionqc'] = str(input.minionqc)
 
         # Fold in the fast5_metadata
@@ -292,10 +316,10 @@ rule one_cell:
 def i_fast5_metadata(wc):
     if SC[wc.cell]['fast5_pass']:
         # Depend on the first file provided by SC[wc.cell]
-        return [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_pass'] ][:1]
+        return [ f"{f}.gz" for f in SC[wc.cell]['fast5_pass'] ][:1]
     elif SC[wc.cell]['fast5_fail']:
         # Somethimes everything fails
-        return [ "{}.gz".format(f) for f in SC[wc.cell]['fast5_fail'] ][:1]
+        return [ f"{f}.gz" for f in SC[wc.cell]['fast5_fail'] ][:1]
     else:
         # Look for an existing output file.
         return glob("{cell}/fast5_????/*.fast5.gz".format(**vars(wc)))[:1]
@@ -322,8 +346,8 @@ rule nanoplot:
         plots  = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
         thumbs = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
     input:
-        summary  = lambda wc: "{base}_sequencing_summary.txt.gz".format(base=cellname_to_base(wc.cell)),
-        passlist = lambda wc: "{base}_pass_fastq.list".format(base=cellname_to_base(wc.cell))
+        summary  = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz",
+        passlist = lambda wc: f"{cellname_to_base(wc.cell)}_pass_fastq.list"
     params:
         thumbsize = "320x320"
     run:

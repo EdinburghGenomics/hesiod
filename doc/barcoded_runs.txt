@@ -1,0 +1,26 @@
+Let's start sorting the barcoded runs.
+
+eg. /lustre-gseg/promethion/prom_runs/2021/20210520_EGS1_16031BA/pipeline/
+
+Pipeline fails at the point of running Snakemake as there are no files.
+
+{'16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f': {'fast5_fail': '<0 files>',
+                                                           'fast5_pass': '<0 files>',
+                                                           'fastq_fail': '<0 files>',
+                                                           'fastq_pass': '<0 files>'}}
+
+So the data structure needs to be re-jigged:
+
+cell -> barcode -> 'fastX_pass' : [ list of files ]
+
+For un-barcoded reads the barcode will be '.' cos we're just be using the subdirectory name.
+
+OK, let's make myself a test run.
+
+/lustre-gseg/home/tbooth2/test_promethion/runs/2021/20210520_EGS1_16031BA
+
+I reduced it to 4 barcodes plus unassigned (2 are real and 2 not) and I pruned out a load of reads from this big bio.
+
+Now just to test the logic that counts the reads:
+
+

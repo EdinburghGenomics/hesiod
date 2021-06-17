@@ -95,10 +95,7 @@ rule per_project_blob_tables:
                 for tl in BLOB_LEVELS:
                     # Recreate the filename. I should just be able to go through input.tsv
                     # in order but I'm not 100% sure.
-                    tsv = "blobstats.{project}.{pf}.{taxlevel}.tsv".format(
-                                    project = p,
-                                    pf = pf,
-                                    taxlevel = tl )
+                    tsv = f"blobstats.{p}.{pf}.{tl}.tsv"
                     assert "blob/" + tsv in [str(s) for s in input.tsv]
 
                     tsv_list.append( dict( title = "BLAST hit percentages for {pf} reads by {taxlevel}".format(
@@ -112,10 +109,8 @@ rule per_project_blob_tables:
 rule parse_blob_table:
     output: "blob/blobstats.{project}.{pf}.{taxlevel}.tsv"
     input:
-        lambda wc: [ "blob/{base}_{pf}.{taxlevel}.blobplot.stats.txt".format(
-                                                            base = cellname_to_base(cell),
-                                                            **vars(wc) )
-                         for cell in CELLS_PER_PROJECT[wc.project] ]
+        lambda wc: [ f"blob/{cellname_to_base(cell)}_{wc.pf}.{wc.taxlevel}.blobplot.stats.txt"
+                     for cell in CELLS_PER_PROJECT[wc.project] ]
     params:
         pct_limit = 1.0,
         label = 'Cell'
