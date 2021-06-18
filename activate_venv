@@ -61,7 +61,7 @@ else
         pip_install psycopg2-binary==2.8.3
 
         # For get_fast5_metadata.py
-        pip_install h5py==2.10.0
+        pip_install h5py==3.1.0
 
         # Here’s the big one
         pip_install pauvre==0.2
