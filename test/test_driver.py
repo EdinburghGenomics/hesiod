@@ -14,8 +14,8 @@ from glob import glob
    and detecting the calls to those programs, similar to the way that unittest.mock.patch works.
    To this end, see the BinMocker class, which does just this.
 """
-with patch('sys.path', new=['.'] + sys.path):
-    from test.binmocker import BinMocker
+# TODO - use BashMocker from PyPi
+from test.binmocker import BinMocker
 
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 EXAMPLES = os.path.dirname(__file__) + '/examples'

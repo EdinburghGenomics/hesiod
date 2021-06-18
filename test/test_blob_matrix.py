@@ -7,23 +7,11 @@
 import sys, os, re
 import unittest
 import logging
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-try:
-    with patch('sys.path', new=['.'] + sys.path):
-        from parse_blob_table import Matrix
-except:
-    #If this fails, you is probably running the tests wrongly
-    print("****",
-          "To test your working copy of the code you should use the helper script:",
-          "  ./run_tests.sh blob_matrix",
-          "or to run all tests, just",
-          "  ./run_tests.sh",
-          "****",
-          sep="\n")
-    raise
+from parse_blob_table import Matrix
 
 class T(unittest.TestCase):
 

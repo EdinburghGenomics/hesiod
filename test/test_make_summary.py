@@ -4,29 +4,14 @@
    of a run to go on the RT ticket.
 """
 
-
 import sys, os, re
 import unittest
 import logging
-from unittest.mock import Mock, patch
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-try:
-    with patch('sys.path', new=['.'] + sys.path):
-        # from lib_or_script import functions
-        from make_summary import format_table, scan_cells
-except:
-    #If this fails, you is probably running the tests wrongly
-    print("****",
-          "To test your working copy of the code you should use the helper script:",
-          "  ./run_tests.sh <name_of_test>",
-          "or to run all tests, just",
-          "  ./run_tests.sh",
-          "****",
-          sep="\n")
-    raise
+from make_summary import format_table, scan_cells
 
 class T(unittest.TestCase):
 

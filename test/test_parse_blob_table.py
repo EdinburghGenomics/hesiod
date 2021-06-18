@@ -16,19 +16,7 @@ from unittest.mock import Mock, MagicMock, patch, call
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/blobplot_stats')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-try:
-    with patch('sys.path', new=['.'] + sys.path):
-        from parse_blob_table import main as parse_main
-except:
-    #If this fails, you is probably running the tests wrongly
-    print("****",
-          "To test your working copy of the code you should use the helper script:",
-          "  ./run_tests.sh parse_blob_table",
-          "or to run all tests, just",
-          "  ./run_tests.sh",
-          "****",
-          sep="\n")
-    raise
+from parse_blob_table import main as parse_main
 
 class T(unittest.TestCase):
 

@@ -11,25 +11,11 @@ import sys, os, re
 import unittest
 import logging
 from collections import OrderedDict
-from unittest.mock import Mock, patch
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-try:
-    with patch('sys.path', new=['.'] + sys.path):
-        from get_fast5_metadata import md_from_fast5_file
-except:
-    # If this fails, you is probably running the tests wrongly (or else there
-    # is a syntax error in a script.)
-    print("****",
-          "To test your working copy of the code you should use the helper script:",
-          "  ./run_tests.sh <name_of_test>",
-          "or to run all tests, just",
-          "  ./run_tests.sh",
-          "****",
-          sep="\n")
-    raise
+from get_fast5_metadata import md_from_fast5_file
 
 class T(unittest.TestCase):
 

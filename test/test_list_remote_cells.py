@@ -12,8 +12,7 @@ from glob import glob
 """BinMocker is really overkill for testing this script, but I'll still use it as my
    standard way for testing shell scripts.
 """
-with patch('sys.path', new=['.'] + sys.path):
-    from test.binmocker import BinMocker
+from test.binmocker import BinMocker
 
 
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'

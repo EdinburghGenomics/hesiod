@@ -11,8 +11,7 @@ from unittest.mock import Mock, patch
 from io import StringIO
 
 # Adding this to sys.path makes the test work if you just run it directly.
-with patch('sys.path', new=['.'] + sys.path):
-    from run_status import RunStatus, parse_remote_cell_info
+from run_status import RunStatus, parse_remote_cell_info
 
 EXAMPLES = os.path.dirname(__file__) + '/examples'
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
