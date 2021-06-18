@@ -18,6 +18,7 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 scan_cells = '_importme'
 sc_counts  = '_importme'
 find_representative_fast5 = '_importme'
+find_sequencing_summary = '_importme'
 
 def fixstr(s_in):
     """Sort out a multi-line string
@@ -132,7 +133,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          [cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5.gz"] )
+                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5.gz" )
 
     def test_find_representative_fast5_nobc(self):
         """ And for the barcodeless version
@@ -142,7 +143,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          [cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5.gz"] )
+                          cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5.gz" )
 
     def test_find_representative_fast5_null(self):
         """ Oh and the null version
@@ -153,7 +154,7 @@ class T(unittest.TestCase):
                                           'fast5_fail': [] } })
 
         self.assertEqual( find_representative_fast5('foo', empty_sc, try_glob=False),
-                          [] )
+                          None )
 
     def test_sc_counts(self):
         """ Test the function that prints a representation of the SC dict
@@ -180,6 +181,13 @@ class T(unittest.TestCase):
             print("#" + res + "#")
             print("#" + fixstr(expected) + "#")
         self.assertEqual(res, fixstr(expected))
+
+    def test_find_sequencing_summary(self):
+
+        run_dir = os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA")
+        cell = "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f"
+        self.assertEqual( find_sequencing_summary( run_dir, cell ),
+                          run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
 
 if __name__ == '__main__':
     unittest.main()

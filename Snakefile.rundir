@@ -6,20 +6,9 @@
 # Note that these rules are bypassed if the run directory is missing, allowing us to repeat QC
 # without errors relating to missing files.
 
-def find_sequencing_summary(wc):
-    """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
-       sequencing_summary subdirectory (old style). From MinKNOW 3.6+ the naming convention changes
-       too.
-       In any case there should be only one.
-    """
-    found = glob(f"{RUNDIR}/{wc.cell}/*_sequencing_summary.txt") + \
-            glob(f"{RUNDIR}/{wc.cell}/sequencing_summary/*_sequencing_summary.txt") + \
-            glob(f"{RUNDIR}/{wc.cell}/sequencing_summary_*_*.txt")
-
-    assert len(found) == 1, ( "There should be exactly one sequencing_summary.txt per cell"
-                              f" - found {len(found)}." )
-
-    return found
+def i_sequencing_summary(wc):
+    # This function is defined in the main Snakefile
+    return [find_sequencing_summary(RUNDIR, wc.cell)]
 
 # Compress the file discovered by the above function and rename it, matching the base of
 # the FASTQ and BAM files. Note the original name is preserved in the GZIP header and can

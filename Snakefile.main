@@ -164,16 +164,17 @@ def find_representative_fast5(cell, sc, try_glob=True):
     fast5_fail = [ flist for bc in sc[cell] for flist in sc[cell][bc]['fast5_fail']  ]
     if fast5_pass:
         # Depend on the first file provided by SC[wc.cell] for any barcode
-        return [ fast5_out(fast5_pass[0]) ]
+        return fast5_out(fast5_pass[0])
     elif fast5_fail:
         # Sometimes everything fails
-        return [ fast5_out(fast5_fail[0]) ]
+        return fast5_out(fast5_fail[0])
     elif try_glob:
         # Look for an existing output file.
-        return glob(f"{cell}/fast5_*_????/*.fast5.gz")[:1]
+        globbed = glob(f"{cell}/fast5_*_????/*.fast5.gz")
+        return globbed[0] if globbed else None
     else:
         # Meh
-        return []
+        return None
 
 def fast5_out(f5_in):
     """ Given a fast5 file, say what the output fast5.gz will be
@@ -186,6 +187,22 @@ def fast5_out(f5_in):
         return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}.gz"
     else:
         return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}.gz"
+
+
+def find_sequencing_summary(rundir, cell):
+    """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
+       sequencing_summary subdirectory (old style). From MinKNOW 3.6+ the naming convention changes
+       too.
+       In any case there should be only one.
+    """
+    found = glob(f"{rundir}/{cell}/*_sequencing_summary.txt") + \
+            glob(f"{rundir}/{cell}/sequencing_summary/*_sequencing_summary.txt") + \
+            glob(f"{rundir}/{cell}/sequencing_summary_*_*.txt")
+
+    assert len(found) == 1, ( "There should be exactly one sequencing_summary.txt per cell"
+                              f" - found {len(found)}." )
+
+    return found[0]
 
 ## End of functions ## Leave this comment in place to help the unit tests.
 
@@ -254,12 +271,16 @@ rule main:
 # doing this. So to fully process a run you need to call main AND pack_fast5
 rule pack_fast5:
     input:
-        fast5_gz   = lambda wc: [ f"{f}.gz" for cell in SC
-                                            for pf in ['fast5_pass', 'fast5_fail']
-                                            for f in SC[cell][pf] ],
-        fast5_md5  = lambda wc: [ f"md5sums/{f}.gz.md5" for cell in SC
-                                                    for pf in ['fast5_pass', 'fast5_fail']
-                                                    for f in SC[cell][pf] ],
+        fast5_gz   = lambda wc: [ fast5_out(f)
+                                        for cell in SC
+                                        for bc in cell
+                                        for pf in ['fast5_pass', 'fast5_fail']
+                                        for f in SC[cell][bc][pf] ],
+        fast5_md5  = lambda wc: [ f"md5sums/{fast5_out(f)}.md5"
+                                        for cell in SC
+                                        for bc in cell
+                                        for pf in ['fast5_pass', 'fast5_fail']
+                                        for f in SC[cell][bc][pf] ],
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
@@ -353,7 +374,7 @@ rule one_cell:
 # The weird input definition tries to handle this case by looking for the output file
 # directly. In either case we only need a single file, so return the first.
 def i_fast5_metadata(wc):
-    return find_representative_fast5(wc.cell, SC)
+    return [find_representative_fast5(wc.cell, SC)]
 
 rule fast5_metadata:
     output: "{cell}/cell_fast5_metadata.yaml"
