@@ -34,7 +34,7 @@ snakerun_drmaa "$0" "$@"
 
 "exit""" ### End of shell script part
 #!/usr/bin/env snakemake
-from pprint import pformat
+from pprint import pprint, pformat
 
 from itertools import product
 from subprocess import CalledProcessError
@@ -156,6 +156,37 @@ def sc_counts(sc_dict, width=140):
     # Ideally I'd use sort_dicts=False but that needs Py3.8
     return pformat(sc_counts, width=width)
 
+def find_representative_fast5(cell, sc, try_glob=True):
+    """ Find a fast5 file to scan for metadata. This returns the fast5.gz file as found
+        in the output directory but uses the list of files globbed from the input directory.
+    """
+    fast5_pass = [ plist for bc in sc[cell] for plist in sc[cell][bc]['fast5_pass']  ]
+    fast5_fail = [ flist for bc in sc[cell] for flist in sc[cell][bc]['fast5_fail']  ]
+    if fast5_pass:
+        # Depend on the first file provided by SC[wc.cell] for any barcode
+        return [ fast5_out(fast5_pass[0]) ]
+    elif fast5_fail:
+        # Sometimes everything fails
+        return [ fast5_out(fast5_fail[0]) ]
+    elif try_glob:
+        # Look for an existing output file.
+        return glob(f"{cell}/fast5_*_????/*.fast5.gz")[:1]
+    else:
+        # Meh
+        return []
+
+def fast5_out(f5_in):
+    """ Given a fast5 file, say what the output fast5.gz will be
+    """
+    f5_split = f5_in.split('/')
+    pf = f5_split[2].split('_')[1]
+
+    if len(f5_split) == 5:
+        # has barcode
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}.gz"
+    else:
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}.gz"
+
 ## End of functions ## Leave this comment in place to help the unit tests.
 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
@@ -201,10 +232,11 @@ rule main:
         save_out_plist(input.yaml, str(output.plist))
 
         # shell("make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} --minionqc {input.minionqc} {input.yaml}")
-        shell(r'''make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} \
-                                    --blobstats {input.blobstats} --realnames {input.realnames} \
-                                    {input.yaml}
-               ''')
+        shell(r'''
+            make_report.py -o {output.panrep} --totalcells {COUNTS[cells]} \
+                           --blobstats {input.blobstats} --realnames {input.realnames} \
+                           {input.yaml}
+        ''')
 
         shell(r'''
             {TOOLBOX} pandoc -f markdown \
@@ -249,21 +281,28 @@ NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", 
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input:
-        fastq_gz     = lambda wc: expand( "{base}_{pf}.fastq.gz",
+        fastq_gz     = lambda wc: expand( "{base}_{bc}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
+                                            bc = SC['wc.cell'].keys(),
                                             pf = FASTQ_PARTS ),
         seq_summary  = lambda wc: expand( "{base}_sequencing_summary.txt.gz",
                                             base = [cellname_to_base(wc.cell)] ),
-        counts       = lambda wc: expand( "counts/{base}_{pf}.fastq.count",
+        counts       = lambda wc: expand( "counts/{base}_{bc}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
+                                            bc = SC['wc.cell'].keys(),
                                             pf = FASTQ_PARTS ),
-        lambda_bam   = lambda wc: expand( "{base}_lambda.bam",
-                                            base = [cellname_to_base(wc.cell)] ),
-        lambda_stats = lambda wc: expand( "lambdaqc/{base}_lambda.bam.stats",
-                                            base = [cellname_to_base(wc.cell)] ),
-        lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_lambda.bam.qmap",
-                                            base = [cellname_to_base(wc.cell)] ),
-        blobs        = "blob/{cell}/plots.yaml",
+        lambda_bam   = lambda wc: expand( "{base}_{bc}_lambda.bam",
+                                            base = [cellname_to_base(wc.cell)],
+                                            bc = SC['wc.cell'].keys() ),
+        lambda_stats = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.stats",
+                                            base = [cellname_to_base(wc.cell)],
+                                            bc = SC['wc.cell'].keys() ),
+        lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.qmap",
+                                            base = [cellname_to_base(wc.cell)],
+                                            bc = SC['wc.cell'].keys() ),
+        blobs        = lambda wc: expand( "blob/{cell}_{bc}/plots.yaml",
+                                            cell = [wc.cell],
+                                            bc = SC['wc.cell'].keys() ),
         nanoplot_r   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
         nanoplot_p   = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
         nanoplot_t   = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
@@ -314,15 +353,7 @@ rule one_cell:
 # The weird input definition tries to handle this case by looking for the output file
 # directly. In either case we only need a single file, so return the first.
 def i_fast5_metadata(wc):
-    if SC[wc.cell]['fast5_pass']:
-        # Depend on the first file provided by SC[wc.cell]
-        return [ f"{f}.gz" for f in SC[wc.cell]['fast5_pass'] ][:1]
-    elif SC[wc.cell]['fast5_fail']:
-        # Somethimes everything fails
-        return [ f"{f}.gz" for f in SC[wc.cell]['fast5_fail'] ][:1]
-    else:
-        # Look for an existing output file.
-        return glob("{cell}/fast5_????/*.fast5.gz".format(**vars(wc)))[:1]
+    return find_representative_fast5(wc.cell, SC)
 
 rule fast5_metadata:
     output: "{cell}/cell_fast5_metadata.yaml"

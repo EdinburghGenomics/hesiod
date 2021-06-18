@@ -19,8 +19,18 @@ OK, let's make myself a test run.
 
 /lustre-gseg/home/tbooth2/test_promethion/runs/2021/20210520_EGS1_16031BA
 
-I reduced it to 4 barcodes plus unassigned (2 are real and 2 not) and I pruned out a load of reads from this big bio.
+I reduced it to 4 barcodes plus unassigned (2 are real and 2 not) and I pruned out a load of reads from this big boi.
 
-Now just to test the logic that counts the reads:
+Now just to test the logic that counts the reads - ok I added a whole bunch of tests to the Snakefile and the
+util functions.
+
+Now:
+
+1) Get the files processed per-barcode.
+2) Get some stats (counts per barcode - how best to do this? how do I count reads just now?)
+3) Make the reports more better
+4) Work out how I can maybe add in the sample names (hmmm)
+
+
 
 

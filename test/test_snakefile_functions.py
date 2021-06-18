@@ -17,6 +17,7 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 # here to keep flake8 happy
 scan_cells = '_importme'
 sc_counts  = '_importme'
+find_representative_fast5 = '_importme'
 
 def fixstr(s_in):
     """Sort out a multi-line string
@@ -122,6 +123,37 @@ class T(unittest.TestCase):
 
         self.assertEqual(sc1, sc2)
         self.assertEqual(counts1, counts2)
+
+    def test_find_representative_fast5_bc(self):
+        """ Test the function that picks a fast5 file to probe for metadata
+        """
+        cell_name = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'
+        sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA"),
+                                 dict( cellsready=cell_name ) )
+
+        self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
+                          [cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5.gz"] )
+
+    def test_find_representative_fast5_nobc(self):
+        """ And for the barcodeless version
+        """
+        cell_name = 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'
+        sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
+                                 dict( cellsready=cell_name ) )
+
+        self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
+                          [cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5.gz"] )
+
+    def test_find_representative_fast5_null(self):
+        """ Oh and the null version
+        """
+        empty_sc = dict(foo = { 'bc0' : { 'fastq_pass': [],
+                                          'fastq_fail': [],
+                                          'fast5_pass': [],
+                                          'fast5_fail': [] } })
+
+        self.assertEqual( find_representative_fast5('foo', empty_sc, try_glob=False),
+                          [] )
 
     def test_sc_counts(self):
         """ Test the function that prints a representation of the SC dict
