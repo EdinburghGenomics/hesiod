@@ -4,6 +4,7 @@ import gzip
 import tempfile
 from io import BytesIO
 import shutil
+import logging
 import timeit
 
 import h5py

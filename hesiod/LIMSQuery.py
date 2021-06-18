@@ -20,6 +20,7 @@ from psycopg2.extensions import adapt
 # This is needed to make any API access work, but for now I'm just reading the
 # database.
 #from pyclarity_lims.lims import Lims
+Lims = "_importme" # Keeps flake8 happy
 
 def main():
     """Basic test.

@@ -13,7 +13,10 @@ SNAKEFILE = os.path.abspath(os.path.dirname(__file__) + '/../Snakefile.main')
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-# other imports are synthesized by setUpClass below
+# other imports are synthesized by setUpClass below, but I have to declare them
+# here to keep flake8 happy
+scan_cells = '_importme'
+sc_counts  = '_importme'
 
 def fixstr(s_in):
     """Sort out a multi-line string
@@ -54,7 +57,8 @@ class T(unittest.TestCase):
         #pprint(gdict)
 
         # Import to global namespace.
-        for func in ['scan_cells', 'sc_counts']:
+        funcs_to_import = [ k for k, v in globals().items() if v == "_importme" ]
+        for func in funcs_to_import:
             globals()[func] = gdict[func]
 
     def setUp(self):
