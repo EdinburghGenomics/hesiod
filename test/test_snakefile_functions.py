@@ -85,10 +85,14 @@ class T(unittest.TestCase):
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': dict(
                                        fast5_fail = [],
                                        fastq_fail = [],
-                                       fast5_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5',
-                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fast5'],
-                                       fastq_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fastq',
-                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fastq'],
+                                       fast5_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
+                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5',
+                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
+                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fast5'],
+                                       fastq_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
+                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fastq',
+                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
+                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fastq'],
                                  ) }})
         self.assertEqual(counts, dict( cells=1, cellsaborted=0, cellsready=1 ))
 
