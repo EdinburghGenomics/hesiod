@@ -1,0 +1,16 @@
+## 1.1.1
+## cov0=/lustre-gseg/home/tbooth2/test_promethion/fastqdata/20210520_EGS1_16031BA/.snakemake/shadow/tmp2q8pn8nb/blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_pass+sub10000.complexity
+# name	colour	count_visible	count_visible_perc	span_visible	span_visible_perc	n50	gc_mean	gc_std	cov0_mean	cov0_std	cov0_read_map	cov0_read_map_p
+all	None	10,000	100.0%	11,781,012	100.0%	1,426	0.55	0.091	0.8	0.2	10,000	100.0%
+no-hit	#d3d3d3	309	100.0%	254,189	100.0%	1,277	0.55	0.11	0.8	0.2	309	3.1%
+other	#ffffff	3	100.0%	1,507	100.0%	557	0.62	0.086	0.7	0.3	3	0.0%
+Negarnaviricota	None	1	100.0%	563	100.0%	563	0.73	0.0	0.3	0.0	1	0.0%
+Mollusca	None	1	100.0%	557	100.0%	557	0.52	0.0	1.0	0.0	1	0.0%
+Streptophyta	None	1	100.0%	387	100.0%	387	0.61	0.0	0.9	0.0	1	0.0%
+undef	#d3d3d3	221	100.0%	236,177	100.0%	1,158	0.49	0.087	0.8	0.2	221	2.2%
+Chordata	#6d009c	9,366	100.0%	11,221,951	100.0%	1,443	0.55	0.091	0.8	0.2	9,366	93.7%
+Eukaryota-undef	#002fdd	88	100.0%	57,745	100.0%	679	0.53	0.027	1.0	0.0	88	0.9%
+Viruses-undef	#00a4bb	5	100.0%	3,493	100.0%	471	0.5	0.036	0.9	0.1	5	0.1%
+Arthropoda	#009b13	4	100.0%	3,238	100.0%	940	0.48	0.039	0.9	0.0	4	0.0%
+Bacteria-undef	#00e200	3	100.0%	2,106	100.0%	660	0.53	0.0083	1.0	0.0	3	0.0%
+Platyhelminthes	#ccf900	1	100.0%	606	100.0%	606	0.59	0.0	0.8	0.0	1	0.0%

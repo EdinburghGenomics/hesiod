@@ -123,8 +123,7 @@ def main(args):
             if colname.endswith('_read_map_p') and colname != 'covsum_read_map_p':
                 assert name_map[colname[:-len('_read_map_p')]]
 
-        # Strip out rows that have name in ['all', 'no-hit', 'undef', 'other']
-        # FIXME - maybe I want 'other' left in?
+        # Strip out rows that have name in ['all', 'no-hit', 'undef'] (but not 'other')
         datalines = [ dl for dl in datalines
                       if dl[colidx['name']] not in ['all', 'no-hit', 'undef'] ]
 
@@ -140,6 +139,7 @@ def main(args):
 
                 # Into the matrix with ye!
                 # The mm.add() method will object if a value was already present.
+                import pdb ; pdb.set_trace()
                 mm.add(new_pct, taxon=dl[colidx['name']], lib=name_map[n])
 
     # End of loop through all_tables

@@ -34,3 +34,7 @@ Now:
 Output file naming conventions - for the compressed fast5 files they go into cell/fast5_bcname_pass/
 For the fastq the combined files are longid_bcname_pass.fastq.gz
 
+OK I got the Snakefile to make a DAG and run. What's failing? parse_blob_table.py
+Do I have unit tests for this thing? Why yes. good.
+
+

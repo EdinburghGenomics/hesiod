@@ -5,18 +5,66 @@
    we have many examples.
 """
 
-# Note this will get discovered and run as a no-op test. This is fine.
-
 import sys, os, re
 import unittest
 import logging
 from io import StringIO
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch, call, mock_open, DEFAULT
+from types import MethodType
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/blobplot_stats')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from parse_blob_table import main as parse_main
+
+'''
+# Helper that does a mock_open only if the filename matches
+def my_mock_open(filepattern='.*', **kwargs):
+    """A version of the standard mock_open that only mocks when filepattern
+       matches the given pattern.
+    """
+
+    mo_obj = mock_open(**kwargs)
+    mo_obj._filepattern = filepattern.rstrip("$") + '$'
+
+    def __new__(cls, filepattern='.*', **kwargs):
+        # Initialise with a mock_open object (actually a special MagicMock)
+        mo_obj = mock_open(**kwargs)
+        mo_obj.filepattern = filepattern.rstrip("$") + '$'
+
+
+    def __init__(self, filepattern='.*', **kwargs):
+        # Grab the pattern
+        self.filepattern = filepattern.rstrip("$") + '$'
+
+    def __call__(cls, *args, **kwargs):
+        # See if we want to return the real open or mock_open
+        if re.match(self.filepattern, args[0]):
+            return self.mo(*args, **kwargs)
+        else:
+            return __builtins__.open(*args, **kwargs)
+'''
+def my_mock_open(filepattern='.*', **kwargs):
+    """A version of the standard mock_open that only mocks when filepattern
+       matches the given pattern.
+    """
+    mo_obj = mock_open(**kwargs)
+    mo_obj._filepattern = filepattern.rstrip("$") + '$'
+
+    # capture open() in a closure now before any patching can happen
+    mo_obj._real_open = open
+
+    def new_call(self, filename, *args, **kwargs):
+        if not re.match(filepattern, filename):
+            return self._real_open(filename, *args, **kwargs)
+        else:
+            return DEFAULT
+
+    # monkey-patch the mo_obj and return it
+    mo_obj.side_effect = MethodType(new_call, mo_obj)
+
+    return mo_obj
+
 
 class T(unittest.TestCase):
 
@@ -75,12 +123,13 @@ class T(unittest.TestCase):
 
     def run_main(self, args):
 
-        # Patching sys.stdout with a StringIO object is no good since main() closes the FH,
-        # and the content is dropped, and I can't mock the close() method of the builtin
-        # type. Oh well - MagicMock to the rescue.
-        dummy_stdout = MagicMock()
-        with patch('sys.stdout', dummy_stdout):
+        # I was patching sys.stdout here with a MagicMock but this breaks interactive
+        # debugging and potentially hides any printed messages.
+        # So instead let's mock out the open() func.
+        omock = my_mock_open(filepattern="MOCK")
+        with patch('parse_blob_table.open', omock):
             parse_main(args)
+        dummy_stdout = omock
 
         # File should have been closed.
         self.assertEqual(dummy_stdout.close.mock_calls, [call()])
@@ -198,6 +247,19 @@ class T(unittest.TestCase):
                                  name_extractor = 'hesiod',
                                  label = 'Cell' )
 
+    def test_with_barcodes(self):
+        """After processing a run with barcodes I get a KeyError.
+           Not sure if the input data is valid but I should get a better error
+           at least.
+        """
+        testdir = DATA_DIR + '/20210520_EGS1_16031BA_barcoded/'
+        tmpl = testdir + 'barcode{}_pass.phylum.blobplot.stats.txt'
+
+        self.check_with_csv( [ tmpl.format("01"), tmpl.format("02") ],
+                             testdir + "blobstats_pass.phylum.tsv",
+                             total_reads = True,
+                             name_extractor = 'hesiod',
+                             label = 'Cell' )
 
 if __name__ == '__main__':
     unittest.main()
