@@ -31,6 +31,6 @@ Now:
 3) Make the reports more better
 4) Work out how I can maybe add in the sample names (hmmm)
 
-
-
+Output file naming conventions - for the compressed fast5 files they go into cell/fast5_bcname_pass/
+For the fastq the combined files are longid_bcname_pass.fastq.gz
 

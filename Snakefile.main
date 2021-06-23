@@ -43,6 +43,7 @@ from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
 
 logger = snakemake.logging.logger
 
+# $TOOLBOX must be set to something
 TOOLBOX = f'env PATH="{os.environ["TOOLBOX"]}:$PATH"'
 PIGZ    = 'pigz -nT -9 -b512'
 
@@ -89,7 +90,6 @@ def scan_cells(rundir, config):
         cellsready = config['cellsready'].split('\t')
 
         for c in cellsready:
-            # FIXME - test this condition
             assert c in cells, f'Invalid cell (no fastq_pass or not listed in config["cells"]): {c}'
     elif rundir:
         # Look for cells with a final_summary.txt (as made by MinKNOW). Note the new name in MinKNOW 3.6+
@@ -171,10 +171,12 @@ def find_representative_fast5(cell, sc, try_glob=True):
     elif try_glob:
         # Look for an existing output file.
         globbed = glob(f"{cell}/fast5_*_????/*.fast5.gz")
-        return globbed[0] if globbed else None
+        if globbed:
+            return globbed[0]
+        raise RuntimeError("No representative FAST5 found")
     else:
-        # Meh
-        return None
+        # Nope
+        raise RuntimeError("No representative FAST5 found and try_glob is False")
 
 def fast5_out(f5_in):
     """ Given a fast5 file, say what the output fast5.gz will be
@@ -208,7 +210,7 @@ def find_sequencing_summary(rundir, cell):
 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
 # Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
-# FIXME - nothing is aggregated per-lib just yet?!
+# Note - nothing is aggregated per-lib just yet?!
 SC, COUNTS = scan_cells(RUNDIR, config)
 RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
@@ -223,6 +225,12 @@ def save_out_plist(yaml_files, out_file):
 
 if 'logger' in globals():
     logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
+
+# Global wildcard patterns
+wildcard_constraints:
+    fullid  = "[^/]+",
+    barcode = "[^/_]+",
+    pf      = "pass|fail"
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
@@ -272,13 +280,13 @@ rule main:
 rule pack_fast5:
     input:
         fast5_gz   = lambda wc: [ fast5_out(f)
-                                        for cell in SC
-                                        for bc in cell
+                                        for cell, barcodes in SC.items()
+                                        for bc in barcodes
                                         for pf in ['fast5_pass', 'fast5_fail']
                                         for f in SC[cell][bc][pf] ],
         fast5_md5  = lambda wc: [ f"md5sums/{fast5_out(f)}.md5"
-                                        for cell in SC
-                                        for bc in cell
+                                        for cell, barcodes in SC.items()
+                                        for bc in barcodes
                                         for pf in ['fast5_pass', 'fast5_fail']
                                         for f in SC[cell][bc][pf] ],
 
@@ -304,26 +312,26 @@ rule one_cell:
     input:
         fastq_gz     = lambda wc: expand( "{base}_{bc}_{pf}.fastq.gz",
                                             base = [cellname_to_base(wc.cell)],
-                                            bc = SC['wc.cell'].keys(),
+                                            bc = SC[wc.cell].keys(),
                                             pf = FASTQ_PARTS ),
         seq_summary  = lambda wc: expand( "{base}_sequencing_summary.txt.gz",
                                             base = [cellname_to_base(wc.cell)] ),
         counts       = lambda wc: expand( "counts/{base}_{bc}_{pf}.fastq.count",
                                             base = [cellname_to_base(wc.cell)],
-                                            bc = SC['wc.cell'].keys(),
+                                            bc = SC[wc.cell].keys(),
                                             pf = FASTQ_PARTS ),
         lambda_bam   = lambda wc: expand( "{base}_{bc}_lambda.bam",
                                             base = [cellname_to_base(wc.cell)],
-                                            bc = SC['wc.cell'].keys() ),
+                                            bc = SC[wc.cell].keys() ),
         lambda_stats = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.stats",
                                             base = [cellname_to_base(wc.cell)],
-                                            bc = SC['wc.cell'].keys() ),
+                                            bc = SC[wc.cell].keys() ),
         lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.qmap",
                                             base = [cellname_to_base(wc.cell)],
-                                            bc = SC['wc.cell'].keys() ),
+                                            bc = SC[wc.cell].keys() ),
         blobs        = lambda wc: expand( "blob/{cell}_{bc}/plots.yaml",
                                             cell = [wc.cell],
-                                            bc = SC['wc.cell'].keys() ),
+                                            bc = SC[wc.cell].keys() ),
         nanoplot_r   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
         nanoplot_p   = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
         nanoplot_t   = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
@@ -340,7 +348,7 @@ rule one_cell:
             try:
                 # Maybe we can't guarantee the counts in fastq and fast5 match?!
                 # Nope - they should always match.
-                if len(cell_files[f'fastq_{pf}']) == len(cell_files[f'fast5_{pf}')]):
+                if len(cell_files[f'fastq_{pf}']) == len(cell_files[f'fast5_{pf}']):
                     ci['Files in '+pf] = len(cell_files[f'fastq_{pf}'])
                 else:
                     ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[f'fastq_{pf}']),
@@ -373,13 +381,10 @@ rule one_cell:
 # even after the originals are deleted, except that in this case SC will not be populated.
 # The weird input definition tries to handle this case by looking for the output file
 # directly. In either case we only need a single file, so return the first.
-def i_fast5_metadata(wc):
-    return [find_representative_fast5(wc.cell, SC)]
-
 rule fast5_metadata:
     output: "{cell}/cell_fast5_metadata.yaml"
     input:
-        fast5 = i_fast5_metadata
+        fast5 = lambda wc: find_representative_fast5(wc.cell, SC)
     shell:
         "get_fast5_metadata.py -v {input} > {output}"
 
@@ -399,7 +404,8 @@ rule nanoplot:
         thumbs = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
     input:
         summary  = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz",
-        passlist = lambda wc: f"{cellname_to_base(wc.cell)}_pass_fastq.list"
+        passlist = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass_fastq.list"
+                                for bc in SC[wc.cell] ]
     params:
         thumbsize = "320x320"
     run:
@@ -408,8 +414,9 @@ rule nanoplot:
 
         # We need a special case when there are no passing reads as NanoPlot will choke.
         # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
-        # if RUNDIR is not set, so inspect input.passlist which should be preserved.
-        if os.path.getsize(str(input.passlist)) == 0:
+        # if RUNDIR is not set, so inspect input.passlist which should be preserved. Since
+        # adding barcode support, passlist is a list of files.
+        if all( os.path.getsize(p) == 0 for p in input.passlist ):
            shell("touch {output}")
            return
 

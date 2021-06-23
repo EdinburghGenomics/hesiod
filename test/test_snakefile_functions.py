@@ -153,8 +153,8 @@ class T(unittest.TestCase):
                                           'fast5_pass': [],
                                           'fast5_fail': [] } })
 
-        self.assertEqual( find_representative_fast5('foo', empty_sc, try_glob=False),
-                          None )
+        self.assertRaises( RuntimeError,
+                           find_representative_fast5, 'foo', empty_sc, try_glob=False )
 
     def test_sc_counts(self):
         """ Test the function that prints a representation of the SC dict

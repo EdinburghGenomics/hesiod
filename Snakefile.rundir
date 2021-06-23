@@ -6,18 +6,14 @@
 # Note that these rules are bypassed if the run directory is missing, allowing us to repeat QC
 # without errors relating to missing files.
 
-def i_sequencing_summary(wc):
-    # This function is defined in the main Snakefile
-    return [find_sequencing_summary(RUNDIR, wc.cell)]
-
 # Compress the file discovered by the above function and rename it, matching the base of
 # the FASTQ and BAM files. Note the original name is preserved in the GZIP header and can
 # be revealed by 'gunzip -Nlv {output.gz}'.
 rule gzip_sequencing_summary:
     output:
-        gz  = "{cell}/{all,[^/]+}_sequencing_summary.txt.gz",
-        md5 = "md5sums/{cell}/{all,[^/]+}_sequencing_summary.txt.gz.md5"
-    input:  find_sequencing_summary
+        gz  = "{cell}/{fullid}_sequencing_summary.txt.gz",
+        md5 = "md5sums/{cell}/{fullid}_sequencing_summary.txt.gz.md5"
+    input:  lambda wc: [find_sequencing_summary(RUNDIR, wc.cell)]
     threads: 2
     shell:
         r"""{PIGZ} -v -p{threads} -Nc {input} >{output.gz}
@@ -29,12 +25,14 @@ rule gzip_sequencing_summary:
 # I made these a single rule to reduce the number of submitted jobs, with
 # the assuption we'll always be doing both, and "group:" in Snakemake is currently
 # broken with DRMAA :-( ...But I fixed it in upstream now :-)
+# Note that the fast5_out() utility function determines outputs for this rule.
+# Note2 that barcode=. should work with this even though it's a bit sus.
 rule gzip_md5sum_fast5:
     output:
-        gz  = "{foo}.fast5.gz",
-        md5 = "md5sums/{foo}.fast5.gz.md5"
+        gz  = "{cell}/fast5_{barcode}_{pf}/{f5fn}.fast5.gz",
+        md5 = "md5sums/{cell}/fast5_{barcode}_{pf}/{f5fn}.fast5.gz.md5"
     input:
-        RUNDIR + "/{foo}.fast5"
+        RUNDIR + "/{cell}/fast5_{pf}/{barcode}/{f5fn}.fast5"
     threads: 2
     shell:
        r"""{PIGZ} -v -p{threads} -Nc {input} > {output.gz}
@@ -46,14 +44,14 @@ rule gzip_md5sum_fast5:
 # TODO - should probably convert this to zip the individual chunks, as per the nolambda files?
 
 # I've broken out the rule that makes _fastq.list files so I can request the list without
-# making the actual file.
+# making the actual merged file.
 localrules: list_fastq
 rule list_fastq:
     priority: 100
     output:
-        fofn  = "{cell}/{all,[^/]+}_{pf,pass|fail}_fastq.list"
+        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq.list"
     input:
-        fastq = lambda wc: [f"{RUNDIR}/{f}" for f in SC[wc.cell]['fastq_'+wc.pf]]
+        fastq = lambda wc: [f"{RUNDIR}/{f}" for f in SC[wc.cell][wc.barcode]['fastq_'+wc.pf]]
     run:
         # Just write all the input files to the output file.
         with open(output.fofn, "w") as fh:
@@ -63,15 +61,14 @@ rule list_fastq:
                 # So there are no files. Make an empty list then.
                 pass
 
-
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
-        gz    = "{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz",
-        md5   = "md5sums/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.gz.md5",
-        count = "counts/{cell}/{all,[^/]+}_{pf,pass|fail}.fastq.count"
+        gz    = "{cell}/{fullid}_{barcode}_{pf}.fastq.gz",
+        md5   = "md5sums/{cell}/{fullid}_{barcode}_{pf}.fastq.gz.md5",
+        count = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count"
     input:
-        fofn  = "{cell}/{all}_{pf}_fastq.list"
+        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq.list"
     threads: 8
     run:
         # Rely on xargs to deal with way more files than could fit on the command line
@@ -88,14 +85,14 @@ rule concat_gzip_md5sum_fastq:
 rule concat_md5sum_nolambda_fastq:
     priority: 100
     output:
-        gz    = "{cell}/{all,[^/]+}_nolambda.fastq.gz",
-        md5   = "md5sums/{cell}/{all,[^/]+}_nolambda.fastq.gz.md5",
-        count = "counts/{cell}/{all,[^/]+}_nolambda.fastq.count",
-        fofn  = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq.list"),
-        fofn2 = temp("fastq_pass_tmp/{cell}/{all,[^/]+}_nlfq_count.list")
+        gz    = "{cell}/{fullid}_{barcode}_nolambda.fastq.gz",
+        md5   = "md5sums/{cell}/{fullid}_{barcode}_nolambda.fastq.gz.md5",
+        count = "counts/{cell}/{fullid}_{barcode}_nolambda.fastq.count",
+        fofn  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
+        fofn2 = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list")
     input:
-        fastq = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell]['fastq_pass']],
-        count = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell]['fastq_pass']]
+        fastq = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        count = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
     run:
         try:
             # Avoid blowing the command line limit by listing files in a file. This could be
@@ -127,11 +124,11 @@ rule concat_md5sum_nolambda_fastq:
 
 rule concat_md5sum_lambda_bam:
     output:
-        bam  = "{cell}/{all,[^/]+}_lambda.bam",
-        md5  = "md5sums/{cell}/{all,[^/]+}_lambda.bam.md5",
-        fofn = temp("{cell}/{all,[^/]+}_lambda_bam.list")
+        bam  = "{cell}/{fullid}_{barcode}_lambda.bam",
+        md5  = "md5sums/{cell}/{fullid}_{barcode}_lambda.bam.md5",
+        fofn = temp("{cell}/{fullid}_{barcode}_lambda_bam.list")
     input:
-        bam  = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell]['fastq_pass']]
+        bam  = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
     threads: 4
     run:
         try:
@@ -156,14 +153,14 @@ rule concat_md5sum_lambda_bam:
 # In normal operation the temp dir will be removed by the "onsuccess" handler below.
 rule map_lambda:
     output:
-        fq    = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam   = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.lambda.bam"),
-        count = temp("fastq_pass_tmp/{cell}/{f,[^/]+}.fastq.nlfq.count"),
+        fq    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.gz"),
+        bam   = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.lambda.bam"),
+        count = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.count"),
     input:
-        RUNDIR + "/{cell}/{f}.fastq"
+        RUNDIR + "/{cell_pf_bc}/{f}.fastq"
     params:
         ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
-        rg     = r'@RG\tID:1\tSM:{cell}\tPL:promethion',
+        rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
     threads: 6
     shell:

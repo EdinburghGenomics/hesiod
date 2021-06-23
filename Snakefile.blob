@@ -38,16 +38,18 @@ rule fasta_numseqs:
           '''
 
 rule per_cell_blob_plots:
-    output: "blob/{cell}/plots.yaml"
+    output: "blob/{base}_{barcode}/plots.yaml"
     input:
-        png = lambda wc: expand( "blob/{base}_{pf}.{taxlevel}.{extn}{thumb}.png",
-                      base = [cellname_to_base(wc.cell)],
+        png = lambda wc: expand( "blob/{base}_{bc}_{pf}.{taxlevel}.{extn}{thumb}.png",
+                      base = [cellname_to_base(wc.base)],
+                      bc = [wc.barcode],
                       pf = BLOB_PARTS,
                       taxlevel = BLOB_LEVELS,
                       extn = "cov0 read_cov.cov0".split(),
                       thumb = ['.__thumb', ''] ),
-        sample = lambda wc: expand( "blob/{base}_{pf}+sub{ss}.fasta.numseqs",
-                      base = [cellname_to_base(wc.cell)],
+        sample = lambda wc: expand( "blob/{base}_{bc}_{pf}+sub{ss}.fasta.numseqs",
+                      base = [cellname_to_base(wc.base)],
+                      bc = [wc.barcode],
                       pf = BLOB_PARTS,
                       ss = [BLOB_SUBSAMPLE] ),
     run:
@@ -78,6 +80,7 @@ rule per_cell_blob_plots:
 
 # See above. Now we want to make a CSV table per project summarizing the main taxa found
 # in the blob database.
+# TODO - work out if this should be split by barcode? Prob not.
 rule per_project_blob_tables:
     output: "blob/blobstats_by_project.yaml"
     input:
@@ -89,7 +92,7 @@ rule per_project_blob_tables:
         # List ALL the tables of blob stats to show per project
         res = dict()
         for p in CELLS_PER_PROJECT:
-            # For each project p make a list of tables, first by PF, then by tax level.
+            # For each project p make a list of tables, first by {pf}, then by tax level.
             tsv_list = res[p] = list()
             for pf in BLOB_PARTS:
                 for tl in BLOB_LEVELS:
@@ -109,8 +112,9 @@ rule per_project_blob_tables:
 rule parse_blob_table:
     output: "blob/blobstats.{project}.{pf}.{taxlevel}.tsv"
     input:
-        lambda wc: [ f"blob/{cellname_to_base(cell)}_{wc.pf}.{wc.taxlevel}.blobplot.stats.txt"
-                     for cell in CELLS_PER_PROJECT[wc.project] ]
+        lambda wc: [ f"blob/{cellname_to_base(cell)}_{barcode}_{wc.pf}.{wc.taxlevel}.blobplot.stats.txt"
+                     for cell in CELLS_PER_PROJECT[wc.project]
+                     for barcode in SC[cell] ]
     params:
         pct_limit = 1.0,
         label = 'Cell'
