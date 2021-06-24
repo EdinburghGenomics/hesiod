@@ -66,8 +66,22 @@ def read_blob_table(fh, name_extractor):
 def name_extractor_regular(l):
     return re.sub('(\+.*|\.[^.]*)$', '', l.split('/')[-1])
 
-def name_extractor_hesiod(l):
+def name_extractor_hesiod_old(l):
+    """Can probably be removed - use to recreate old reports
+    """
     return '/'.join( l.split('=')[-1].split('/')[-3:-1] )
+
+def name_extractor_hesiod(l):
+    path_parts = l.split('=')[-1].split('/')
+    name_parts = path_parts[-1].split('_')
+
+    # Now we need to deal with old and new files and there's not really a neat way so
+    # lookk for a part which resembles a flowcell ID
+    if re.match(r"[A-Z]{3}[0-9]{5}$", name_parts[-3]):
+        return f"{path_parts[-3]} {name_parts[-3]}_{name_parts[-2]}"
+    else:
+        return f"{path_parts[-3]} {name_parts[-4]}_{name_parts[-3]} {name_parts[-2]}".rstrip(". ")
+
 
 def main(args):
 
@@ -139,7 +153,6 @@ def main(args):
 
                 # Into the matrix with ye!
                 # The mm.add() method will object if a value was already present.
-                import pdb ; pdb.set_trace()
                 mm.add(new_pct, taxon=dl[colidx['name']], lib=name_map[n])
 
     # End of loop through all_tables
@@ -240,7 +253,7 @@ class Matrix:
            This is normally what we want.
         """
         if kwargs[self._rowname] in self._data.get(kwargs[self._colname], {}):
-            raise KeyError
+            raise KeyError(f"already in matrix - {kwargs}")
 
         self.add_overwrite(val, **kwargs)
 

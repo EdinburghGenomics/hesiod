@@ -10,59 +10,31 @@ import unittest
 import logging
 from io import StringIO
 from unittest.mock import Mock, MagicMock, patch, call, mock_open, DEFAULT
-from types import MethodType
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/blobplot_stats')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from parse_blob_table import main as parse_main
+from parse_blob_table import name_extractor_hesiod
 
-'''
-# Helper that does a mock_open only if the filename matches
-def my_mock_open(filepattern='.*', **kwargs):
-    """A version of the standard mock_open that only mocks when filepattern
-       matches the given pattern.
-    """
-
-    mo_obj = mock_open(**kwargs)
-    mo_obj._filepattern = filepattern.rstrip("$") + '$'
-
-    def __new__(cls, filepattern='.*', **kwargs):
-        # Initialise with a mock_open object (actually a special MagicMock)
-        mo_obj = mock_open(**kwargs)
-        mo_obj.filepattern = filepattern.rstrip("$") + '$'
-
-
-    def __init__(self, filepattern='.*', **kwargs):
-        # Grab the pattern
-        self.filepattern = filepattern.rstrip("$") + '$'
-
-    def __call__(cls, *args, **kwargs):
-        # See if we want to return the real open or mock_open
-        if re.match(self.filepattern, args[0]):
-            return self.mo(*args, **kwargs)
-        else:
-            return __builtins__.open(*args, **kwargs)
-'''
-def my_mock_open(filepattern='.*', **kwargs):
+def fp_mock_open(filepattern='.*', **kwargs):
     """A version of the standard mock_open that only mocks when filepattern
        matches the given pattern.
     """
     mo_obj = mock_open(**kwargs)
-    mo_obj._filepattern = filepattern.rstrip("$") + '$'
+    filepattern = filepattern.rstrip("$") + '$'
 
     # capture open() in a closure now before any patching can happen
-    mo_obj._real_open = open
+    real_open = open
 
-    def new_call(self, filename, *args, **kwargs):
+    def new_call(filename, *args, **kwargs):
         if not re.match(filepattern, filename):
-            return self._real_open(filename, *args, **kwargs)
+            return real_open(filename, *args, **kwargs)
         else:
             return DEFAULT
 
-    # monkey-patch the mo_obj and return it
-    mo_obj.side_effect = MethodType(new_call, mo_obj)
-
+    # Patch the mo_obj and return it
+    mo_obj.side_effect = new_call
     return mo_obj
 
 
@@ -89,7 +61,7 @@ class T(unittest.TestCase):
                       label = "Library ID",
                       total_reads = False,
                       debug = False,
-                      output = '-',
+                      output = 'MOCK_OUT',
                       name_extractor = "regular",
                       round = 2 )
 
@@ -125,20 +97,42 @@ class T(unittest.TestCase):
 
         # I was patching sys.stdout here with a MagicMock but this breaks interactive
         # debugging and potentially hides any printed messages.
-        # So instead let's mock out the open() func.
-        omock = my_mock_open(filepattern="MOCK")
+        # So instead let's mock out the open() func instead.
+        omock = fp_mock_open(filepattern="MOCK_OUT")
         with patch('parse_blob_table.open', omock):
             parse_main(args)
         dummy_stdout = omock
 
         # File should have been closed.
-        self.assertEqual(dummy_stdout.close.mock_calls, [call()])
+        self.assertEqual(dummy_stdout.mock_calls[-1], call().close())
 
         # Reconstruct what was 'written' to the mock...
-        return  ''.join([ mc[1][0] for mc in
-                          dummy_stdout.write.mock_calls ]).rstrip('\n').split('\n')
+        return ''.join([ txt for n,a,k in dummy_stdout.mock_calls
+                         if n == '().write'
+                         for txt in a ]).rstrip('\n').split('\n')
 
     ### THE TESTS ###
+    def test_name_extractor(self):
+        """Test the new name extractor
+           Not sure if this is ideal but the original names were getting too long.
+        """
+        self.assertEqual( name_extractor_hesiod("## cov0=/lustre-gseg/home/tbooth2/test_promethion/fastqdata/"
+                                                "20210520_EGS1_16031BA/.snakemake/shadow/tmp2q8pn8nb/blob/"
+                                                "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/"
+                                                "20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_pass+sub10000.complexity"),
+                          "16031BApool01 PAG23119_76e7e00f barcode02" )
+
+        self.assertEqual( name_extractor_hesiod("## cov0=/lustre-gseg/home/tbooth2/test_promethion/fastqdata/"
+                                                "20210520_EGS1_16031BA/.snakemake/shadow/tmp2q8pn8nb/blob/"
+                                                "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/"
+                                                "20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_._pass+sub10000.complexity"),
+                          "16031BApool01 PAG23119_76e7e00f" )
+
+        # If the script parses an old file with nop barcode it shouldn't get confused
+        self.assertEqual( name_extractor_hesiod("cov0=blob/11921LK0002L01/20191108_1522_2-A3-D3_PAE00889_c16432d0/"
+                                                "20191107_EGS1_11921LK0002_11921LK0002L01_PAE00889_c16432d0_pass+sub10000.complexity"),
+                          "11921LK0002L01 PAE00889_c16432d0" )
+
     def test_noop(self):
         """No-op behaviour
         """
@@ -258,6 +252,7 @@ class T(unittest.TestCase):
         self.check_with_csv( [ tmpl.format("01"), tmpl.format("02") ],
                              testdir + "blobstats_pass.phylum.tsv",
                              total_reads = True,
+                             cutoff = 0.5,
                              name_extractor = 'hesiod',
                              label = 'Cell' )
 
