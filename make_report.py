@@ -251,19 +251,20 @@ def format_report( all_info,
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise)
         if '_blobs_data' in ci:
-            for plot_group in ci['_blobs_data']:
+            for ablob in ci['_blobs_data']:
+                for plot_group in ablob:
 
-                P('\n### {}\n'.format(plot_group['title']))
+                    P('\n### {}\n'.format(plot_group['title']))
 
-                # plot_group['files'] will be a a list of lists, so plot
-                # each list a s a row.
-                for plot_row in plot_group['files']:
-                    P("<div class='flex'>")
-                    P(" ".join(
-                        "[plot](img/{f}){{.thumbnail}}".format(f=os.path.basename(p))
-                        for p in plot_row
-                     ))
-                    P("</div>")
+                    # plot_group['files'] will be a a list of lists, so plot
+                    # each list a s a row.
+                    for plot_row in plot_group['files']:
+                        P("<div class='flex'>")
+                        P(" ".join(
+                            "[plot](img/{f}){{.thumbnail}}".format(f=os.path.basename(p))
+                            for p in plot_row
+                         ))
+                        P("</div>")
 
         P( "::::::" )
 
@@ -349,8 +350,9 @@ def main(args):
 
         # Load _blobs and _nanoplot parts.
         if '_blobs' in yaml_info:
-            yaml_info['_blobs'] = abspath(yaml_info['_blobs'], relative_to=y)
-            yaml_info['_blobs_data'] = load_yaml(yaml_info['_blobs'])
+            # We now have multiple blobs
+            yaml_info['_blobs'] = [ abspath(b, relative_to=y) for b in yaml_info['_blobs'] ]
+            yaml_info['_blobs_data'] = [ load_yaml(b) for b in yaml_info['_blobs'] ]
         if '_nanoplot' in yaml_info:
             yaml_info['_nanoplot'] = abspath(yaml_info['_nanoplot'], relative_to=y)
             yaml_info['_nanoplot_data'] = load_yaml(yaml_info['_nanoplot'])
@@ -474,8 +476,9 @@ def copy_files(all_info, base_path, minionqc=None):
         # This should work. Hopefully names won't get too long.
         cell_uid = ci['Base'].split('/')[-1]
 
-        if '_blobs' in ci:
-            blob_base = os.path.dirname(ci['_blobs'])
+        # Blobs now come in a list
+        for ablob in ci.get('_blobs', []):
+            blob_base = os.path.dirname(ablob)
 
             for png in glob(blob_base + '/*.png'):
                 dest_png = os.path.basename(png)

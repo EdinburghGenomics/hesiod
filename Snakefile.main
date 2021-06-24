@@ -343,16 +343,18 @@ rule one_cell:
         # Add pass/fail number of files. If the RUNDIR is not available we'll not attempt
         # to recalculate this. I could still count fast5 files but a better approach would be
         # to serialize SC[wildcards.cell] and just keep hold of this for info.
-        cell_files = SC[wildcards.cell]
-        for pf in "pass fail".split():
+        cell_content = SC[wildcards.cell]
+        for pf in ["pass", "fail"]:
             try:
                 # Maybe we can't guarantee the counts in fastq and fast5 match?!
                 # Nope - they should always match.
-                if len(cell_files[f'fastq_{pf}']) == len(cell_files[f'fast5_{pf}']):
-                    ci['Files in '+pf] = len(cell_files[f'fastq_{pf}'])
+                cell_files = { k: [f for cfb in cell_content.values() for f in cfb[f'{k}_{pf}']]
+                               for k in ["fastq", "fast5"] }
+                if len(cell_files['fastq']) == len(cell_files['fast5']):
+                    ci['Files in '+pf] = len(cell_files['fastq'])
                 else:
-                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files[f'fastq_{pf}']),
-                                                                         len(cell_files[f'fast5_{pf}']),
+                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files['fastq']),
+                                                                         len(cell_files['fast5']),
                                                                          pf = pf )
             except KeyError:
                 # FIXME - see comment above.
@@ -367,7 +369,7 @@ rule one_cell:
 
         # Link to other reports. I'm now using paths relative to the file rather than the
         # root of the run dir.
-        ci['_blobs'] = f"../../{input.blobs}"
+        ci['_blobs'] = [ f"../../{b}" for b in input.blobs ]
         ci['_nanoplot'] = f"../../{input.nanoplot_r[0]}"
         #ci['_minionqc'] = str(input.minionqc)
 

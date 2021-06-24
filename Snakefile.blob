@@ -67,8 +67,9 @@ rule per_cell_blob_plots:
                                                                 c = counts[pf],
                                                                 l = ', '.join(BLOB_LEVELS) ),
 
-                       files = [ [ "{basebase}_{pf}.{taxlevel}.{extn}.png".format(
-                                                                basebase = os.path.basename(cellname_to_base(wc.cell)),
+                       files = [ [ "{basebase}_{bc}_{pf}.{taxlevel}.{extn}.png".format(
+                                                                basebase = os.path.basename(cellname_to_base(wc.base)),
+                                                                bc = wc.barcode,
                                                                 pf = pf,
                                                                 taxlevel = taxlevel,
                                                                 extn = extn )
