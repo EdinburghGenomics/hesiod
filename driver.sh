@@ -95,9 +95,18 @@ debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then log "$@" ; else [ $# = 0 ] && cat >/
 
 # Per-run log for more detailed progress messages, goes into the output
 # directory. Obvously this can't be used in action_new until the directory is made.
+# Main log on FD5, per-run log on FD6
 plog() {
-    per_run_log="$RUN_OUTPUT/pipeline.log"
-    if ! { [ $# = 0 ] && cat >> "$per_run_log" || echo "$@" >> "$per_run_log" ; } ; then
+    if [ -z "${per_run_log:-}" ] ; then
+        per_run_log="$RUN_OUTPUT/pipeline.log"
+        # In LOG_SPEW mode, log to the terminal too
+        if [ "${LOG_SPEW:-0}" != 0 ] ; then
+            exec 6> >(tee -a "$per_run_log" >&5)
+        else
+            exec 6>>"$per_run_log"
+        fi
+    fi
+    if ! { [ $# = 0 ] && cat >&6 || echo "$@" >&6 ; } ; then
        log '!!'" Failed to write to $per_run_log"
        log "$@"
     fi

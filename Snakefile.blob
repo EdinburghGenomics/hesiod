@@ -13,7 +13,7 @@ BLOB_CHUNKS    = int(config.get('blob_chunks', 100))
 BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
-# final version. See PART_LABELS in the main Snakefile.
+# final version. See also label_for_part() in the main Snakefile.
 #BLOB_PARTS  = "pass nolambda lambda".split()
 BLOB_PARTS  = config.get('blob_parts', ["pass"])
 
@@ -38,18 +38,19 @@ rule fasta_numseqs:
           '''
 
 rule per_cell_blob_plots:
-    output: "blob/{base}_{barcode}/plots.yaml"
+    output: "blob/{base}_{barcode}_plots.yaml"
     input:
         png = lambda wc: expand( "blob/{base}_{bc}_{pf}.{taxlevel}.{extn}{thumb}.png",
-                      base = [cellname_to_base(wc.base)],
-                      bc = [wc.barcode],
+                     # FIXME insert barcode in base
+                      base = wc.base,
+                      bc = wc.barcode,
                       pf = BLOB_PARTS,
                       taxlevel = BLOB_LEVELS,
                       extn = "cov0 read_cov.cov0".split(),
                       thumb = ['.__thumb', ''] ),
         sample = lambda wc: expand( "blob/{base}_{bc}_{pf}+sub{ss}.fasta.numseqs",
-                      base = [cellname_to_base(wc.base)],
-                      bc = [wc.barcode],
+                      base = wc.base,
+                      bc = wc.barcode,
                       pf = BLOB_PARTS,
                       ss = [BLOB_SUBSAMPLE] ),
     run:
@@ -63,12 +64,12 @@ rule per_cell_blob_plots:
         # cut it here in preserving order but I can make a nested list comprehension.
         # Group by BLOB_PARTS with an appropriate title.
         plots = [ dict(title = 'Taxonomy for {pf} reads ({c} sequences) by {l}'.format(
-                                                                pf = PART_LABELS.get(pf, pf),
+                                                                pf = label_for_part(pf, wc.barcode),
                                                                 c = counts[pf],
                                                                 l = ', '.join(BLOB_LEVELS) ),
 
                        files = [ [ "{basebase}_{bc}_{pf}.{taxlevel}.{extn}.png".format(
-                                                                basebase = os.path.basename(cellname_to_base(wc.base)),
+                                                                basebase = os.path.basename(wc.base),
                                                                 bc = wc.barcode,
                                                                 pf = pf,
                                                                 taxlevel = taxlevel,
@@ -102,8 +103,9 @@ rule per_project_blob_tables:
                     tsv = f"blobstats.{p}.{pf}.{tl}.tsv"
                     assert "blob/" + tsv in [str(s) for s in input.tsv]
 
+                    # At present we have one table per sample and all the barcodes (if any) are split in rows.
                     tsv_list.append( dict( title = "BLAST hit percentages for {pf} reads by {taxlevel}".format(
-                                                            pf = PART_LABELS.get(pf, pf),
+                                                            pf = label_for_part(pf),
                                                             taxlevel = tl ),
                                            tsv = tsv ) )
 

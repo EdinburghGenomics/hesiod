@@ -37,4 +37,17 @@ For the fastq the combined files are longid_bcname_pass.fastq.gz
 OK I got the Snakefile to make a DAG and run. What's failing? parse_blob_table.py
 Do I have unit tests for this thing? Why yes. good.
 
+---
+
+After getting the report made, it's not too bad.
+
+Blob plots are broken links, and the headings need to say "for barcode01 passed reads" instead of "for all".
+
+_counts in cell_info.yml are only for the first barcode, even though we have count files for all barcodes.
+
+We need a histo of reads per barcode. Can newer NanoPlot do this??
+
+After read counts table in the per-cell bit, add a table of "Reads per barcode" only if there are barcodes.
+Headings are: barcode, all_passed, lambda-filtered passed, failed
+
 

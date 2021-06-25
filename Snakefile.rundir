@@ -64,9 +64,9 @@ rule list_fastq:
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
-        gz    = "{cell}/{fullid}_{barcode}_{pf}.fastq.gz",
-        md5   = "md5sums/{cell}/{fullid}_{barcode}_{pf}.fastq.gz.md5",
-        count = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count"
+        gz     = "{cell}/{fullid}_{barcode}_{pf}.fastq.gz",
+        md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.fastq.gz.md5",
+        counts = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count"
     input:
         fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq.list"
     threads: 8
@@ -75,7 +75,7 @@ rule concat_gzip_md5sum_fastq:
         shell(r"xargs -d '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
         # Base counter
-        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+        shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
@@ -85,14 +85,14 @@ rule concat_gzip_md5sum_fastq:
 rule concat_md5sum_nolambda_fastq:
     priority: 100
     output:
-        gz    = "{cell}/{fullid}_{barcode}_nolambda.fastq.gz",
-        md5   = "md5sums/{cell}/{fullid}_{barcode}_nolambda.fastq.gz.md5",
-        count = "counts/{cell}/{fullid}_{barcode}_nolambda.fastq.count",
-        fofn  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
-        fofn2 = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list")
+        gz     = "{cell}/{fullid}_{barcode}_nolambda.fastq.gz",
+        md5    = "md5sums/{cell}/{fullid}_{barcode}_nolambda.fastq.gz.md5",
+        counts = "counts/{cell}/{fullid}_{barcode}_nolambda.fastq.count",
+        fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
+        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list")
     input:
-        fastq = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        count = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
+        fastq  = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        counts = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
     run:
         try:
             # Avoid blowing the command line limit by listing files in a file. This could be
@@ -101,13 +101,13 @@ rule concat_md5sum_nolambda_fastq:
                 for fname in input.fastq: print(fname, file=fh)
 
             with open(output.fofn2, "w") as fh:
-                for fname in input.count: print(fname, file=fh)
+                for fname in input.counts: print(fname, file=fh)
 
             # Simply concatenate the gzipped files
             shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
 
             # Combine base counts
-            shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+            shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
 
         except AttributeError:
@@ -117,7 +117,7 @@ rule concat_md5sum_nolambda_fastq:
             shell("true | {PIGZ} -c > {output.gz}")
 
             # Generate an empty count.
-            shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.count}")
+            shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
         # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
@@ -153,9 +153,9 @@ rule concat_md5sum_lambda_bam:
 # In normal operation the temp dir will be removed by the "onsuccess" handler below.
 rule map_lambda:
     output:
-        fq    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam   = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.lambda.bam"),
-        count = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.count"),
+        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.gz"),
+        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.lambda.bam"),
+        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.count"),
     input:
         RUNDIR + "/{cell_pf_bc}/{f}.fastq"
     params:
@@ -170,7 +170,7 @@ rule map_lambda:
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
                     {input} ) | \
            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
-           {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.count}
+           {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.counts}
         '''
 
 # Remove the fastq_pass_tmp directory which should normally be empty of files if

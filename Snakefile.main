@@ -299,46 +299,79 @@ rule pack_fast5:
 
 # See also BLOB_PARTS in Snakefile.blob
 FASTQ_PARTS = ["pass", "nolambda", "fail"]
-PART_LABELS = { 'pass'     : "all passed",
+
+def label_for_part(part, barcode='.'):
+    """Was a dict. Now a function.
+    """
+    if barcode == '.':
+        pls = { 'pass'     : "all passed",
                 'fail'     : "all failed",
-                'nolambda' : "lambda-filtered passed",
-                'lambda'   : "lambda-mapping passed" }
+                'nolambda' : "passed and lambda-filtered",
+                'lambda'   : "passed and lambda-mapping",
+                '_default' : f"{part}" }
+    else:
+        pls = { 'pass'     : f"{barcode} passed",
+                'fail'     : f"{barcode} failed",
+                'nolambda' : f"{barcode} lambda-filtered",
+                'lambda'   : f"{barcode} lambda-mapping",
+                '_default' : f"{barcode} {part}" }
+
+    return pls.get(part, pls['_default'])
 
 # NanoPlot makes many plots, but here are the ones we care about:
 NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", "NumberOfReads_Over_Time" ]
 
+def one_cell_inputs(wc):
+    """ Provide the inputs to the rule below
+    """
+    cell = wc.cell
+    base = cellname_to_base(cell)
+    barcodes = SC[cell].keys()
+    return dict(
+        fastq_gz     = expand( "{base}_{bc}_{pf}.fastq.gz",
+                                        base = base,
+                                        bc = barcodes,
+                                        pf = FASTQ_PARTS ),
+        seq_summary  = expand( "{base}_sequencing_summary.txt.gz",
+                                        base = base ),
+        counts       = expand( "counts/{base}_{bc}_{pf}.fastq.count",
+                                        base = base,
+                                        bc = barcodes,
+                                        pf = FASTQ_PARTS ),
+        lambda_bam   = expand( "{base}_{bc}_lambda.bam",
+                                        base = base,
+                                        bc = barcodes ),
+        lambda_stats = expand( "lambdaqc/{base}_{bc}_lambda.bam.stats",
+                                        base = base,
+                                        bc = barcodes ),
+        lambda_qmap  = expand( "lambdaqc/{base}_{bc}_lambda.bam.qmap",
+                                        base = base,
+                                        bc = barcodes ),
+        blobs        = expand( "blob/{base}_{bc}_plots.yaml",
+                                        base = base,
+                                        bc = barcodes ),
+        nanoplot_r   = expand( "nanoplot/{cell}/{outfile}",
+                                        cell = cell,
+                                        outfile = ["NanoStats.yaml",
+                                                   "NanoPlot-report.html" ] ),
+        nanoplot_p   = expand( "nanoplot/{cell}/{p}.png",
+                                        cell = cell,
+                                        p = NANOPLOT_PLOT_LIST ),
+        nanoplot_t   = expand( "nanoplot/{cell}/{p}.__thumb.png",
+                                        cell = cell,
+                                        p = NANOPLOT_PLOT_LIST ),
+        fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
+
+        # Previously we added:
+        #minionqc     = "minionqc/{cell}/summary.yaml",
+        )
+
 rule one_cell:
     output: "{cell}/cell_info.yaml"
-    input:
-        fastq_gz     = lambda wc: expand( "{base}_{bc}_{pf}.fastq.gz",
-                                            base = [cellname_to_base(wc.cell)],
-                                            bc = SC[wc.cell].keys(),
-                                            pf = FASTQ_PARTS ),
-        seq_summary  = lambda wc: expand( "{base}_sequencing_summary.txt.gz",
-                                            base = [cellname_to_base(wc.cell)] ),
-        counts       = lambda wc: expand( "counts/{base}_{bc}_{pf}.fastq.count",
-                                            base = [cellname_to_base(wc.cell)],
-                                            bc = SC[wc.cell].keys(),
-                                            pf = FASTQ_PARTS ),
-        lambda_bam   = lambda wc: expand( "{base}_{bc}_lambda.bam",
-                                            base = [cellname_to_base(wc.cell)],
-                                            bc = SC[wc.cell].keys() ),
-        lambda_stats = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.stats",
-                                            base = [cellname_to_base(wc.cell)],
-                                            bc = SC[wc.cell].keys() ),
-        lambda_qmap  = lambda wc: expand( "lambdaqc/{base}_{bc}_lambda.bam.qmap",
-                                            base = [cellname_to_base(wc.cell)],
-                                            bc = SC[wc.cell].keys() ),
-        blobs        = lambda wc: expand( "blob/{cell}_{bc}/plots.yaml",
-                                            cell = [wc.cell],
-                                            bc = SC[wc.cell].keys() ),
-        nanoplot_r   = [ "nanoplot/{cell}/NanoStats.yaml", "nanoplot/{cell}/NanoPlot-report.html" ],
-        nanoplot_p   = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
-        nanoplot_t   = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
-        fast5_meta   = "{cell}/cell_fast5_metadata.yaml",
-        #minionqc     = "minionqc/{cell}/summary.yaml",
+    input: unpack(one_cell_inputs)
     run:
         ci = parse_cell_name(RUN, wildcards.cell)
+        base = cellname_to_base(wildcards.cell)
 
         # Add pass/fail number of files. If the RUNDIR is not available we'll not attempt
         # to recalculate this. I could still count fast5 files but a better approach would be
@@ -360,12 +393,16 @@ rule one_cell:
                 # FIXME - see comment above.
                 ci['Files in '+pf] = "unknown"
 
-        # Add info from the .count files
+        # Add info from the .count files - add in '_label' and '_barcode' but I'm not sure
+        # if we will split them out by barcode in the report or just add them up.
         ci['_counts'] = []
-        for label, cf in zip(FASTQ_PARTS, input.counts):
-            cdata = load_yaml(cf)
-            cdata['_label'] = f"{PART_LABELS.get(label, label).capitalize()} reads"
-            ci['_counts'].append(cdata)
+        for pf in FASTQ_PARTS:
+            for bc in SC[wildcards.cell]:
+                # Reading from input.counts
+                cdata = load_yaml(f"counts/{base}_{bc}_{pf}.fastq.count")
+                cdata['_label'] = f"{label_for_part(label).capitalize()} reads"
+                cdata['_barcode'] = bc
+                ci['_counts'].append(cdata)
 
         # Link to other reports. I'm now using paths relative to the file rather than the
         # root of the run dir.
