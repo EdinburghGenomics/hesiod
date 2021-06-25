@@ -457,6 +457,11 @@ def list_projects(cells, realname_dict):
     # Convert dict of doubles back to list of triples and sort them too
     return [ (k, *v) for k, v in sorted(res.items()) ]
 
+def gen_thumb(afile):
+    """Given a filename return the base file and the thumbnail file
+    """
+    return [re.sub(r'(.*\.|^)(.+)', r'\1__thumb.\2', afile), afile]
+
 def copy_files(all_info, base_path, minionqc=None):
     """ We need to copy the NanoPlot, MinionQC, Blob reports into here.
         Base path will normally be wherever the report is being made.
@@ -476,13 +481,17 @@ def copy_files(all_info, base_path, minionqc=None):
         # This should work. Hopefully names won't get too long.
         cell_uid = ci['Base'].split('/')[-1]
 
-        # Blobs now come in a list
+        # Blobs now come in a list of YAML files
         for ablob in ci.get('_blobs', []):
             blob_base = os.path.dirname(ablob)
+            blob_yaml = load_yaml(ablob)
 
-            for png in glob(blob_base + '/*.png'):
-                dest_png = os.path.basename(png)
-                copy_file(png, os.path.join(base_path, "img", dest_png))
+            for pngfile in [ f2 for b in blob_yaml for f1 in b['files'] for f2 in f1 ]:
+                for file_or_thumb in gen_thumb(pngfile):
+                    png = os.path.join(blob_base, file_or_thumb)
+                    dest_png = os.path.basename(png)
+                    L.debug(f"Copying {png}")
+                    copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_nanoplot' in ci:
             nano_base = os.path.dirname(ci['_nanoplot'])

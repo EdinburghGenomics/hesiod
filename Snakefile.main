@@ -400,7 +400,7 @@ rule one_cell:
             for bc in SC[wildcards.cell]:
                 # Reading from input.counts
                 cdata = load_yaml(f"counts/{base}_{bc}_{pf}.fastq.count")
-                cdata['_label'] = f"{label_for_part(label).capitalize()} reads"
+                cdata['_label'] = f"{label_for_part(pf).capitalize()} reads"
                 cdata['_barcode'] = bc
                 ci['_counts'].append(cdata)
 
