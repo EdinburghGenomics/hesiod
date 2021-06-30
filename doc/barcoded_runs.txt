@@ -42,8 +42,10 @@ Do I have unit tests for this thing? Why yes. good.
 After getting the report made, it's not too bad.
 
 Blob plots are broken links, and the headings need to say "for barcode01 passed reads" instead of "for all".
+(fixed)
 
 _counts in cell_info.yml are only for the first barcode, even though we have count files for all barcodes.
+(working on this - want to aggregate per project then break out per cell)
 
 We need a histo of reads per barcode. Can newer NanoPlot do this??
 

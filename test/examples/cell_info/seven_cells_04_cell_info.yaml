@@ -1,0 +1,33 @@
+Run: 20190322_EGS1_11608GE0009_Megaruptor_test
+Cell: 11608GE0009L10_60kb/20190502_1735_2-E7-H7_PAD41040_5b5f10a2
+Library: 11608GE0009L10_60kb
+Date: '20190502'
+Number: '1735'
+Slot: 2-E7-H7
+CellID: PAD41040
+Checksum: 5b5f10a2
+Project: '11608'
+Base: 11608GE0009L10_60kb/20190502_1735_2-E7-H7_PAD41040_5b5f10a2/20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L10_60kb_PAD41040_5b5f10a2
+Files in pass: 4
+Files in fail: 13
+_counts:
+- filename: 20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L10_60kb_PAD41040_5b5f10a2_pass.fastq
+  total_reads: 12511
+  read_length: 177-109301
+  total_bases: 209755701
+  non_n_bases: 209755701
+  _label: All passed reads
+- filename: 20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L10_60kb_PAD41040_5b5f10a2_nolambda.fastq
+  total_reads: 10504
+  read_length: 177-109301
+  total_bases: 203206143
+  non_n_bases: 203206143
+  _label: Lambda-filtered passed reads
+- filename: 20190322_EGS1_11608GE0009_Megaruptor_test_11608GE0009L10_60kb_PAD41040_5b5f10a2_fail.fastq
+  total_reads: 51673
+  read_length: 5-65627
+  total_bases: 9139934
+  non_n_bases: 9139934
+  _label: All failed reads
+_blobs: ../../blob/11608GE0009L10_60kb/20190502_1735_2-E7-H7_PAD41040_5b5f10a2/plots.yaml
+_nanoplot: ../../nanoplot/11608GE0009L10_60kb/20190502_1735_2-E7-H7_PAD41040_5b5f10a2/NanoStats.yaml

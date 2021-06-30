@@ -5,11 +5,12 @@
 import sys, os, re
 import unittest
 import logging
+from glob import glob
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from make_report import list_projects
+from make_report import list_projects, format_counts_per_cells, load_cell_yaml
 
 class T(unittest.TestCase):
 
@@ -61,6 +62,25 @@ class T(unittest.TestCase):
                                 ('11609', 'Project 11609', [{'Project': '11609'}]),
                                 ('11650', 'Project 11650_Test2_Test2', [{'Project': '11650'},{'Project': '11650'}]),
                                 ('11650000XXX', 'Project 11650000XXX', [{'Project': '11650000XXX'}]), ])
+
+    def test_format_counts_per_cells(self):
+        """Test the new logic that makes the Read Summary table in Stats Per Project
+        """
+        # For an old run with seven cells, no barcodes
+        seven_cells = [ load_cell_yaml(f) for f in glob(DATA_DIR + "/cell_info/seven_cells_??_cell_info.yaml") ]
+
+        self.assertEqual( format_counts_per_cells(seven_cells, heading="FOO"),
+                          """### FOO
+
+                             | Part | Total Reads | Total Bases | Max Length |
+                             |-------|--------------|--------------|-------------|
+                             | All passed reads | 15488849 | 198731265339 | 217472 |
+                             | Lambda\-filtered passed reads | 12266134 | 187067423308 | 217472 |
+                             | All failed reads | 8181438 | 28788689895 | 240324 |
+                          """ )
+
+
+        # For a new run with one cell, several barcodes
 
     def test_array_slice(self):
         """At present this doesn't test any code. I just want to check my logic.

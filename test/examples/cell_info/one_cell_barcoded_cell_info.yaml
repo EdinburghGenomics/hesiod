@@ -1,0 +1,135 @@
+Run: 20210520_EGS1_16031BA
+Cell: 16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f
+Library: 16031BApool01
+Date: '20210520'
+Number: '1105'
+Slot: 2-E1-H1
+CellID: PAG23119
+Checksum: 76e7e00f
+Project: '16031'
+Base: 16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f
+Files in pass: 32
+Files in fail: 32
+_counts:
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode01_pass.fastq
+  total_reads: 40000
+  read_length: 109-11541
+  total_bases: 41951188
+  non_n_bases: 41951188
+  _label: All passed reads
+  _barcode: barcode01
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_pass.fastq
+  total_reads: 40000
+  read_length: 125-9988
+  total_bases: 47518351
+  non_n_bases: 47518351
+  _label: All passed reads
+  _barcode: barcode02
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode21_pass.fastq
+  total_reads: 66
+  read_length: 159-2358
+  total_bases: 48587
+  non_n_bases: 48587
+  _label: All passed reads
+  _barcode: barcode21
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode22_pass.fastq
+  total_reads: 68
+  read_length: 189-2016
+  total_bases: 59606
+  non_n_bases: 59606
+  _label: All passed reads
+  _barcode: barcode22
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_unclassified_pass.fastq
+  total_reads: 40000
+  read_length: 1-11112
+  total_bases: 41388279
+  non_n_bases: 41388279
+  _label: All passed reads
+  _barcode: unclassified
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode01_nolambda.fastq
+  total_reads: 40000
+  read_length: 109-11541
+  total_bases: 41951188
+  non_n_bases: 41951188
+  _label: Passed and lambda-filtered reads
+  _barcode: barcode01
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_nolambda.fastq
+  total_reads: 40000
+  read_length: 125-9988
+  total_bases: 47518351
+  non_n_bases: 47518351
+  _label: Passed and lambda-filtered reads
+  _barcode: barcode02
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode21_nolambda.fastq
+  total_reads: 66
+  read_length: 159-2358
+  total_bases: 48587
+  non_n_bases: 48587
+  _label: Passed and lambda-filtered reads
+  _barcode: barcode21
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode22_nolambda.fastq
+  total_reads: 68
+  read_length: 189-2016
+  total_bases: 59606
+  non_n_bases: 59606
+  _label: Passed and lambda-filtered reads
+  _barcode: barcode22
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_unclassified_nolambda.fastq
+  total_reads: 40000
+  read_length: 1-11112
+  total_bases: 41388279
+  non_n_bases: 41388279
+  _label: Passed and lambda-filtered reads
+  _barcode: unclassified
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode01_fail.fastq
+  total_reads: 40000
+  read_length: 91-354311
+  total_bases: 42098865
+  non_n_bases: 42098865
+  _label: All failed reads
+  _barcode: barcode01
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_fail.fastq
+  total_reads: 40000
+  read_length: 99-190205
+  total_bases: 45930444
+  non_n_bases: 45930444
+  _label: All failed reads
+  _barcode: barcode02
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode21_fail.fastq
+  total_reads: 57
+  read_length: 293-2251
+  total_bases: 43969
+  non_n_bases: 43969
+  _label: All failed reads
+  _barcode: barcode21
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode22_fail.fastq
+  total_reads: 49
+  read_length: 242-2622
+  total_bases: 39512
+  non_n_bases: 39512
+  _label: All failed reads
+  _barcode: barcode22
+- filename: 20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_unclassified_fail.fastq
+  total_reads: 40000
+  read_length: 1-29907
+  total_bases: 35034784
+  non_n_bases: 35034784
+  _label: All failed reads
+  _barcode: unclassified
+_blobs:
+- ../../blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode01_plots.yaml
+- ../../blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode02_plots.yaml
+- ../../blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode21_plots.yaml
+- ../../blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_barcode22_plots.yaml
+- ../../blob/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f_unclassified_plots.yaml
+_nanoplot: ../../nanoplot/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/NanoStats.yaml
+Fast5Version: '2.2'
+StartTime: Thursday, 20 May 2021 11:09:59
+BaseCaller: MinKNOW-Live-Basecalling
+BaseCallerTime: Thursday, 20 May 2021 11:15:30
+BaseCallerVersion: 4.0.5
+GuppyVersion: 4.0.11+f1071ce
+RunID: 0eaeb70c1118579faeb36aeb5ba98e17db4f3a2c
+ExperimentType: genomic_dna
+SequencingKit: sqk-lsk109
+FlowcellType: unknown

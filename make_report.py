@@ -16,6 +16,37 @@ METADATA_HIDE = set('''
     Checksum    Fast5Version    BaseCallerTime
 '''.split())
 
+def format_counts_per_cells(cells, heading="Read summary"):
+    """I broke this out of format_report(). It takes counts for a bunch of cells and adds
+       them up, over all barcodes - normally this is done for all cells belonging to a project.
+    """
+    # Tabulate some totals for passed/failed/filtered. This is just a matter of totting
+    # up values in the _counts section of each cell.
+    # First get all the labels from the first cell:
+    all_counts = [c['_counts'] for c in cells]
+    labels = [f['_label'] for f in all_counts[0]]
+
+    # And sanity check that the list of labels is consistent for all cells
+    # (as from here we'll assume everything is in the same order)
+    for c in all_counts[1:]:
+        assert [f['_label'] for f in c] == labels
+
+    # A list of lists to populate the table
+    # see test/test_make_report.py if you're trying to work out how the nested
+    # expansions work.
+    rows = [ ( label,
+               sum( cat_counts['total_reads'] ),
+               sum( cat_counts['total_bases'] ),
+               max( cat_counts['max_length'] ) )
+             for row, label in enumerate(labels)
+             for cat_counts in [{ k: [ c[row][k] for c in all_counts ]
+                                  for k in ['total_reads', 'total_bases', 'max_length'] }] ]
+
+    return( format_table( ["Part", "Total Reads", "Total Bases", "Max Length"],
+                          rows,
+                          title = heading ) )
+
+
 def format_report( all_info,
                    pipedata,
                    aborted_list = (),
@@ -89,31 +120,8 @@ def format_report( all_info,
                        ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
                       title="Metadata") )
 
-        # Tabulate some totals for passed/failed/filtered. This is just a matter of totting
-        # up values in the _counts section of each cell.
-        # First get all the labels from the first cell:
-        all_counts = [c['_counts'] for c in cells]
-        labels = [f['_label'] for f in all_counts[0]]
-
-        # And sanity check that the list of labels is consistent for all cells
-        # (as from here we'll assume everything is in the same order)
-        for c in all_counts[1:]:
-            assert [f['_label'] for f in c] == labels
-
-        # A list of lists to populate the table
-        # see test/test_make_report.py if you're trying to work out how the nested
-        # expansions work.
-        rows = [ ( label,
-                   sum( cat_counts['total_reads'] ),
-                   sum( cat_counts['total_bases'] ),
-                   max( cat_counts['max_length'] ) )
-                 for row, label in enumerate(labels)
-                 for cat_counts in [{ k: [ c[row][k] for c in all_counts ]
-                                      for k in ['total_reads', 'total_bases', 'max_length'] }] ]
-
-        P( format_table( ["Part", "Total Reads", "Total Bases", "Max Length"],
-                         rows,
-                         title = "Read summary" ) )
+        # Number of sequences/bases in passed/failed
+        P( format_counts_per_cells(cells) )
 
         # Now for the BLOB tables. These are specified by the blobstats_by_project.yaml file,
         # and will be loaded as a dict by project.
@@ -317,13 +325,19 @@ def format_table(headings, data, title=None):
 
     return "\n".join(res)
 
-def fixup_counts(celldict):
-    """I copied the .count format from Illuminatus where most FASTQ files have all sequences the
+def load_cell_yaml(filename):
+    """Load the YAML and fix the counts.
+       I copied the .count format from Illuminatus where most FASTQ files have all sequences the
        same length, but here this is rarely the case and I have read_length as a string '<min>-<max>'.
        Rather than change the format and have to re-count all files, I'll just cope with the old
        format here.
-       celldict will be modified by this function but it should be idempotent.
     """
+    celldict = load_yaml(filename)
+
+    # We sort by cell ID so all YAML must have this.
+    assert celldict.get('Cell'), "All yamls must have a Cell ID"
+    assert celldict.get('Project'), "All yamls must have a Project (recreate this file with the latest Snakefile)"
+
     for countsdict in celldict.get('_counts', []):
         if 'read_length' in countsdict:
             # This works if the read length is already an int or a single string
@@ -332,6 +346,8 @@ def fixup_counts(celldict):
             countsdict['max_length'] = int( rlsplit[-1] )
             del countsdict['read_length']
 
+    return celldict
+
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
@@ -339,14 +355,8 @@ def main(args):
     all_info = dict()
     # Slurp up all the cells we're going to report on
     for y in args.yamls:
-        yaml_info = load_yaml(y)
-
-        # Sort by cell ID - all YAML must have this.
-        assert yaml_info.get('Cell'), "All yamls must have a Cell ID"
-        assert yaml_info.get('Project'), "All yamls must have a Project (recreate this file with the latest Snakefile)"
-
-        # Convert read_lenght to min_length and max_length
-        fixup_counts(yaml_info)
+        # Use the special loader that fixes the counts.
+        yaml_info = load_cell_yaml(y)
 
         # Load _blobs and _nanoplot parts.
         if '_blobs' in yaml_info:
