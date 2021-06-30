@@ -8,6 +8,8 @@ import sys, os, re
 import unittest
 import logging
 
+from . import jstr
+
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
@@ -37,27 +39,33 @@ class T(unittest.TestCase):
 
     def test_format_table_basic(self):
         res = format_table("foo bar baz".split(), ["123", "456"])
-        self.assertEqual(res[0], " foo       | bar       | baz" )
-        self.assertEqual(res[1], "-----------|-----------|-----------" )
-        self.assertEqual(res[2], " 1         | 2         | 3" )
-        self.assertEqual(res[3], " 4         | 5         | 6" )
+        self.assertEqual("\n".join(res) + "\n",
+                         jstr(""" foo       | bar       | baz
+                                 -----------|-----------|-----------
+                                  1         | 2         | 3
+                                  4         | 5         | 6
+                              """))
 
     def test_format_table_tw(self):
         res = format_table( "foo bar baz".split(),
                             ["123", ["something", "something", "dark side"]],
                             [10,7,3])
-        self.assertEqual(res[0], " foo       | bar    | baz" )
-        self.assertEqual(res[1], "-----------|--------|----" )
-        self.assertEqual(res[2], " 1         | 2      | 3" )
-        self.assertEqual(res[3], " something | somethi| dark side" )
+        self.assertEqual("\n".join(res) + "\n",
+                         jstr(""" foo       | bar    | baz
+                                 -----------|--------|----
+                                  1         | 2      | 3
+                                  something | somethi| dark side
+                              """))
 
     def test_format_table_onecol(self):
         res = format_table( "foo".split(),
                             [ ["123"], ["something or other"] ])
-        self.assertEqual(res[0], " foo" )
-        self.assertEqual(res[1], "-----------" )
-        self.assertEqual(res[2], " 123" )
-        self.assertEqual(res[3], " something or other" )
+        self.assertEqual("\n".join(res) + "\n",
+                         jstr(""" foo
+                                 -----------
+                                  123
+                                  something or other
+                              """))
 
     def test_scan_cells(self):
         """Test the cell scan function on a sample dir.

@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import OrderedDict
 import shutil
 
-from hesiod import hesiod_version, glob, load_yaml, abspath
+from hesiod import hesiod_version, glob, load_yaml, abspath, groupby
 
 # Things we don't want to see in the Metadata section (as it's too cluttered)
 METADATA_HIDE = set('''
@@ -21,9 +21,13 @@ def format_counts_per_cells(cells, heading="Read summary"):
        them up, over all barcodes - normally this is done for all cells belonging to a project.
     """
     # Tabulate some totals for passed/failed/filtered. This is just a matter of totting
-    # up values in the _counts section of each cell.
-    # First get all the labels from the first cell:
-    all_counts = [c['_counts'] for c in cells]
+    # up values in the _counts section of each cell. Now more complex since cells have barcodes.
+    counts_by_barcode = [ groupby(c['_counts'], lambda f: f.get('_barcode', '.'))
+                          for c in cells ]
+    # Flatten the list of dicts of lists into a list of [3-item] lists
+    all_counts = [ v for cbb in counts_by_barcode for v in cbb.values() ]
+
+    # Get all the labels from the first barcode of the first cell:
     labels = [f['_label'] for f in all_counts[0]]
 
     # And sanity check that the list of labels is consistent for all cells
@@ -314,8 +318,8 @@ def format_table(headings, data, title=None):
 
     # Add the spacer line - fix the with for easier reading of the MD
     widths = [ len(escape(h)) for h in headings ]
-    P('|-{}-|'.format( '-|-'.join([ "-{:-<{w}s}".format('', w=w)
-                                    for w in widths ]) ))
+    P('|-{}|'.format( '|-'.join([ "-{:-<{w}s}".format('', w=w)
+                                  for w in widths ]) ))
 
     # Add the data.
     for drow in data:

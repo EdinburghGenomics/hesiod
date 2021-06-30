@@ -74,14 +74,24 @@ class T(unittest.TestCase):
                           jstr("""### FOO
 
                                   | Part | Total Reads | Total Bases | Max Length |
-                                  |-------|--------------|--------------|-------------|
+                                  |------|-------------|-------------|------------|
                                   | All passed reads | 15488849 | 198731265339 | 217472 |
                                   | Lambda\-filtered passed reads | 12266134 | 187067423308 | 217472 |
                                   | All failed reads | 8181438 | 28788689895 | 240324 |
                                """) )
 
-
         # For a new run with one cell, several barcodes
+        bc_cell = [ load_cell_yaml(DATA_DIR + "/cell_info/one_cell_barcoded_cell_info.yaml") ]
+
+        self.assertEqual( format_counts_per_cells(bc_cell, heading="BAR"),
+                          jstr("""### BAR
+
+                                  | Part | Total Reads | Total Bases | Max Length |
+                                  |------|-------------|-------------|------------|
+                                  | All passed reads | 120134 | 130966011 | 11541 |
+                                  | Passed and lambda\-filtered reads | 120134 | 130966011 | 11541 |
+                                  | All failed reads | 120106 | 123147574 | 354311 |
+                               """) )
 
     def test_array_slice(self):
         """At present this doesn't test any code. I just want to check my logic.
