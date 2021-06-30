@@ -9,34 +9,15 @@ import sys, os, re
 import unittest
 import logging
 from io import StringIO
-from unittest.mock import Mock, MagicMock, patch, call, mock_open, DEFAULT
+from unittest.mock import Mock, MagicMock, patch, call
+
+from . import fp_mock_open
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/blobplot_stats')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from parse_blob_table import main as parse_main
 from parse_blob_table import name_extractor_hesiod
-
-def fp_mock_open(filepattern='.*', **kwargs):
-    """A version of the standard mock_open that only mocks when filepattern
-       matches the given pattern.
-    """
-    mo_obj = mock_open(**kwargs)
-    filepattern = filepattern.rstrip("$") + '$'
-
-    # capture open() in a closure now before any patching can happen
-    real_open = open
-
-    def new_call(filename, *args, **kwargs):
-        if not re.match(filepattern, filename):
-            return real_open(filename, *args, **kwargs)
-        else:
-            return DEFAULT
-
-    # Patch the mo_obj and return it
-    mo_obj.side_effect = new_call
-    return mo_obj
-
 
 class T(unittest.TestCase):
 

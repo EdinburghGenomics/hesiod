@@ -1,40 +1,32 @@
 #!/usr/bin/env python3
 
-"""Template/boilerplate for writing new test classes"""
-
-# Note this will get discovered and run as a no-op test. This is fine.
+"""Test the functions in test/__init__.py"""
 
 import sys, os, re
 import unittest
-import logging
-from unittest.mock import Mock, patch # if needed
 
-DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
-VERBOSE = os.environ.get('VERBOSE', '0') != '0'
-
-# from lib_or_script import functions
-pass
+from . import jstr
 
 class T(unittest.TestCase):
 
-    @classmethod
-    def setUpClass(cls):
-        #Prevent the logger from printing messages - I like my tests to look pretty.
-        if VERBOSE:
-            logging.getLogger().setLevel(logging.DEBUG)
-        else:
-            logging.getLogger().setLevel(logging.CRITICAL)
+    def test_jstr(self):
 
-    def setUp(self):
-        # See the errors in all their glory
-        self.maxDiff = None
+        self.assertEqual(jstr(""), "")
 
-    def tearDown(self):
-        pass
+        self.assertEqual(jstr(
+            """Here is a
+               string that has
+                 been indented
 
-    ### THE TESTS ###
-    def test_1(self):
-        self.assertEqual(True, True)
+               into the code.
+            """),
+            "Here is a\nstring that has\n  been indented\n\ninto the code.\n")
+
+        self.assertEqual(jstr(
+            """Not a
+               justifiable
+string"""),
+            "Not a\n               justifiable\nstring")
 
 if __name__ == '__main__':
     unittest.main()
