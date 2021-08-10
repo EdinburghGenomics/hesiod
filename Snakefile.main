@@ -449,12 +449,12 @@ rule nanoplot:
         thumbsize = "320x320"
     run:
         ap = os.path.realpath(str(input.summary))
-        shell(r'cd "$(dirname {output.stats})" ; rm -f *.png *.html *.log')
+        shell(r'cd nanoplot/{wildcards.cell} ; rm -f *.png *.html *.log')
 
         # We need a special case when there are no passing reads as NanoPlot will choke.
         # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
         # if RUNDIR is not set, so inspect input.passlist which should be preserved. Since
-        # adding barcode support, passlist is a list of files.
+        # adding barcode support, there may be multiple passlist files.
         if all( os.path.getsize(p) == 0 for p in input.passlist ):
            shell("touch {output}")
            return
@@ -462,7 +462,7 @@ rule nanoplot:
         shell(r'cd "$(dirname {output.stats})" ; NanoPlot --summary {ap}')
 
         # Finally, make thumbnails for everything
-        for apng in glob("nanoplot/*/*.png") + glob("nanoplot/*/*/*.png"):
+        for apng in glob(f"nanoplot/{wildcards.cell}/*.png"):
             if not apng.endswith('.__thumb.png'):
                 athumb = apng[:-4] + '.__thumb.png'
                 shell("{TOOLBOX} convert {apng} -resize {params.thumbsize} {athumb}")
