@@ -1,0 +1,16 @@
+After adding the ability to process barcoded runs, the report is a mess.
+
+What to do? The tables are aggregated by project but have one row per barcode.
+
+Ideally I'd have a view like we see with Illuminatus - ie. the fastqscreen output.
+Potentially I could import the JavaScript and make the plot, but making this work with
+PanDoc will make an unholy mess. Won't it?
+
+And I should have a dropdown so you can select phylum/order/species - again that means
+more JavaScript. Or else I could make it a selector like for % vs counts? But the %
+mode makes no sense when everything is downsampled to 10k.
+
+Yeah, we'll shelve this for now. Make the histogram as that's most useful. But my choice of
+graphing library should be in accord with the idea above. Grrr.
+
+OK, let's get the delivery sorted first and then come back to it.

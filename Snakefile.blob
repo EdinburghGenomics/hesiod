@@ -9,7 +9,7 @@ from hesiod import slurp_file
 # nolambda files so we'll never see lambda in the blobs. Maybe we should reconsider this??
 # BLAST S sequences in C chunks
 BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
-BLOB_CHUNKS    = int(config.get('blob_chunks', 100))
+BLOB_CHUNKS    = int(config.get('blob_chunks', 20))
 BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the

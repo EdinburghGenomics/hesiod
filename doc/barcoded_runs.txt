@@ -47,9 +47,19 @@ Blob plots are broken links, and the headings need to say "for barcode01 passed 
 _counts in cell_info.yml are only for the first barcode, even though we have count files for all barcodes.
 (working on this - want to aggregate per project then break out per cell)
 
-We need a histo of reads per barcode. Can newer NanoPlot do this??
+We need a histo of reads per barcode. Can newer NanoPlot do this?? Nope. But I guess I can do a stacked bar plot.
+Do the table first then.
 
 After read counts table in the per-cell bit, add a table of "Reads per barcode" only if there are barcodes.
 Headings are: barcode, all_passed, lambda-filtered passed, failed
 
+---
 
+After deployment, we have a problem. It looks like the DAG building is just too complex for a real run. I think it's because of
+the blob plots, which involve splitting each barcode into 100 chunks, so for 20 barcodes that's 2000+ jobs. But it's not that
+big, compared to all the FASTQ/FAST5 files to process. But hmmm, I may need to break the processing down into multiple steps.
+This could be tricky. Maybe putting the .snakefile directory into shared memory would help? It's hacky, but I like hacks. We
+couldn't do it with the whole directory since Snakemake uses it for shadow and script sharing, but maybe 'metadata' - it looks
+like the sort of thing that might slow the system down. Matbe we can nix it??
+
+For now let's just try having 20 chunks rather than 100.
