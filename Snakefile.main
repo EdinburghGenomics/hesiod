@@ -459,7 +459,7 @@ rule nanoplot:
            shell("touch {output}")
            return
 
-        shell(r'cd "$(dirname {output.stats})" ; NanoPlot --summary {ap}')
+        shell(r'cd nanoplot/{wildcards.cell} ; NanoPlot --summary {ap}')
 
         # Finally, make thumbnails for everything
         for apng in glob(f"nanoplot/{wildcards.cell}/*.png"):

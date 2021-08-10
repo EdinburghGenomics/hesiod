@@ -21,6 +21,7 @@ if [ -r "$SNAKE_PRERUN" ] ; then
     echo "+ source $SNAKE_PRERUN" >&2
     source "$SNAKE_PRERUN"
 fi
+echo snakemake is `which snakemake`
 
 # properties = {properties}
 {exec_job}
