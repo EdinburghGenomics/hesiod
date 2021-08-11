@@ -126,13 +126,15 @@ rule parse_blob_table:
 
 # Convert to FASTA and subsample and munge the headers
 # seqtk seq -ACNU == to-fasta, no-comments, no-ambiguous, uppercase
-# Also because pigz may well be killed by SIGPIPE we have to disregard it returning 141
+# Also because pigz and/or 'seqtk seq' may well be killed by SIGPIPE we have to ignore pipe fails,
+# even though this may mask other problems.
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
     threads: 2
     shell:
-       r"""{PIGZ} -p{threads} -d -c {input} || test $? -eq 141 | \
+       r"""set +o pipefail
+           {PIGZ} -p{threads} -d -c {input} | \
              {TOOLBOX} seqtk seq -ACNU - | \
              {TOOLBOX} seqtk sample - {wildcards.n} | \
              sed 's,/,_,g' > {output}
