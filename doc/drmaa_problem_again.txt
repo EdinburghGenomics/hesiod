@@ -1,0 +1,15 @@
+The DRMAA problem has come back, where sometimes SLURM thinks the job has failed but actually it's a timeout getting the status.
+Last time I ended up patching the DRMAA code. I may have to do this again.
+
+Link to my bug report on DRMAA?
+Line in the Snakemake code where the DRMAA response is processed?
+
+Plan to sort this:
+
+1) Make a Snakemake pipeline that generates lots of jobs at once, then each job writes 1GB of random data, compresses it,
+   decompresses it, whatever. Takes about 3 mins.
+2) Run and re-run until it fails
+3) Modify Snakemake to dump the DRMAA response
+4) Take it from there
+
+Ach. This will take a while.
