@@ -814,7 +814,7 @@ for run in "${prom_runs_list[@]}" ; do
     get_run_status "$run"
 
     # Taken from SMRTino - normally we don't log all the boring stuff
-    if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] ; then _log=debug ; else _log=log ; fi
+    if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] || [ "$STATUS" = stripped ] ; then _log=debug ; else _log=log ; fi
     $_log "$RUNID with `twc $CELLS` cell(s) and status=$STATUS"
 
     # Call the appropriate function in the appropriate directory.
@@ -863,6 +863,7 @@ if [ -n "$UPSTREAM" ] ; then
         CELLS="${CELLS%$IFS}" # chop trailing tab
         CELLSPENDING=""
 
+        unset per_run_log # Should be done by plog_start in any case.
         eval action_"$STATUS"
         # Should never actually get an error here unless the called function calls "set +e"
         [ $? = 0 ] || log "Error while trying to run action_$STATUS on $RUNID"
@@ -900,6 +901,7 @@ if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
         get_run_status "$run_dir_full"
 
         pushd "$run_dir_full" >/dev/null
+        unset per_run_log
         eval do_sync
         # Should never actually get an error here unless do_sync calls "set +e"
         [ $? = 0 ] || log "Error while trying to run Rsync on $run_dir"

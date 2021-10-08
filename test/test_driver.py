@@ -455,46 +455,34 @@ class T(unittest.TestCase):
 
         self.assertEqual(len(log1), len(log2))
 
-    def test_pointless(self):
-        """I don't think this actually tests anything new.
+    def test_log_bug2(self):
+        """The same bug as above when one run is incomplete and another is ready to process
         """
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
         self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
         self.copy_run('20000101_TEST_testrun2')
         run_path_1 = self.run_path
 
-        # Now add a run which needs processing
+        # Now add a run which is incomplete
         self.copy_run('201907010_LOCALTEST_missingfile')
         os.makedirs(os.path.join(self.run_path, "pipeline/output"))
-        self.touch("pipeline/20190710_1723_2-A5-D5_PAD38578_c6ded78b.synced")
         run_path_2 = self.run_path
 
-        # Ensure it fails
+        # Ensure any processing fails
         self.bm.add_mock('make_summary.py', fail=False)
         self.bm.add_mock('Snakefile.main', fail=True)
 
         self.bm_rundriver()
+        self.assertInStdout("INCOMPLETE 201907010_LOCALTEST_missingfile")
         self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
-        self.assertInStdout("CELL_READY 201907010_LOCALTEST_missingfile")
 
-        # A plog should now appear in run_path_2
+        # A plog should now appear in both
+        lines_in_log1 = slurp_file(os.path.join(run_path_1, "pipeline", "output", "pipeline.log"))
         lines_in_log2 = slurp_file(os.path.join(run_path_2, "pipeline", "output", "pipeline.log"))
-        # But not yet in run_path_1
-        self.assertFalse(os.path.exists(os.path.join(run_path_1, "pipeline", "output", "pipeline.log")))
 
-        # And go again
-        self.bm_rundriver()
-        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
-        self.assertInStdout("FAILED 201907010_LOCALTEST_missingfile")
-
-        # We should see plogs in both the directories, and plog for 2 should be unchangd
-        if VERBOSE:
-            os.system("tree " + os.path.join(run_path_1))
-            os.system("tree " + os.path.join(run_path_2))
-
-        self.assertEqual(slurp_file(os.path.join(run_path_2, "pipeline", "output", "pipeline.log")),
-                         lines_in_log2)
-        self.assertTrue(os.path.exists(os.path.join(run_path_1, "pipeline", "output", "pipeline.log")))
+        # Neither should be empty
+        self.assertTrue(lines_in_log1)
+        self.assertTrue(lines_in_log2)
 
     def test_sync_needed_withbatch(self):
         """Same with PROM_RUNS_BATCH=year
