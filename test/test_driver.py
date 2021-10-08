@@ -438,6 +438,64 @@ class T(unittest.TestCase):
                                     rsync_first_bit + ["=another test/20000101_0000_3-C1-C1_PAD00000_cccccccc="] ]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
+    def test_log_bug(self):
+        """I had a bug where if there were multiple new upstream runs the logs would both go to the
+           first of them. Not good.
+        """
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream3'
+
+        self.bm_rundriver()
+
+        if VERBOSE:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
+        log1 = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testrun/pipeline.log")
+        log2 = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testruncopy/pipeline.log")
+
+        self.assertEqual(len(log1), len(log2))
+
+    def test_pointless(self):
+        """I don't think this actually tests anything new.
+        """
+        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
+        self.copy_run('20000101_TEST_testrun2')
+        run_path_1 = self.run_path
+
+        # Now add a run which needs processing
+        self.copy_run('201907010_LOCALTEST_missingfile')
+        os.makedirs(os.path.join(self.run_path, "pipeline/output"))
+        self.touch("pipeline/20190710_1723_2-A5-D5_PAD38578_c6ded78b.synced")
+        run_path_2 = self.run_path
+
+        # Ensure it fails
+        self.bm.add_mock('make_summary.py', fail=False)
+        self.bm.add_mock('Snakefile.main', fail=True)
+
+        self.bm_rundriver()
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        self.assertInStdout("CELL_READY 201907010_LOCALTEST_missingfile")
+
+        # A plog should now appear in run_path_2
+        lines_in_log2 = slurp_file(os.path.join(run_path_2, "pipeline", "output", "pipeline.log"))
+        # But not yet in run_path_1
+        self.assertFalse(os.path.exists(os.path.join(run_path_1, "pipeline", "output", "pipeline.log")))
+
+        # And go again
+        self.bm_rundriver()
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        self.assertInStdout("FAILED 201907010_LOCALTEST_missingfile")
+
+        # We should see plogs in both the directories, and plog for 2 should be unchangd
+        if VERBOSE:
+            os.system("tree " + os.path.join(run_path_1))
+            os.system("tree " + os.path.join(run_path_2))
+
+        self.assertEqual(slurp_file(os.path.join(run_path_2, "pipeline", "output", "pipeline.log")),
+                         lines_in_log2)
+        self.assertTrue(os.path.exists(os.path.join(run_path_1, "pipeline", "output", "pipeline.log")))
+
     def test_sync_needed_withbatch(self):
         """Same with PROM_RUNS_BATCH=year
         """

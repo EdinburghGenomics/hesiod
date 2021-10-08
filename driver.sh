@@ -113,6 +113,8 @@ plog() {
 }
 
 plog_start() {
+    # Unset $per_run_log or else all the logs do to the first run seen
+    unset per_run_log
     plog $'>>>\n>>>\n>>>'" $0 starting action_$STATUS at `date`"
 }
 
@@ -332,14 +334,16 @@ action_cell_ready(){
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready" ; return ; }
 
     # Attempt deletion but don't fret if it fails
-    _upstream="`cat pipeline/upstream`"
-    if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
-        if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
-            log "Marking deletable cells on $_upstream."
-            plog "Marking cells as deletable on $_upstream: $CELLSREADY"
-            del_remote_cells.sh "$_upstream" $CELLSREADY |&plog || log FAILED
+    set +e ; ( set -e
+        _upstream="$(cat pipeline/upstream)"
+        if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
+            if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
+                log "Marking deletable cells on $_upstream."
+                echo "Marking cells as deletable on $_upstream: $CELLSREADY"
+                del_remote_cells.sh "$_upstream" $CELLSREADY || log FAILED
+            fi
         fi
-    fi
+    ) |& plog
 }
 
 
