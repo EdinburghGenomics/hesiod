@@ -37,6 +37,7 @@ snakerun_drmaa "$0" "$@"
 from pprint import pprint, pformat
 
 from itertools import product
+from functools import partial
 from subprocess import CalledProcessError
 
 from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
@@ -108,7 +109,7 @@ def scan_cells(rundir, config):
 
     if rundir:
         for c, d in res.items():
-            for pf, filetype in product(["pass", "fail"], ["fastq", "fast5"]):
+            for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
                 category = f"{filetype}_{pf}"
                 # Collect un-barcoded files
                 non_barcoded_files = [ f[len(rundir) + 1:]
@@ -118,22 +119,25 @@ def scan_cells(rundir, config):
                 if non_barcoded_files:
                     d.setdefault('.', dict())[category] = non_barcoded_files
                 for bf in barcoded_files:
+                    # Keys in d are to be the barcodes which we extract from the filenames like so:
                     _, barcode, _ = bf[len(c) + 1:].split('/')
                     d.setdefault(barcode, dict()).setdefault(category, list()).append(bf)
 
         # Add in empty lists for missing items.
         for c, d in res.items():
             for bcdict in d.values():
-                for pf, filetype in product(["pass", "fail"], ["fastq", "fast5"]):
+                for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
                     # If the barcode is there we should have all four categories
                     bcdict.setdefault(f"{filetype}_{pf}", [])
 
         # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
-        # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so this
-        # is definitely a bad thing.
+        # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so for
+        # real runs this check should always pass.
         for c, d in res.items():
             for pf in ["pass", "fail"]:
                 fastq_sum = sum( len(fileslist[f"fastq_{pf}"]) for fileslist in d.values() )
+                # Zipped FASTQ files too!
+                fastq_sum += sum( len(fileslist[f"fastq.gz_{pf}"]) for fileslist in d.values() )
                 fast5_sum = sum( len(fileslist[f"fast5_{pf}"]) for fileslist in d.values() )
                 if fastq_sum != fast5_sum:
                     raise RuntimeError( f"Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
@@ -327,39 +331,20 @@ def one_cell_inputs(wc):
     cell = wc.cell
     base = cellname_to_base(cell)
     barcodes = SC[cell].keys()
+
+    xxpand = partial(expand, cell=cell, base=base, bc=barcodes, pf=FASTQ_PARTS)
     return dict(
-        fastq_gz     = expand( "{base}_{bc}_{pf}.fastq.gz",
-                                        base = base,
-                                        bc = barcodes,
-                                        pf = FASTQ_PARTS ),
-        seq_summary  = expand( "{base}_sequencing_summary.txt.gz",
-                                        base = base ),
-        counts       = expand( "counts/{base}_{bc}_{pf}.fastq.count",
-                                        base = base,
-                                        bc = barcodes,
-                                        pf = FASTQ_PARTS ),
-        lambda_bam   = expand( "{base}_{bc}_lambda.bam",
-                                        base = base,
-                                        bc = barcodes ),
-        lambda_stats = expand( "lambdaqc/{base}_{bc}_lambda.bam.stats",
-                                        base = base,
-                                        bc = barcodes ),
-        lambda_qmap  = expand( "lambdaqc/{base}_{bc}_lambda.bam.qmap",
-                                        base = base,
-                                        bc = barcodes ),
-        blobs        = expand( "blob/{base}_{bc}_plots.yaml",
-                                        base = base,
-                                        bc = barcodes ),
-        nanoplot_r   = expand( "nanoplot/{cell}/{outfile}",
-                                        cell = cell,
-                                        outfile = ["NanoStats.yaml",
-                                                   "NanoPlot-report.html" ] ),
-        nanoplot_p   = expand( "nanoplot/{cell}/{p}.png",
-                                        cell = cell,
-                                        p = NANOPLOT_PLOT_LIST ),
-        nanoplot_t   = expand( "nanoplot/{cell}/{p}.__thumb.png",
-                                        cell = cell,
-                                        p = NANOPLOT_PLOT_LIST ),
+        fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
+        seq_summary  = xxpand("{base}_sequencing_summary.txt.gz"),
+        counts       = xxpand("counts/{base}_{bc}_{pf}.fastq.count"),
+        lambda_bam   = xxpand("{base}_{bc}_lambda.bam"),
+        lambda_stats = xxpand("lambdaqc/{base}_{bc}_lambda.bam.stats"),
+        lambda_qmap  = xxpand("lambdaqc/{base}_{bc}_lambda.bam.qmap"),
+        blobs        = xxpand("blob/{base}_{bc}_plots.yaml"),
+        nanoplot_r   = xxpand("nanoplot/{cell}/{outfile}", outfile = ["NanoStats.yaml",
+                                                                      "NanoPlot-report.html" ]),
+        nanoplot_p   = xxpand("nanoplot/{cell}/{p}.png", p = NANOPLOT_PLOT_LIST),
+        nanoplot_t   = xxpand("nanoplot/{cell}/{p}.__thumb.png", p = NANOPLOT_PLOT_LIST),
         fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
 
         # Previously we added:

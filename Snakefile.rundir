@@ -41,7 +41,7 @@ rule gzip_md5sum_fast5:
 
 # These two concatenate and zip and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
-# TODO - should probably convert this to zip the individual chunks, as per the nolambda files?
+# TODO - should possibly convert this to zip the individual chunks, as per the nolambda files?
 
 # I've broken out the rule that makes _fastq.list files so I can request the list without
 # making the actual merged file.
@@ -49,9 +49,9 @@ localrules: list_fastq
 rule list_fastq:
     priority: 100
     output:
-        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq.list"
+        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq{gz,\.gz|}.list"
     input:
-        fastq = lambda wc: [f"{RUNDIR}/{f}" for f in SC[wc.cell][wc.barcode]['fastq_'+wc.pf]]
+        fastq = lambda wc: [f"{RUNDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"fastq{wc.gz}_{wc.pf}"]]
     run:
         # Just write all the input files to the output file.
         with open(output.fofn, "w") as fh:
@@ -68,11 +68,16 @@ rule concat_gzip_md5sum_fastq:
         md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.fastq.gz.md5",
         counts = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count"
     input:
-        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq.list"
+        fofn    = "{cell}/{fullid}_{barcode}_{pf}_fastq.list",
+        fofn_gz = "{cell}/{fullid}_{barcode}_{pf}_fastq.gz.list",
     threads: 8
     run:
         # Rely on xargs to deal with way more files than could fit on the command line
-        shell(r"xargs -d '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
+        shell(r"xargs -rd '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
+
+        # Add the gzipped files. Normally there will only be one or the other, but we do support both
+        # Note that we're just concatenating the zipped files, not decompressing and recompressing
+        shell(r"xargs -rd '\n' cat <{input.fofn_gz} >> {output.gz}")
 
         # Base counter
         shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
@@ -89,35 +94,38 @@ rule concat_md5sum_nolambda_fastq:
         md5    = "md5sums/{cell}/{fullid}_{barcode}_nolambda.fastq.gz.md5",
         counts = "counts/{cell}/{fullid}_{barcode}_nolambda.fastq.count",
         fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
-        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list")
+        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list"),
     input:
-        fastq  = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        counts = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
+        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"      for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}.gznlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        counts    = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count"   for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}.gznlfq.count" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     run:
-        try:
-            # Avoid blowing the command line limit by listing files in a file. This could be
-            # marked temporary but it's small and handy for debugging.
-            with open(output.fofn, "w") as fh:
-                for fname in input.fastq: print(fname, file=fh)
+        def getinputs(*vnames):
+            """Little helper to get combined input values"""
+            for v in vnames:
+                try: yield from getattr(input, v)
+                except AttributeError: pass
 
-            with open(output.fofn2, "w") as fh:
-                for fname in input.counts: print(fname, file=fh)
+        # Avoid blowing the command line limit by listing files in a file. This could be
+        # marked temporary but it's small and handy for debugging.
+        with open(output.fofn, "w") as fh:
+            for fname in getinputs("fastq", "fastq_gz"):
+                print(fname, file=fh)
 
-            # Simply concatenate the gzipped files
-            shell(r"xargs -d '\n' cat <{output.fofn} > {output.gz}")
+        with open(output.fofn2, "w") as fh:
+            for fofn2_linecount, fname in enumerate(getinputs("counts", "counts_gz")):
+                print(fname, file=fh)
 
+        # Simply concatenate the gzipped files. This works even if no files.
+        shell(r"xargs -rd '\n' cat <{output.fofn} > {output.gz}")
+
+        if fofn2_linecount:
             # Combine base counts
-            shell(r"xargs -d '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
-
-
-        except AttributeError:
-            # We're merging nothing. But Snakemake must have her output file.
-            shell("touch {output.fofn} {output.fofn2}")
-
-            shell("true | {PIGZ} -c > {output.gz}")
-
-            # Generate an empty count.
-            shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
+            shell(r"xargs -rd '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
+        else:
+            # Synthesize an empty count.
+            shell(r"true | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
         # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
@@ -128,17 +136,24 @@ rule concat_md5sum_lambda_bam:
         md5  = "md5sums/{cell}/{fullid}_{barcode}_lambda.bam.md5",
         fofn = temp("{cell}/{fullid}_{barcode}_lambda_bam.list")
     input:
-        bam  = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']]
+        bam    = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}.gzlambda.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     threads: 4
     run:
-        try:
-            with open(output.fofn, "w") as fh:
-                for fname in input.bam: print(fname, file=fh)
+        def getinputs(*vnames):
+            """Little helper to get combined input values"""
+            for v in vnames:
+                try: yield from getattr(input, v)
+                except AttributeError: pass
 
+        with open(output.fofn, "w") as fh:
+            for fofn_linecount, fname in enumerate(getinputs("bam", "bam_gz")):
+                print(fname, file=fh)
+
+        if fofn_linecount:
             # samtools merge (files in fastq_pass_tmp should be pre-sorted)
             shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
-
-        except AttributeError:
+        else:
             # We're merging nothing. But Snakemake must have her output file.
             shell("touch {output.bam}")
 
@@ -153,25 +168,25 @@ rule concat_md5sum_lambda_bam:
 # In normal operation the temp dir will be removed by the "onsuccess" handler below.
 rule map_lambda:
     output:
-        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.gz"),
-        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.lambda.bam"),
-        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.nlfq.count"),
+        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}nlfq.gz"),
+        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}lambda.bam"),
+        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}nlfq.count"),
     input:
-        RUNDIR + "/{cell_pf_bc}/{f}.fastq"
+        lambda wc: f"{RUNDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.')
     params:
         ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
     threads: 6
     shell:
-       r'''{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
+       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
                 lambda_splitter.awk \
                     -v paf=/dev/stdin \
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
                     {input} ) | \
            {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
            {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.counts}
-        '''
+        """
 
 # Remove the fastq_pass_tmp directory which should normally be empty of files if
 # everything worked.
