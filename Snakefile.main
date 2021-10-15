@@ -111,11 +111,12 @@ def scan_cells(rundir, config):
         for c, d in res.items():
             for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
                 category = f"{filetype}_{pf}"
+                cat_dir  = f"{filetype.split('.')[0]}_{pf}"
                 # Collect un-barcoded files
                 non_barcoded_files = [ f[len(rundir) + 1:]
-                                       for f in glob(f"{rundir}/{c}/{category}/*.{filetype}") ]
+                                       for f in glob(f"{rundir}/{c}/{cat_dir}/*.{filetype}") ]
                 barcoded_files = [ f[len(rundir) + 1:]
-                                   for f in glob(f"{rundir}/{c}/{category}/*/*.{filetype}") ]
+                                   for f in glob(f"{rundir}/{c}/{cat_dir}/*/*.{filetype}") ]
                 if non_barcoded_files:
                     d.setdefault('.', dict())[category] = non_barcoded_files
                 for bf in barcoded_files:

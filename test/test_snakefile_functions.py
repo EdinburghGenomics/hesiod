@@ -84,18 +84,23 @@ class T(unittest.TestCase):
         # If we say that the cell is ready we should detect the files
         sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
                                  dict( cellsready='testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' ) )
-        self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': dict(
-                                       fast5_fail = [],
-                                       fastq_fail = [],
-                                       fast5_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
-                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5',
-                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
-                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fast5'],
-                                       fastq_pass = ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
-                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fastq',
-                                                     'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
-                                                       'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fastq'],
-                                 ) }})
+        self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
+                                       "fast5_fail": [],
+                                       "fastq_fail": [],
+                                       "fastq.gz_fail": [],
+                                       "fast5_pass": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
+                                                        'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5',
+                                                      'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
+                                                        'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fast5',
+                                                      'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
+                                                        'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_2.fast5'],
+                                       "fastq_pass": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
+                                                        'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fastq',
+                                                      'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
+                                                        'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fastq'],
+                                       "fastq.gz_pass": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
+                                                           'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_2.fastq.gz']
+                                 } }})
         self.assertEqual(counts, dict( cells=1, cellsaborted=0, cellsready=1 ))
 
     def test_scan_error(self):
