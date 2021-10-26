@@ -431,9 +431,11 @@ rule nanoplot:
         plots  = [ "nanoplot/{cell}/" + p + ".png" for p in NANOPLOT_PLOT_LIST ],
         thumbs = [ "nanoplot/{cell}/" + p + ".__thumb.png" for p in NANOPLOT_PLOT_LIST ],
     input:
-        summary  = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz",
-        passlist = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass_fastq.list"
-                                for bc in SC[wc.cell] ]
+        summary      = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz",
+        passlist     = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass_fastq.list"
+                                    for bc in SC[wc.cell] ],
+        passlist_gz  = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass_fastq.gz.list"
+                                    for bc in SC[wc.cell] ],
     params:
         thumbsize = "320x320"
     run:
@@ -444,9 +446,11 @@ rule nanoplot:
         # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
         # if RUNDIR is not set, so inspect input.passlist which should be preserved. Since
         # adding barcode support, there may be multiple passlist files.
+        # Since adding .fastq.gz support there are these to consider too.
         if all( os.path.getsize(p) == 0 for p in input.passlist ):
-           shell("touch {output}")
-           return
+            if all( os.path.getsize(p) <= 32 for p in input.passlist_gz ):
+                shell("touch {output}")
+                return
 
         shell(r'cd nanoplot/{wildcards.cell} ; NanoPlot --summary {ap}')
 
