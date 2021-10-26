@@ -154,9 +154,9 @@ def sc_counts(sc_dict, width=140):
     """
     # Make a dict that just shows the counts
     sc_counts = { c : { bc: { category: f"<{len(filelist)} files>"
-                              for category, filelist in d.items() } }
-                  for c, bc_dict in sc_dict.items()
-                  for bc, d in bc_dict.items() }
+                              for category, filelist in d.items() }
+                        for bc, d in bc_dict.items() }
+                  for c, bc_dict in sc_dict.items() }
 
     # Ideally I'd use sort_dicts=False but that needs Py3.8
     return pformat(sc_counts, width=width)

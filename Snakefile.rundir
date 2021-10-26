@@ -113,9 +113,11 @@ rule concat_md5sum_nolambda_fastq:
             for fname in getinputs("fastq", "fastq_gz"):
                 print(fname, file=fh)
 
+        fofn2_linecount = 0
         with open(output.fofn2, "w") as fh:
-            for fofn2_linecount, fname in enumerate(getinputs("counts", "counts_gz")):
+            for fname in getinputs("counts", "counts_gz"):
                 print(fname, file=fh)
+                fofn2_linecount += 1
 
         # Simply concatenate the gzipped files. This works even if no files.
         shell(r"xargs -rd '\n' cat <{output.fofn} > {output.gz}")
@@ -146,9 +148,11 @@ rule concat_md5sum_lambda_bam:
                 try: yield from getattr(input, v)
                 except AttributeError: pass
 
+        fofn_linecount = 0
         with open(output.fofn, "w") as fh:
-            for fofn_linecount, fname in enumerate(getinputs("bam", "bam_gz")):
+            for fname in getinputs("bam", "bam_gz"):
                 print(fname, file=fh)
+                fofn_linecount += 1
 
         if fofn_linecount:
             # samtools merge (files in fastq_pass_tmp should be pre-sorted)
