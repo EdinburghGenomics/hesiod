@@ -369,14 +369,17 @@ rule one_cell:
                 # Nope - they should always match.
                 cell_files = { k: [f for cfb in cell_content.values() for f in cfb[f'{k}_{pf}']]
                                for k in ["fastq", "fast5"] }
+                # Add in gzipped file counts
+                cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb[f'fastq.gz_{pf}']]
                 if len(cell_files['fastq']) == len(cell_files['fast5']):
                     ci['Files in '+pf] = len(cell_files['fastq'])
                 else:
                     ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files['fastq']),
                                                                          len(cell_files['fast5']),
                                                                          pf = pf )
-            except KeyError:
+            except KeyError as e:
                 # FIXME - see comment above.
+                logger.warning(repr(e))
                 ci['Files in '+pf] = "unknown"
 
         # Add info from the .count files - add in '_label' and '_barcode' but I'm not sure

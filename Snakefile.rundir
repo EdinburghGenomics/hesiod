@@ -96,10 +96,10 @@ rule concat_md5sum_nolambda_fastq:
         fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
         fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list"),
     input:
-        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"      for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}.gznlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
-        counts    = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count"   for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}.gznlfq.count" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}nlfq.gz"     for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        counts    = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}nlfq.count"  for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     run:
         def getinputs(*vnames):
             """Little helper to get combined input values"""
@@ -137,7 +137,7 @@ rule concat_md5sum_lambda_bam:
         fofn = temp("{cell}/{fullid}_{barcode}_lambda_bam.list")
     input:
         bam    = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}.gzlambda.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     threads: 4
     run:
         def getinputs(*vnames):

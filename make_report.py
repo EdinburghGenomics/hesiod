@@ -118,6 +118,8 @@ def format_report( all_info,
         P( ":::::: {.bs-callout}" )
 
         # Calculate some basic metadata for all cells in project
+        # Note that "ci['Files in '+pf]" is set in Snakefile.main and here we assume that all the
+        # values are nice integers.
         P( format_dl( [( 'Cell Count', len(cells) ),
                        ( 'Library Count', len(set([c['Library'] for c in cells])) ),
                        ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
