@@ -514,8 +514,11 @@ rule samstats:
     output: "lambdaqc/{cell}/{all,[^/]+}_lambda.bam.stats"
     input:  "{cell}/{all}_lambda.bam"
     threads: 4
-    shell:
-       r'''{TOOLBOX} samtools stats -d -@ {threads} {input} > {output}'''
+    run:
+        if os.path.getsize(str(input)) == 0:
+            shell("echo 'Zero-byte BAM File' > {output}")
+        else:
+            shell("{TOOLBOX} samtools stats -d -@ {threads} {input} > {output}")
 
 rule qualimap:
     output:
