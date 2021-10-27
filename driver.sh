@@ -336,10 +336,11 @@ action_cell_ready(){
     # Attempt deletion but don't fret if it fails
     set +e ; ( set -e
         _upstream="$(cat pipeline/upstream)"
+        _cellsready=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
         if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
             if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
                 log "Marking deletable cells on $_upstream."
-                echo "Marking cells as deletable on $_upstream: $CELLSREADY"
+                echo "Marking cells as deletable on $_upstream: $_cellsready"
                 del_remote_cells.sh "$_upstream" $CELLSREADY || log FAILED
             fi
         fi

@@ -263,10 +263,13 @@ def format_report( all_info,
             P( "[Full NanoPlot Report](np/NanoPlot_{cell}-report.html)".format(cell=cell_uid) )
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
-        # same otherwise)
+        # same otherwise). Often we have barcodes with no passed reads, in which case 'has_data'
+        # will be set to False and we skip the plot.
         if '_blobs_data' in ci:
             for ablob in ci['_blobs_data']:
                 for plot_group in ablob:
+                    if plot_group.get('has_data') is False:
+                        continue
 
                     P('\n### {}\n'.format(plot_group['title']))
 
