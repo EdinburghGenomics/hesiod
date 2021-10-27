@@ -125,6 +125,9 @@ def scan_cells(rundir, config):
                     d.setdefault(barcode, dict()).setdefault(category, list()).append(bf)
 
         # Add in empty lists for missing items.
+        # A quirk of the logic above is that barcodes with "fail" reads but no "pass" reads
+        # are listed after those with "pass" reads, and this carries into the reports. If this
+        # is a problem, this is the place to fix it by sorting all dicts within res.
         for c, d in res.items():
             for bcdict in d.values():
                 for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
