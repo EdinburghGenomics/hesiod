@@ -50,7 +50,7 @@ if [ -e "$ENVIRON_SH" ] ; then
 
     # Saves having to put 'export' on every line in the config.
     export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
-           PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK \
+           PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK RSYNC_CMD \
            RT_SYSTEM STALL_TIME VERBOSE TOOLBOX \
            DEL_REMOTE_CELLS PROJECT_NAME_LIST PROM_RUNS_BATCH \
            EXTRA_SNAKE_FLAGS EXTRA_SNAKE_CONFIG MAIN_SNAKE_TARGETS
@@ -313,7 +313,10 @@ action_cell_ready(){
     set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
       # ever have one of these running at a time.
-      upload_report | plog && log DONE
+      if ! upload_report | plog ; then
+        log "Processing completed but failed to upload the report. See $per_run_log"
+        false
+      fi
 
       # At the moment, failing notify RT after making a report is always a failure condition, even if there
       # is more data to sync/process. This should probably be addressed so we can keep syncing, but it
@@ -600,33 +603,34 @@ notify_run_complete(){
 }
 
 upload_report() {
-    # Pushes the report. Will not exit on error but the report_upload_url.txt will indicate
-    # if this worked.
-    # status to the caller. I'm assuming all substantial processing will have been done already
-    # so this should be quick.
+    # Pushes the report to the server. On error, exits with non-zero status and guarantees
+    # that pipeline/report_upload_url.txt is removed.
 
     # usage: upload_report
 
-    # The SMRTino version was somewhat messier. This may get messier too.
-
-    set +o | grep '+o errexit' && _ereset='set +e' || _ereset='set -e'
-    set +e
+    # The SMRTino version was somewhat messier. This one tries to be sane(ish).
 
     # Get a handle on logging.
     plog </dev/null
     _plog="${per_run_log}"
 
-    # Push to server and capture the result (if upload_report.sh does not error it must print a URL)
+    # Push to server and capture the result (upload_report.sh runs OK and prints a URL)
     # We want stderr from upload_report.sh to go to stdout, so it gets plogged.
-    # Note that the code relies on checking the existence of this file to see if the upload worked,
-    # so if the upload fails it needs to be removed.
+    # First ensure any old URL file is removed.
     rm -f pipeline/report_upload_url.txt
     log "Uploading report"
     upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
         { log "Upload error. See $_plog" ;
           rm -f pipeline/report_upload_url.txt ; }
 
-    eval "$_ereset"
+    if [ ! -e pipeline/report_upload_url.txt ] ; then
+        return 1
+    elif ! grep -q . pipeline/report_upload_url.txt ; then
+        # File exists but is empty. Shouldn't happen?!
+        log "upload_report.sh exited with status 0 but did not return a URL. See $_plog"
+        rm pipeline/report_upload_url.txt
+        return 1
+    fi
 }
 
 send_summary_to_rt() {
@@ -658,7 +662,7 @@ send_summary_to_rt() {
 
     # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
     { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
-            _last_upload_report="Report not yet generated or upload failed."
+            _last_upload_report="Report not yet generated."
 
       _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" $_fudge 2>&3)" || \
             _run_summary="Error making run summary."

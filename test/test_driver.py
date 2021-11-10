@@ -27,7 +27,7 @@ PROGS_TO_MOCK = {
     "rsync" : None,
     "Snakefile.main" : None,
     "rt_runticket_manager.py" : "echo STDERR rt_runticket_manager.py >&2",
-    "upload_report.sh" : "echo STDERR upload_report.sh >&2",
+    "upload_report.sh" : "echo STDERR upload_report.sh >&2 ; echo http://dummylink",
     "del_remote_cells.sh" : "echo STDERR del_remote_cells.sh >&2"
 }
 
@@ -599,8 +599,64 @@ class T(unittest.TestCase):
 
         self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
         self.assertInStdout("Failed to send summary to RT.")
+
         self.assertInStderr("FAIL Reporting for cells")
         self.assertInStderr("and also failed to report the error via RT")
+
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
+        self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
+        self.assertTrue(os.path.exists(self.run_path + "/pipeline/failed"))
+
+        # Doctor non-deterministic calls to rt_runticket_manager.py
+        rtcalls = self.bm.last_calls['rt_runticket_manager.py']
+        for i in range(len(rtcalls)):
+            rtcalls[i][-1] = re.sub( r'@\S+$', '@???', rtcalls[i][-1] )
+
+        expected_calls = self.bm.empty_calls()
+        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
+                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
+                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
+                                              "--", "pack_fast5", "main" ]]
+        expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
+        # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
+        # report the error to STDERR. I gues it's OK.
+        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
+                                                       "--reply",
+                                                       "All 2 cells have run on the instrument. Full report will follow soon." ],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
+                                                       "--comment", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "Finished pipeline",
+                                                       "--reply", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "failed",
+                                                       "--reply",
+                                                       "Failed at Reporting for cells [\n"
+                                                       "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
+                                                       "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
+                                                       "].\n"
+                                                       "See log in " + self.run_path + "/pipeline/output/pipeline.log" ]]
+        expected_calls['del_remote_cells.sh'] = []
+
+        self.assertEqual(self.bm.last_calls, expected_calls)
+
+    def test_run_complete_uploadfail(self):
+        """Same as test_run_complete_rtfail, but upload of report fails.
+           The run should notify RT (which will work) but then end in a failed
+           state because of the upload failure.
+        """
+        self.copy_run('20000101_TEST_testrun2')
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
+
+        # Make the report uploader faile
+        self.bm.add_mock('upload_report.sh', fail=True, side_effect="echo Error in upload_report.sh >&2")
+        self.bm_rundriver()
+
+        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("Processing completed but failed to upload the report.")
+        # We've already asserted that STDERR is empty.
 
         self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
         self.assertFalse(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
@@ -625,8 +681,6 @@ class T(unittest.TestCase):
                                                        "All 2 cells have run on the instrument. Full report will follow soon." ],
                                                      [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
                                                        "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "Finished pipeline",
-                                                       "--reply", "@???"],
                                                      [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "failed",
                                                        "--reply",
                                                        "Failed at Reporting for cells [\n"

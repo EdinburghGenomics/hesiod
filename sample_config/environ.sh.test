@@ -57,8 +57,9 @@ SYNC_CMD_MIN1="rsync -vrlptR \${upstream}/./\${cell} \${run_dir_full}/"
 # to whatever is in SYNC_CMD.
 
 # Reports reports reports
-REPORT_DESTINATION=web1.genepool.private:/var/runinfo/hesiod_reports/test
-REPORT_LINK=http://web1.genepool.private/runinfo/hesiod_reports/test
+REPORT_DESTINATION=edgenom1@egcloud.bio.ed.ac.uk:hesiod/test
+REPORT_LINK=https://egcloud.bio.ed.ac.uk/hesiod/test
+RSYNC_CMD="rsync --rsync-path=bin/rsync_reports"
 
 # Or
 #REPORT_DESTINATION=localhost:"$(readlink -f $PROM_RUNS)"/hesiod_reports
