@@ -46,7 +46,7 @@ echorun $RSYNC_CMD -drvlOt all_reports $dest/$runname/ >&2
 # Add the index to redirect. We now have to make this a PHP script but at least the content is totally fixed.
 # This is very similar to what we have on Illuminatus (but not quite).
 index_php="$(dirname $BASH_SOURCE)/templates/index.php"
-if $RSYNC_CMD -vp "$index_php" $dest/$runname/ >&2 ; then
+if $RSYNC_CMD -vpL "$index_php" $dest/$runname/ >&2 ; then
     echo "...done. Report uploaded and index.php written to ${dest#*:}/$runname/." >&2
 else
     echo "...done. Report uploaded but failed to write index.php to ${dest#*:}/$runname/." >&2
