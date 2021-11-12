@@ -42,7 +42,6 @@ else
         pip_install pyyaml==5.4.1
         pip_install yamlloader==1.0.0
         pip_install Rt==1.0.11
-        pip_install pystache==0.5.4
         pip_install python-dateutil==2.8.1
 
         # things needed for Blobtools - we are using
