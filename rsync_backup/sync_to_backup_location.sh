@@ -57,16 +57,11 @@ for run in "$FASTQDATA"/*/ ; do
   run_status=$(run_status.py "$run" | sed -n '/^PipelineStatus:/s/.*: *//p')
   debug "Status is reported as $run_status"
 
-  if [ "$run_status" = "aborted" ] ; then
-    debug "Ignoring aborted $run_name"
-    continue
-  fi
-
   # Wait for qc to complete before running the sync.
   # Maybe I should RSYNC anyway here and not wait for final QC? But that gets messy.
   # If the pipeline dir is missing this check will be skipped, but we do need the log - see the next check.
   if [ "$run_status" != "complete" ] ; then
-    echo "Ignoring incomplete $run_name"
+    echo "Ignoring $run_status $run_name"
     continue
   fi
 
