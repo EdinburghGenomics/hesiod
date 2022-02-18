@@ -11,7 +11,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     popd >/dev/null
 
     export FASTQDATA RUN_NAME_REGEX VERBOSE \
-           BACKUP_DRY_RUN BACKUP_LOCATION BACKUP_NAME_REGEX
+           BACKUP_DRY_RUN BACKUP_LOCATION BACKUP_NAME_REGEX BACKUP_FAST5
 fi
 
 # Add the PATH
@@ -92,12 +92,17 @@ for run in "$FASTQDATA"/*/ ; do
 
   if [ "${VERBOSE}" != 0 ] ; then set -x ; fi
 
+  excludes=(--exclude='**/.snakemake' --exclude='**/slurm_output')
+  if [ "${BACKUP_FAST5}:-yes" = no ] ; then
+    excludes+=(--exclude='*.fast5' --exclude='*.fast5.gz')
+  fi
+
   # Note there is no --delete flag so if the sample list changes the old files will remain on the backup.
   # This should not be a problem. If --delete is added below then the --backup flag should prevent cascading data
   # loss in the case where files are accidentally removed from the master copy.
   # Since --backup implies --omit-dir-times we have to do a special fix for that, or else the test for activity gets
   # triggered again and again.
-  rsync -sbav --exclude='**/.snakemake' --exclude='**/slurm_output' --exclude={rundata,projects_deleted.txt,pipeline.log} \
+  rsync -sbav "${excludes[@]}" --exclude={rundata,projects_deleted.txt,pipeline.log} \
     "$run" "$BACKUP_LOCATION/$run_name"
   rsync -svrtg --exclude='**' \
     "$run" "$BACKUP_LOCATION/$run_name"
