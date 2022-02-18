@@ -102,9 +102,9 @@ for run in "$FASTQDATA"/*/ ; do
   # loss in the case where files are accidentally removed from the master copy.
   # Since --backup implies --omit-dir-times we have to do a special fix for that, or else the test for activity gets
   # triggered again and again.
-  rsync -sbav "${excludes[@]}" --exclude={rundata,projects_deleted.txt,pipeline.log} \
+  rsync -rlpt -sbv "${excludes[@]}" --exclude={rundata,projects_deleted.txt,pipeline.log} \
     "$run" "$BACKUP_LOCATION/$run_name"
-  rsync -svrtg --exclude='**' \
+  rsync -svrt --exclude='**' \
     "$run" "$BACKUP_LOCATION/$run_name"
 
   # Just to test the log catcher below we can...
