@@ -93,7 +93,7 @@ for run in "$FASTQDATA"/*/ ; do
   if [ "${VERBOSE}" != 0 ] ; then set -x ; fi
 
   excludes=(--exclude='**/.snakemake' --exclude='**/slurm_output')
-  if [ "${BACKUP_FAST5}:-yes" = no ] ; then
+  if [ "${BACKUP_FAST5:-yes}" = no ] ; then
     excludes+=(--exclude='*.fast5' --exclude='*.fast5.gz')
   fi
 

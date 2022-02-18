@@ -31,11 +31,12 @@ if [ -e ./_hesiod_venv/bin/activate ] ; then
     activate_venv
 
 else
-    echo "Bootstrapping new VEnv from toolbox/bootstrap_python3"
     ( set -e ;
         # Best to resolve the symlink before bootstrapping the VEnv
         _py3="${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3
-        "$(readlink -f "$_py3")" -mvenv ./_hesiod_venv
+        _py3_real="$(readlink -f "$_py3")"
+        echo "Bootstrapping new VEnv from $_py3 ($_py3_real)"
+        "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
 
         pip_install pip==19.3.1
@@ -78,6 +79,7 @@ else
         activate_venv
     else
         echo "Provisioning VEnv Failed!"
+        unset -f pip_install
         false
     fi
 fi
