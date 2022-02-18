@@ -113,7 +113,7 @@ plog() {
 }
 
 plog_start() {
-    # Unset $per_run_log or else all the logs do to the first run seen
+    # Unset $per_run_log or else all the logs go to the first run seen
     unset per_run_log
     plog $'>>>\n>>>\n>>>'" $0 starting action_$STATUS at `date`"
 }
@@ -235,8 +235,10 @@ action_new(){
         set +e
         log "$_msg2"
         # Prevent writing to the pipeline log during failure handling as we don't own it!
-        plog() { ! [ $# = 0 ] || cat >/dev/null ; } ; per_run_log="$MAINLOG"
-        pipeline_fail New_Run_Setup
+        (  plog() { ! [ $# = 0 ] || cat >/dev/null ; }
+           per_run_log="$MAINLOG"
+           pipeline_fail New_Run_Setup
+        )
         return
     fi
 
