@@ -120,7 +120,7 @@ def read_fast5(fobj):
 
         # Now look for basecalling metadata - there is some possible ambiguity
         # in the names here.
-        bks = [k for k in read0['Analyses'] if k.startswith("Basecall_")]
+        bks = [k for k in read0.get('Analyses', []) if k.startswith("Basecall_")]
         if len(bks) == 1:
             # OK we can get some info from it
             logging.debug("Basecall section is {}".format(bks[0]))
@@ -130,6 +130,10 @@ def read_fast5(fobj):
             res['BaseCallerVersion'] = bk.attrs['version']
         else:
             logging.debug("Found {} basecall sections".format(len(bks)))
+
+            # Delete the 'BaseCallerTime' and 'BaseCallerVersion' then
+            del res['BaseCallerTime']
+            del res['BaseCallerVersion']
 
     # Decode all byte strings in res, and re-format dates.
     for k in list(res):
