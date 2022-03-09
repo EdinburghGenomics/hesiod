@@ -7,6 +7,8 @@ def jstr(instr):
     """
     # Hmm - I wrote this recently but can't for the life of me remember where it was.
     # So I write it again.
+    # Oh - and now I realise I should have used textwrap.dedent. Oh well, I'll fix
+    # it at some point.
 
     if "\n" not in instr:
         return instr

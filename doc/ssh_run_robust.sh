@@ -3,6 +3,7 @@
 # How to robustly run a command via SSH?
 
 # It's nigh-on impossible!!
+# (solved in Python by double-shlex-quoting)
 
 _nl=0 ; _p=0 ; _f=0
 function assertEqual(){

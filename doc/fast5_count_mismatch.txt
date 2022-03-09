@@ -1,0 +1,43 @@
+After the upgrade of the software on the Promethion in late Feb 2022 we had runs
+failing in the Hesiod pipeline because the count of FASTQ files does not match
+the count of FAST5 files. I investigated and found the following...
+
+== A change to the handling of skipped reads ==
+
+This seems to be fully deliberate. If you look in the sequencing_summary.txt file you
+see that the first two columns are "filename_fastq" and "filename_fast5". In previous runs,
+these filenames always corresponded, with the exception of "skip" reads where the fast5
+filename would be in the "skip" folder and the fastq filename would be "-" indicating
+that there is no FASTQ output for skipped reads (by definition).
+
+But now it looks like the skipped reads are going into the "fast5_fail" instead of the
+"fast5_skip". You can see these in the sequencing_summary.txt still with "-" in the first
+column of those rows. Each FAST5 file contains 4000 reads, and Guppy also pads out each FASTQ
+file to 4000 reads, meaning that above a certain number of skips the number of FASTQ files
+ends up being less than the number of FAST5 files. Also the reads are no longer in the corresponding
+numbered files - again this is evident looking at the end rows of the sequencing summary.
+
+Note this only applies to the "fail" reads. Because every "pass" read does generate a FASTQ sequence
+the number of "pass" files is still always identical. And it does seem that the reads do still end up
+in the corresponding files, rather than being shuffled at all, but I suspect that ONT don't guarantee
+this.
+
+For barcoded runs things are a little different. In this case the "skip" reads don't get mixed in with the
+"fail" reads because they end up in a separate FAST5 file outside of any barcode or the
+"unclassified" directory. So this file may as well be called "skip" but it's called, eg.
+"PAK00383_fail__564d5253_0.fast5".
+
+I don't really know why ONT have decided to lump the "skip" reads in with the "fail" reads. It seems
+like there was a useful distinction. Possibly it's an efficiency consideration. The good news is that
+having understood this there's not too much to do to make our pipeline happy.
+
+== Remedy ==
+
+1) Fixed get_fast5_metadata.py to not error out when the Analysis section is missing
+from the FAST5 record. Note we still get a "GuppyVersion" even though there is no
+Guppy output evident in the file.
+
+2) Removed the check that the file counts are equal and instead validate against the
+final_summary_PAK00937_0cf1af9c.txt file.
+
+This should be all that's needed to get things working. I will implement and test.
