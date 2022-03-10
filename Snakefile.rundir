@@ -29,10 +29,10 @@ rule gzip_sequencing_summary:
 # Note2 that barcode=. should work with this even though it's a bit sus.
 rule gzip_md5sum_fast5:
     output:
-        gz  = "{cell}/fast5_{barcode}_{pf}/{f5fn}.fast5.gz",
-        md5 = "md5sums/{cell}/fast5_{barcode}_{pf}/{f5fn}.fast5.gz.md5"
+        gz  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.gz",
+        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.gz.md5"
     input:
-        RUNDIR + "/{cell}/fast5_{pf}/{barcode}/{f5fn}.fast5"
+        RUNDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
     threads: 2
     shell:
        r"""{PIGZ} -v -p{threads} -Nc {input} > {output.gz}
@@ -187,8 +187,8 @@ rule map_lambda:
                 lambda_splitter.awk \
                     -v paf=/dev/stdin \
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
-                    {input} ) | \
-           {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
+                    <({PIGZ} -fdc {input}) ) | \
+                {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
            {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.counts}
         """
 

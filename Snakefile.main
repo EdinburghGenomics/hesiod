@@ -40,8 +40,9 @@ from itertools import product
 from functools import partial
 from subprocess import CalledProcessError
 
-from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
+from hesiod import glob, parse_cell_name, load_final_summary, groupby, dump_yaml, load_yaml
 
+# This is just here to help testing - Snakemake sets it automatically.
 logger = snakemake.logging.logger
 
 # $TOOLBOX must be set to something
@@ -131,21 +132,30 @@ def scan_cells(rundir, config):
         for c, d in res.items():
             for bcdict in d.values():
                 for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
-                    # If the barcode is there we should have all four categories
+                    # If the barcode is there we should have all four categories in bcdict
                     bcdict.setdefault(f"{filetype}_{pf}", [])
 
-        # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
-        # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so for
-        # real runs this check should always pass.
+            # I'm not sure what to do with fast5_skip files, but at this point if I see any I'll just
+            # tack them on with fast5_fail. If I see "skipped" files _and_ barcodes well then I really
+            # dunno.
+            if '.' in d:
+                d['.']['fast5_fail'].extend( [ f[len(rundir) + 1:]
+                                               for f in glob(f"{rundir}/{c}/fast5_skip/*.fast5") ] )
+
+        # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
-            for pf in ["pass", "fail"]:
-                fastq_sum = sum( len(fileslist[f"fastq_{pf}"]) for fileslist in d.values() )
-                # Zipped FASTQ files too!
-                fastq_sum += sum( len(fileslist[f"fastq.gz_{pf}"]) for fileslist in d.values() )
-                fast5_sum = sum( len(fileslist[f"fast5_{pf}"]) for fileslist in d.values() )
-                if fastq_sum != fast5_sum:
-                    raise RuntimeError( f"Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
-                                        sc_counts(res) )
+            fs = load_final_summary(*glob(f"{rundir}/{c}/final_summary_*_*.txt"))
+            for ft in ["fastq", "fast5"]:
+                # Add zipped and unzipped FASTQ files...
+                ft_sum = sum( len(fileslist[f"{ft}{z}_{pf}"])
+                                for fileslist in d.values()
+                                for z in (["", ".gz"] if ft == "fastq" else [""])
+                                for pf in ["pass", "fail"] )
+
+                ft_expected = fs[f"{ft}_files_in_final_dest"]
+                if ft_sum != ft_expected:
+                    raise RuntimeError( f"Mismatch between count of {ft.upper()} files for {c}:\n" +
+                                        f"{ft_sum} (seen) != {ft_expected} (in final_summary.txt)" )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
@@ -231,14 +241,15 @@ def save_out_plist(yaml_files, out_file):
         with open(out_file, "w") as ofh:
             print( *sorted(plist), file=ofh, sep='\n' )
 
-if 'logger' in globals():
-    logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
+logger.info( f"config =\n{pformat(config)}" )
+logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
 
 # Global wildcard patterns
 wildcard_constraints:
     fullid  = "[^/]+",
     barcode = "[^/_]+",
-    pf      = "pass|fail"
+    pf      = "pass|fail",
+    pfs     = "pass|fail|skip",
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
