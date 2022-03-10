@@ -77,13 +77,7 @@ class T(unittest.TestCase):
         """
         sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
                                  dict() )
-        # In this example no cells are ready but we see ther is one cell
-        self.assertEqual(sc, dict())
-        self.assertEqual(counts, dict( cells=1, cellsaborted=0, cellsready=0 ))
 
-        # If we say that the cell is ready we should detect the files
-        sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
-                                 dict( cellsready='testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' ) )
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
                                        "fast5_fail": [],
                                        "fastq_fail": [],
