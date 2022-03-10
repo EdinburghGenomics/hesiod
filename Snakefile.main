@@ -385,12 +385,9 @@ rule one_cell:
                                for k in ["fastq", "fast5"] }
                 # Add in gzipped file counts
                 cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb[f'fastq.gz_{pf}']]
-                if len(cell_files['fastq']) == len(cell_files['fast5']):
-                    ci['Files in '+pf] = len(cell_files['fastq'])
-                else:
-                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files['fastq']),
-                                                                         len(cell_files['fast5']),
-                                                                         pf = pf )
+                ci['Files in '+pf] = len(cell_files['fastq'])
+                ci['Files in fast5 '+pf] = len(cell_files['fast5'])
+
             except KeyError as e:
                 # FIXME - see comment above.
                 logger.warning(repr(e))

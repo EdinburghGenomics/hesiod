@@ -17,6 +17,10 @@ BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 #BLOB_PARTS  = "pass nolambda lambda".split()
 BLOB_PARTS  = config.get('blob_parts', ["pass"])
 
+# Snakemake won't let us set a congif item to [], so...
+if BLOB_PARTS == "none" or BLOB_PARTS == ["none"]:
+    BLOB_PARTS = []
+
 # This is how I want to pass my plots into compile_cell_info.py
 # Serves as the driver by depending on the 6 (3?) blob plots and thumbnails for
 # each, and arranges the plots into 2 (1?) rows of 3 columns as we wish to
@@ -57,8 +61,11 @@ rule per_cell_blob_plots:
         # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE, so check
         # the FASTA, then make a dict of {part: seq_count} for this cell.
         wc = wildcards
-        counts = { part: slurp_file(f)[0]
-                   for part, f in zip(BLOB_PARTS, input.sample) }
+        if not BLOB_PARTS:
+            counts = {}
+        else:
+            counts = { part: slurp_file(f)[0]
+                       for part, f in zip(BLOB_PARTS, input.sample) }
 
         # I need to emit the plots in order in pairs. Unfortunately expand() won't quite
         # cut it here in preserving order but I can make a nested list comprehension.
