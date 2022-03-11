@@ -20,22 +20,19 @@ rule gzip_sequencing_summary:
             ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
          """
 
-# gzipper that uses pigz and compresses from RUNDIR to CWD
+# Link and checksum the fast5 file
 # md5summer that keeps the file path out of the .md5 file
-# I made these a single rule to reduce the number of submitted jobs, with
-# the assuption we'll always be doing both, and "group:" in Snakemake is currently
-# broken with DRMAA :-( ...But I fixed it in upstream now :-)
 # Note that the fast5_out() utility function determines outputs for this rule.
 # Note2 that barcode=. should work with this even though it's a bit sus.
 rule gzip_md5sum_fast5:
     output:
-        gz  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.gz",
-        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.gz.md5"
+        f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
+        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
     input:
         RUNDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
     threads: 2
     shell:
-       r"""{PIGZ} -v -p{threads} -Nc {input} > {output.gz}
+       r"""ln {input} {output.f5}
            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
         """
 

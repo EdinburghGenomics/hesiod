@@ -175,7 +175,7 @@ def sc_counts(sc_dict, width=140):
     return pformat(sc_counts, width=width)
 
 def find_representative_fast5(cell, sc, try_glob=True):
-    """ Find a fast5 file to scan for metadata. This returns the fast5.gz file as found
+    """ Find a fast5 file to scan for metadata. This returns the .fast5 file as found
         in the output directory but uses the list of files globbed from the input directory.
     """
     fast5_pass = [ plist for bc in sc[cell] for plist in sc[cell][bc]['fast5_pass']  ]
@@ -188,7 +188,7 @@ def find_representative_fast5(cell, sc, try_glob=True):
         return fast5_out(fast5_fail[0])
     elif try_glob:
         # Look for an existing output file.
-        globbed = glob(f"{cell}/fast5_*_????/*.fast5.gz")
+        globbed = glob(f"{cell}/fast5_*_????/*.fast5")
         if globbed:
             return globbed[0]
         raise RuntimeError("No representative FAST5 found")
@@ -197,16 +197,16 @@ def find_representative_fast5(cell, sc, try_glob=True):
         raise RuntimeError("No representative FAST5 found and try_glob is False")
 
 def fast5_out(f5_in):
-    """ Given a fast5 file, say what the output fast5.gz will be
+    """ Given a .fast5 file, say what the output .fast5 will be
     """
     f5_split = f5_in.split('/')
     pf = f5_split[2].split('_')[1]
 
     if len(f5_split) == 5:
         # has barcode
-        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}.gz"
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}"
     else:
-        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}.gz"
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}"
 
 
 def find_sequencing_summary(rundir, cell):
@@ -296,9 +296,10 @@ rule main:
 
 # I've split out the fast5 packing in order to allow me to re-run everything else without
 # doing this. So to fully process a run you need to call main AND pack_fast5
+# Note that as of v0.12, FAST5 file compression is no longer attempted
 rule pack_fast5:
     input:
-        fast5_gz   = lambda wc: [ fast5_out(f)
+        fast5_link = lambda wc: [ fast5_out(f)
                                         for cell, barcodes in SC.items()
                                         for bc in barcodes
                                         for pf in ['fast5_pass', 'fast5_fail']
