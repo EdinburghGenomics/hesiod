@@ -132,7 +132,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5.gz" )
+                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5" )
 
     def test_find_representative_fast5_nobc(self):
         """ And for the barcodeless version
@@ -142,7 +142,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5.gz" )
+                          cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5" )
 
     def test_find_representative_fast5_null(self):
         """ Oh and the null version
