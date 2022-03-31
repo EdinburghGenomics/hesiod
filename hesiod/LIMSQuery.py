@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Basic LIMS querying code for the things we need in Illuminatus, er I mean Hesiod.
+"""Basic LIMS querying code for the things we need in Illuminatus, or Hesiod.
    Generic LIMS functionality should be folded back into the genelogics project
    https://github.com/EdinburghGenomics/genologics/blob/master/examples/get_projects.py
 
@@ -70,8 +70,13 @@ class MyLimsDB:
     def __init__(self):
         """Connect using the info in ~/.genologics or equivalent.
         """
-        self._conn_str = "user={} host={} dbname={}".format(
-                            *get_config("genologics-sql", "USERNAME SERVER DATABASE".split()) )
+        try:
+            self._conn_str = "user={} host={} dbname={} port={}".format(
+                                *get_config("genologics-sql", "USERNAME SERVER DATABASE PORT".split()) )
+        except KeyError:
+            self._conn_str = "user={} host={} dbname={}".format(
+                                *get_config("genologics-sql", "USERNAME SERVER DATABASE".split()) )
+
         self._conn = None
 
     def is_connected(self):
@@ -121,7 +126,7 @@ class MyLims:
         # and calling .name on every project is slow as it entails an extra GET
         # Maybe we need to bypass Clarity and hit PostgreSQL?
 
-        #Yes I'm scanning the list many times, but the key thing is I only fetch it once.
+        # Yes I'm scanning the list many times, but the key thing is I only fetch it once.
         res = []
         projects = filter_names(( p.name for p in projects ))
 
@@ -149,7 +154,7 @@ class MyLims:
                 projects.append(node.text)
             next_page = proot.find('next-page')
             if next_page is None: break
-            proot = self.get(next_page.attrib['uri'])
+            proot = lims.get(next_page.attrib['uri'])
 
         #Yes I'm scanning the list many times, but the key thing is I only fetch it once.
         res = []

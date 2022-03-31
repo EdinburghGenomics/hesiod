@@ -40,8 +40,9 @@ from itertools import product
 from functools import partial
 from subprocess import CalledProcessError
 
-from hesiod import glob, parse_cell_name, groupby, dump_yaml, load_yaml
+from hesiod import glob, parse_cell_name, load_final_summary, groupby, dump_yaml, load_yaml
 
+# This is just here to help testing - Snakemake sets it automatically.
 logger = snakemake.logging.logger
 
 # $TOOLBOX must be set to something
@@ -131,21 +132,30 @@ def scan_cells(rundir, config):
         for c, d in res.items():
             for bcdict in d.values():
                 for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
-                    # If the barcode is there we should have all four categories
+                    # If the barcode is there we should have all four categories in bcdict
                     bcdict.setdefault(f"{filetype}_{pf}", [])
 
-        # Sanity-check that the file counts match. But we seem to be seeing this in several runs,
-        # so maybe it's not an error? Oh - it's because I'm seeing Urmi's already-combined reads, so for
-        # real runs this check should always pass.
+            # I'm not sure what to do with fast5_skip files, but at this point if I see any I'll just
+            # tack them on with fast5_fail. If I see "skipped" files _and_ barcodes well then I really
+            # dunno.
+            if '.' in d:
+                d['.']['fast5_fail'].extend( [ f[len(rundir) + 1:]
+                                               for f in glob(f"{rundir}/{c}/fast5_skip/*.fast5") ] )
+
+        # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
-            for pf in ["pass", "fail"]:
-                fastq_sum = sum( len(fileslist[f"fastq_{pf}"]) for fileslist in d.values() )
-                # Zipped FASTQ files too!
-                fastq_sum += sum( len(fileslist[f"fastq.gz_{pf}"]) for fileslist in d.values() )
-                fast5_sum = sum( len(fileslist[f"fast5_{pf}"]) for fileslist in d.values() )
-                if fastq_sum != fast5_sum:
-                    raise RuntimeError( f"Mismatch between count of FASTQ and FAST5 files for {c} ({pf}):\n" +
-                                        sc_counts(res) )
+            fs = load_final_summary(*glob(f"{rundir}/{c}/final_summary_*_*.txt"))
+            for ft in ["fastq", "fast5"]:
+                # Add zipped and unzipped FASTQ files...
+                ft_sum = sum( len(fileslist[f"{ft}{z}_{pf}"])
+                                for fileslist in d.values()
+                                for z in (["", ".gz"] if ft == "fastq" else [""])
+                                for pf in ["pass", "fail"] )
+
+                ft_expected = fs[f"{ft}_files_in_final_dest"]
+                if ft_sum != ft_expected:
+                    raise RuntimeError( f"Mismatch between count of {ft.upper()} files for {c}:\n" +
+                                        f"{ft_sum} (seen) != {ft_expected} (in final_summary.txt)" )
 
     # Return the dict of stuff to process, and other counts we've calculated
     return res, dict( cells = len(cells),
@@ -165,7 +175,7 @@ def sc_counts(sc_dict, width=140):
     return pformat(sc_counts, width=width)
 
 def find_representative_fast5(cell, sc, try_glob=True):
-    """ Find a fast5 file to scan for metadata. This returns the fast5.gz file as found
+    """ Find a fast5 file to scan for metadata. This returns the .fast5 file as found
         in the output directory but uses the list of files globbed from the input directory.
     """
     fast5_pass = [ plist for bc in sc[cell] for plist in sc[cell][bc]['fast5_pass']  ]
@@ -178,7 +188,7 @@ def find_representative_fast5(cell, sc, try_glob=True):
         return fast5_out(fast5_fail[0])
     elif try_glob:
         # Look for an existing output file.
-        globbed = glob(f"{cell}/fast5_*_????/*.fast5.gz")
+        globbed = glob(f"{cell}/fast5_*_????/*.fast5")
         if globbed:
             return globbed[0]
         raise RuntimeError("No representative FAST5 found")
@@ -187,16 +197,16 @@ def find_representative_fast5(cell, sc, try_glob=True):
         raise RuntimeError("No representative FAST5 found and try_glob is False")
 
 def fast5_out(f5_in):
-    """ Given a fast5 file, say what the output fast5.gz will be
+    """ Given a .fast5 file, say what the output .fast5 will be
     """
     f5_split = f5_in.split('/')
     pf = f5_split[2].split('_')[1]
 
     if len(f5_split) == 5:
         # has barcode
-        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}.gz"
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}"
     else:
-        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}.gz"
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}"
 
 
 def find_sequencing_summary(rundir, cell):
@@ -231,14 +241,15 @@ def save_out_plist(yaml_files, out_file):
         with open(out_file, "w") as ofh:
             print( *sorted(plist), file=ofh, sep='\n' )
 
-if 'logger' in globals():
-    logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
+logger.info( f"config =\n{pformat(config)}" )
+logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
 
 # Global wildcard patterns
 wildcard_constraints:
     fullid  = "[^/]+",
     barcode = "[^/_]+",
-    pf      = "pass|fail"
+    pf      = "pass|fail",
+    pfs     = "pass|fail|skip",
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
@@ -285,9 +296,10 @@ rule main:
 
 # I've split out the fast5 packing in order to allow me to re-run everything else without
 # doing this. So to fully process a run you need to call main AND pack_fast5
+# Note that as of v0.12, FAST5 file compression is no longer attempted
 rule pack_fast5:
     input:
-        fast5_gz   = lambda wc: [ fast5_out(f)
+        fast5_link = lambda wc: [ fast5_out(f)
                                         for cell, barcodes in SC.items()
                                         for bc in barcodes
                                         for pf in ['fast5_pass', 'fast5_fail']
@@ -374,12 +386,9 @@ rule one_cell:
                                for k in ["fastq", "fast5"] }
                 # Add in gzipped file counts
                 cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb[f'fastq.gz_{pf}']]
-                if len(cell_files['fastq']) == len(cell_files['fast5']):
-                    ci['Files in '+pf] = len(cell_files['fastq'])
-                else:
-                    ci['Files in '+pf] = "{} ({} in fast5_{pf})".format( len(cell_files['fastq']),
-                                                                         len(cell_files['fast5']),
-                                                                         pf = pf )
+                ci['Files in '+pf] = len(cell_files['fastq'])
+                ci['Files in fast5 '+pf] = len(cell_files['fast5'])
+
             except KeyError as e:
                 # FIXME - see comment above.
                 logger.warning(repr(e))

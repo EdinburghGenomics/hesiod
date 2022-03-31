@@ -1,0 +1,14 @@
+Compressing the .fast5 files used to be worth it, but now the space saving is only 1 or 2%
+So let's not bother any more.
+
+But what is the better option?
+
+Leave them in place, in prom_runs? But then I can't delete the prom_run directory because it
+has important data.
+
+Move the files across? No this breaks the idea of prom_run being synced.
+
+OK lets's hard-link. It's a minimal change to my existing logic. I still need to md5sum the files in
+any case.
+
+Need to make sure that delivery still works with .fast5 vs .fast5.gz

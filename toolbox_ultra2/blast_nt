@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# BLAST on the NT database. To use a different DB, just provide a toolbox
+# with an edited script. You need to make sure the taxonomy database as
+# known to Blobtools corresponds.
+
+# BREAKAGE
+exit 1
+
+# Note for regular QC we use "-task dc-megablast" but that seems to break things here?!
+
+exec /home/edg01/edg01/shared/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
+    -db /home/edg01/edg01/shared/references/blastdb/nt-20190719/nt "$@"

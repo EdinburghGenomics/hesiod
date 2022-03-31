@@ -1,0 +1,2 @@
+fastq_files_in_final_dest=22
+fast5_files_in_final_dest=22

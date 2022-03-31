@@ -77,13 +77,7 @@ class T(unittest.TestCase):
         """
         sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
                                  dict() )
-        # In this example no cells are ready but we see ther is one cell
-        self.assertEqual(sc, dict())
-        self.assertEqual(counts, dict( cells=1, cellsaborted=0, cellsready=0 ))
 
-        # If we say that the cell is ready we should detect the files
-        sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
-                                 dict( cellsready='testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' ) )
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
                                        "fast5_fail": [],
                                        "fastq_fail": [],
@@ -138,7 +132,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5.gz" )
+                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5" )
 
     def test_find_representative_fast5_nobc(self):
         """ And for the barcodeless version
@@ -148,7 +142,7 @@ class T(unittest.TestCase):
                                  dict( cellsready=cell_name ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
-                          cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5.gz" )
+                          cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5" )
 
     def test_find_representative_fast5_null(self):
         """ Oh and the null version

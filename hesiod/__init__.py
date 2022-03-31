@@ -3,6 +3,10 @@ import os, re
 from collections import OrderedDict
 import yaml, yamlloader
 
+# For parsing of ISO/RFC format dates (note that newer Python has datetime.datetime.fromisoformat
+# but we're using dateutil.parser.isoparse from python-dateutil 2.8)
+from dateutil.parser import isoparse
+
 def glob():
     """Regular glob() is useful but we want consistent sort order."""
     from glob import glob
@@ -78,6 +82,31 @@ def parse_cell_name(run, cell):
     # Given all this, what do we call output files releting to this cell?
     # See doc/naming_convention.txt
     res['Base'] = "{Cell}/{Run}_{Library}_{CellID}_{Checksum}".format(**res)
+
+    return res
+
+def load_final_summary(filename):
+    """Load the info from a final_summary file. Why could they not use YAML or JSON for these??
+    """
+    def make_bool(x):
+        return x[0] in "1TtYy"
+
+    data_types = dict( fast5_files_in_final_dest = int,
+                       fast5_files_in_fallback   = int,
+                       fastq_files_in_final_dest = int,
+                       fastq_files_in_fallback   = int,
+                       basecalling_enabled       = make_bool,
+                       started                   = isoparse,
+                       acquisition_stopped       = isoparse,
+                       processing_stopped        = isoparse, )
+
+    # Easy txt-to-dict loader
+    with open(filename) as fh:
+        res = dict([aline.rstrip("\n").split("=", 1) for aline in fh ])
+
+    # Coerce the data types to the target types
+    for k in list(res):
+        res[k] = data_types.get(k, str)(res[k])
 
     return res
 
