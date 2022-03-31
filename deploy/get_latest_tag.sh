@@ -8,7 +8,7 @@
 # To prep for first release:
 #  mkdir ~/hesiod ; cd ~/hesiod
 #  git init --bare --shared git_repo
-#  git --git-dir=git_repo remote add origin git@gitlab.genepool.private:production-team/hesiod.git
+#  git --git-dir=git_repo remote add origin git@github.com:EdinburghGenomics/hesiod.git
 #  git --git-dir=git_repo fetch --all
 
 die(){ echo $@ ; exit 1 ; }
@@ -16,7 +16,7 @@ runcmd(){ echo "RUNNING: $@" ; "$@" ; }
 
 # Sanity checking stage...
 [ -d git_repo ] || die "No git_repo folder."\
-    "This script should normally be run in /lustre/home/pipeline/hesiod/"
+    "This script should normally be run in /lustre-gseg/home/pipeline/hesiod/"
 
 # Update the git_repo.  This doesn't affect any actual working files.
 # Note - if the tag doesn't appear to be fetched then make sure you
