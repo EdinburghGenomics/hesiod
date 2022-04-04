@@ -11,9 +11,8 @@ class T(unittest.TestCase):
 
     def test_jstr(self):
 
-        # Seems I didn't knwow about "textwrap.dedent" when I made this function, but
+        # Seems I didn't know about "textwrap.dedent" when I made this function, but
         # mine is slightly different so I'll keep it for now.
-
         self.assertEqual(jstr(""), "")
 
         self.assertEqual(jstr(

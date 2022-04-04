@@ -8,9 +8,20 @@ import yaml, yamlloader
 from dateutil.parser import isoparse
 
 def glob():
-    """Regular glob() is useful but we want consistent sort order."""
+    """Regular glob() is useful but we want consistent sort order, including
+       for the numbnered files produced by the Promethion.
+    """
     from glob import glob
-    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))) )
+
+    key_regex = re.compile(r"(?<=[._])(\d+)(?=[._])")
+    def key_func(filename):
+        """Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
+           that dictionary sort will produce a numeric sort.
+        """
+        return re.sub(key_regex, lambda d: d.group().rjust(8,'0'), filename)
+
+    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))),
+                             key = key_func )
 glob = glob()
 
 def _determine_version():
