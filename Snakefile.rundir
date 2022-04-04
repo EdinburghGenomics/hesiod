@@ -70,11 +70,13 @@ rule concat_gzip_md5sum_fastq:
     threads: 8
     run:
         # Rely on xargs to deal with way more files than could fit on the command line
+        # and zip them all into one.
         shell(r"xargs -rd '\n' cat <{input.fofn} | {PIGZ} -p{threads} -c > {output.gz}")
 
-        # Add the gzipped files. Normally there will only be one or the other, but we do support both
-        # Note that we're just concatenating the zipped files, not decompressing and recompressing
-        shell(r"xargs -rd '\n' cat <{input.fofn_gz} >> {output.gz}")
+        # Add already gzipped files. Normally there will only be one or the other, but we do support both
+        # Note that we're just concatenating the zipped files, not decompressing and recompressing,
+        # but we do want to verify integrity, and this version should do so in a cache-friendly way.
+        shell(r"""xargs -n 1 -rd '\n' sh -c '{PIGZ} -t "$@" >&2 || exit 255 ; cat "$@"' - <{input.fofn_gz} >> {output.gz}""")
 
         # Base counter
         shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
