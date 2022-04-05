@@ -51,6 +51,7 @@ else
         pip_install matplotlib==3.3.3
         pip_install pysam==0.15.2
         pip_install tqdm==4.32.2
+        pip_install ujson==4.3.0
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
         pip_install snakemake==5.5.3

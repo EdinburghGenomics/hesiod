@@ -5,5 +5,5 @@
 
 # Note for regular QC we use "-task dc-megablast" but that seems to break things here?!
 
-exec /lustre-gseg/software/blast+/ncbi-blast-2.10.1+/bin/blastn \
+exec /lustre-gseg/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
     -db /lustre-gseg/references/blastdb/nt-20190719/nt "$@"
