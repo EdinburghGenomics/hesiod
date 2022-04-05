@@ -126,7 +126,11 @@ def main(args):
         all_row, = [ dl for dl in datalines if dl[colidx['name']] == 'all' ]
         total_reads_per_bam = Counter()
         for n in name_map:
-            total_reads_per_bam[n] = (all_row[colidx[n+'_read_map']] * 100) / all_row[colidx[n+'_read_map_p']]
+            if all_row[colidx[n+'_read_map']] > 0:
+                total_reads_per_bam[n] = (all_row[colidx[n+'_read_map']] * 100) / all_row[colidx[n+'_read_map_p']]
+            else:
+                # This avoids division by zero possibility when there's no data
+                total_reads_per_bam[n] = 0
 
             # We also keep a master count
             total_reads_per_lib[name_map[n]] += total_reads_per_bam[n]

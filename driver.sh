@@ -38,9 +38,11 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix..
 
 ###--->>> CONFIGURATION <<<---###
 
+export HESIOD_HOME="$(abspath $(dirname "$BASH_SOURCE"))"
+
 # For the sake of the unit tests, we must be able to skip loading the config file,
 # so allow the location to be set to, eg. /dev/null
-ENVIRON_SH="${ENVIRON_SH:-`dirname $BASH_SOURCE`/environ.sh}"
+ENVIRON_SH="${ENVIRON_SH:-$HESIOD_HOME/environ.sh}"
 
 # This file must provide PROM_RUNS, FASTQDATA if not already set.
 if [ -e "$ENVIRON_SH" ] ; then
@@ -61,7 +63,7 @@ fi
 LOG_DIR="${LOG_DIR:-${HOME}/hesiod/logs}"
 RUN_NAME_REGEX="${RUN_NAME_REGEX:-.+_.+_.+}"
 
-BIN_LOCATION="${BIN_LOCATION:-$(dirname "$BASH_SOURCE")}"
+BIN_LOCATION="${BIN_LOCATION:-$HESIOD_HOME}"
 #PATH="$(readlink -m $BIN_LOCATION):$PATH" # -- Needs to be done after VEnv activation
 MAINLOG="${MAINLOG:-${LOG_DIR}/hesiod_driver.`date +%Y%m%d`.log}"
 
@@ -132,8 +134,8 @@ trap 'log "=== `date`. Finished run; PID=$$ ==="' EXIT
 py_venv="${PY3_VENV:-default}"
 if [ "${py_venv}" != none ] ; then
     if [ "${py_venv}" = default ] ; then
-        log -n "Running `dirname $BASH_SOURCE`/activate_venv ..."
-        pushd "`dirname $BASH_SOURCE`" >/dev/null
+        log -n "Running $HESIOD_HOME/activate_venv ..."
+        pushd "$HESIOD_HOME" >/dev/null
         source ./activate_venv >&5 || { log 'FAILED' ; exit 1 ; }
         popd >/dev/null
     else
@@ -549,6 +551,11 @@ save_start_time(){
         >>pipeline/start_times
 }
 
+get_full_version(){
+    # Similar to code in Illuminatus summarize_lane_contents.py
+    echo "Hesiod $HESIOD_VERSION [${USER:-[unknown user]}@${HOSTNAME:-[unknown host]}:${HESIOD_HOME}]"
+}
+
 # Wrapper for ticket manager that sets the run and queue (note this refers
 # to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control this.)
 rt_runticket_manager(){
@@ -676,7 +683,9 @@ send_summary_to_rt() {
 
     # Send it all to the ticket. Log any stderr.
     ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
-        @<(echo "${_preamble}:"
+        @<(echo "$(get_full_version)"
+           echo
+           echo "${_preamble}:"
            echo "$_last_upload_report"
            echo
            echo "----------"
