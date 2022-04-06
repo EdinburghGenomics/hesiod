@@ -7,6 +7,7 @@ def jstr(instr):
     """
     # Hmm - I wrote this recently but can't for the life of me remember where it was.
     # So I write it again.
+    # Oh, it's here in test/test_snakefile_functions.py
     # Oh - and now I realise I should have used textwrap.dedent. Oh well, I'll fix
     # it at some point.
 

@@ -162,6 +162,7 @@ rule concat_md5sum_lambda_bam:
 
         shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 
+
 # This rule produces the stuff in fastq_pass_tmp, and will normally be applied
 # to every individual fastq_pass file prior to combining the results. It uses nested
 # implicit FIFOs. I call it "bashception".
@@ -171,22 +172,25 @@ rule concat_md5sum_lambda_bam:
 # In normal operation the temp dir will be removed by the "onsuccess" handler below.
 rule map_lambda:
     output:
-        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}nlfq.gz"),
-        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}lambda.bam"),
-        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f,[^/]+}.fastq.{gz,gz|}nlfq.count"),
+        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.gz"),
+        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}{calref}.bam"),
+        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.count"),
     input:
-        lambda wc: f"{RUNDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.')
+        fq     = lambda wc: f"{RUNDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.'),
+        ref    = ancient(lambda wc: calibration_refs[wc.calref]),
     params:
-        ref    = os.environ.get('REFS', '.') + '/phage_lambda.mmi',
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
+    wildcard_constraints:
+        f      = "[^/]+",
+        gz     = "gz|",
     threads: 6
     shell:
-       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input} | tee >( \
+       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input.fq} | tee >( \
                 lambda_splitter.awk \
                     -v paf=/dev/stdin \
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
-                    <({PIGZ} -fdc {input}) ) | \
+                    <({PIGZ} -fdc {input.fq}) ) | \
                 {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
            {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.counts}
         """

@@ -8,6 +8,7 @@ import logging
 from itertools import takewhile
 from pprint import pprint
 from unittest.mock import Mock, patch
+from tempfile import mkstemp
 
 SNAKEFILE = os.path.abspath(os.path.dirname(__file__) + '/../Snakefile.main')
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
@@ -19,7 +20,9 @@ scan_cells = '_importme'
 sc_counts  = '_importme'
 find_representative_fast5 = '_importme'
 find_sequencing_summary = '_importme'
+save_out_plist = '_importme'
 
+# TODO - replace this and also jstr with textwrap.dedent.
 def fixstr(s_in):
     """Sort out a multi-line string
     """
@@ -187,6 +190,29 @@ class T(unittest.TestCase):
         cell = "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f"
         self.assertEqual( find_sequencing_summary( run_dir, cell ),
                           run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
+
+    def test_save_out_plist(self):
+        # Pretty simple function but let's test it anyway
+
+        yaml_files = [ f"{DATA_DIR}/cell_info/{f}_cell_info.yaml"
+                       for f in [ 'one_cell_barcoded',
+                                  'seven_cells_01',
+                                  'seven_cells_02',
+                                  'seven_cells_03', ] ]
+
+        # temp file for output
+        temp_fd, out_file = mkstemp()
+        try:
+            os.close(temp_fd)
+            save_out_plist(yaml_files, out_file)
+
+            # Read it back
+            with open(out_file) as read_fh:
+                self.assertEqual(read_fh.read(), "11608\n16031\n")
+
+        finally:
+            # Delete the temp file
+            os.unlink(out_file)
 
 if __name__ == '__main__':
     unittest.main()

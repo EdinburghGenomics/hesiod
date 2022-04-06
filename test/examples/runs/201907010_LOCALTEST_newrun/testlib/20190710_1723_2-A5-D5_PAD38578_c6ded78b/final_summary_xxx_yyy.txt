@@ -1,2 +1,3 @@
+protocol=DNA
 fastq_files_in_final_dest=3
 fast5_files_in_final_dest=3

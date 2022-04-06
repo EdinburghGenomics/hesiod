@@ -71,7 +71,15 @@ class T(unittest.TestCase):
                                 fast5_files_in_final_dest = 3126,
                                 fast5_files_in_fallback   = 0,
                                 fastq_files_in_final_dest = 3125,
-                                fastq_files_in_fallback   = 0 ) )
+                                fastq_files_in_fallback   = 0,
+                                is_rna                    = False ) )
+
+    def test_load_final_summary_rna(self):
+        # Just to make sure I can spot and RNA cell
+        example_file = os.path.join(DATA_DIR, "final_summary_PAK01185_f579772a.txt")
+
+        fs = load_final_summary(example_file)
+        self.assertEqual(fs['is_rna'], True)
 
     def test_abspath(self):
 

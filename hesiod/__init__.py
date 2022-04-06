@@ -119,6 +119,9 @@ def load_final_summary(filename):
     for k in list(res):
         res[k] = data_types.get(k, str)(res[k])
 
+    # See if we think this is RNA
+    res['is_rna'] = 'RNA' in res['protocol']
+
     return res
 
 # YAML convenience functions that use the ordered loader/saver

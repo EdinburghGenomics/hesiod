@@ -134,9 +134,11 @@ rule parse_blob_table:
         "parse_blob_table.py -l {params.label:q} -t -o {output} -c {params.pct_limit} {input}"
 
 # Convert to FASTA and subsample and munge the headers
-# seqtk seq -ACNU == to-fasta, no-comments, no-ambiguous, uppercase
+# seqtk seq -ACU == to-fasta, no-comments, uppercase
 # Also because pigz and/or 'seqtk seq' may well be killed by SIGPIPE we have to ignore pipe fails,
 # even though this may mask other problems.
+# Note I was thinking to add "sed '/^>/!s/U/T/g'" to fix U's to T's but apparently BLAST is cool
+# with the U bases.
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
@@ -144,9 +146,9 @@ rule fastq_to_subsampled_fasta:
     shell:
        r"""set +o pipefail
            {PIGZ} -p{threads} -d -c {input} | \
-             {TOOLBOX} seqtk seq -ACNU - | \
+             {TOOLBOX} seqtk seq -ACU - | \
              {TOOLBOX} seqtk sample - {wildcards.n} | \
-             sed 's,/,_,g' > {output}
+             sed -e 's,/,_,g' > {output}
         """
 
 # Version that works on lambda.bam files
@@ -189,8 +191,8 @@ rule blast_chunk:
         evalue = '1e-50',
         outfmt = '6 qseqid staxid bitscore'
     shell:
-        """{TOOLBOX} blast_nt -query {input} -outfmt '{params.outfmt}' \
-           -evalue {params.evalue} -max_target_seqs 1 -out {output}.tmp -num_threads {threads}
+        """{TOOLBOX} blast_nt -query {input} -outfmt {params.outfmt:q} \
+           -evalue {params.evalue:q} -max_target_seqs 1 -out {output}.tmp -num_threads {threads}
            mv {output}.tmp {output}
         """
 

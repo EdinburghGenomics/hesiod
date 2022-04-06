@@ -1,0 +1,47 @@
+So we have a run 20220316_EGS1_18701TK0002-0003 which is direct RNA. Therefor the FASTQ files have U instead of T.
+
+But all is not well. Hesiod does nto like the U. Firstly this caused blobplot to fail because there was no
+match to any species for any sequences. I switched the blobtools version in the toolbox to use my new version
+that actually already addressed this (for SMRTino) so we should at least avoid a crash.
+
+Next step is to modify the blob plotter to swith the U to T.
+
+seqtk seq -ACNU wants to be -ACU (no N). There are generally (always??) no N bases in the ONT reads anyway.
+
+Then, I think BLAST needs those U's changed to T's but let's see...
+
+# We already have a sed cleanup step so can augment it like so:
+sed -e 's,/,_,g' -e '/^>/!s/U/T/g'
+
+No it turns out BLAST is happy with U's after all. OK, cool. It was just the trivial change to 'seqtk seq'
+after all.
+
+What about minimap2, as used to spot the lambda? It won't be obvious because we don't have any lambda in the RNA,
+we use something else (from yeast??)
+
+In the albacore source I find two files:
+
+lambda_3.6kb.mmidx
+yhr174w.mmidx
+
+Presumably this second one is the RNA calibration strand. Do we see these same files in with GuPPY? Yep.
+In fact they are the actual FASTA not the MM index files.
+
+lambda_3.6kb.fasta
+YHR174W.fasta
+
+Cool. So really the pipeline should know if it is processing DNA or RNA. We can get this from the
+final_summary_PAK01185_f579772a.txt file which we already parse to check the file counts.
+
+protocol=sequencing/sequencing_PRO002_RNA:FLO-PRO002:SQK-RNA002
+
+I think we can simply say that if the protocol matches /RNA/ we're doing RNA.
+
+...
+
+
+Finally, is minimap2 happy now or is it tripping up on those U's?
+It's happy, but I think my naive parameter selection for minimap2 is mapping too much. I wish I could see what
+parameters Guppy is using for minimap2 to get a good judgement of what is calibration read and what is a real
+read.
+I'll fix up what I have for now and revisit this later.

@@ -1,0 +1,17 @@
+instrument=PCT0112
+position=2-A7-D7
+flow_cell_id=PAK01185
+sample_id=18701TK0002
+protocol_group_id=18701TK0002-0003
+protocol=sequencing/sequencing_PRO002_RNA:FLO-PRO002:SQK-RNA002
+protocol_run_id=0bd0a70a-1811-4848-95e5-adc1a7c696b0
+acquisition_run_id=f579772ab1e362ab3f8da689ac7ed00db260952c
+started=2022-03-16T15:00:54.807291+00:00
+acquisition_stopped=2022-03-19T15:01:11.326582+00:00
+processing_stopped=2022-03-19T15:01:13.594332+00:00
+basecalling_enabled=1
+sequencing_summary_file=sequencing_summary_PAK01185_f579772a.txt
+fast5_files_in_final_dest=1706
+fast5_files_in_fallback=0
+fastq_files_in_final_dest=1706
+fastq_files_in_fallback=0

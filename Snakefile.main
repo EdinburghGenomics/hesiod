@@ -224,6 +224,21 @@ def find_sequencing_summary(rundir, cell):
 
     return found[0]
 
+def save_out_plist(yaml_files, out_file):
+    plist = set()
+    for y in yaml_files:
+        plist.add(load_yaml(y)['Project'])
+    with open(out_file, "w") as ofh:
+        print( *sorted(plist), file=ofh, sep='\n' )
+
+# Reference for when we come to remove lambda reads from the FASTQ.
+# There is a different calibration reference for RNA. See doc/rna_support.txt
+calibration_refs = { k: os.path.join(os.environ.get('REFS', '.'), v + '.fasta')
+                     for k, v in
+                     { "lambda":  "lambda_3.6kb",
+                       "eno"   :  "YHR174W",
+                     }.items() }
+
 ## End of functions ## Leave this comment in place to help the unit tests.
 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
@@ -234,13 +249,6 @@ RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
 CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
 CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(RUN, c)['Project'], True)
 
-def save_out_plist(yaml_files, out_file):
-        plist = set()
-        for y in yaml_files:
-            plist.add(load_yaml(y)['Project'])
-        with open(out_file, "w") as ofh:
-            print( *sorted(plist), file=ofh, sep='\n' )
-
 logger.info( f"config =\n{pformat(config)}" )
 logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
 
@@ -250,6 +258,7 @@ wildcard_constraints:
     barcode = "[^/_]+",
     pf      = "pass|fail",
     pfs     = "pass|fail|skip",
+    calref  = "|".join(calibration_refs),
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
