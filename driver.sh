@@ -38,7 +38,7 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix..
 
 ###--->>> CONFIGURATION <<<---###
 
-export HESIOD_HOME="$(abspath $(dirname "$BASH_SOURCE"))"
+export HESIOD_HOME="$(readlink -e $(dirname "$BASH_SOURCE"))"
 
 # For the sake of the unit tests, we must be able to skip loading the config file,
 # so allow the location to be set to, eg. /dev/null
