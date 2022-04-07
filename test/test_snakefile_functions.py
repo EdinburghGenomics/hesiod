@@ -20,7 +20,6 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 scan_cells = '_importme'
 sc_counts  = '_importme'
 find_representative_fast5 = '_importme'
-find_sequencing_summary = '_importme'
 save_out_plist = '_importme'
 
 class T(unittest.TestCase):
@@ -166,13 +165,6 @@ class T(unittest.TestCase):
             print("#" + res + "#")
             print("#" + expected + "#")
         self.assertEqual(res, expected)
-
-    def test_find_sequencing_summary(self):
-
-        run_dir = os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA")
-        cell = "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f"
-        self.assertEqual( find_sequencing_summary( run_dir, cell ),
-                          run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
 
     def test_save_out_plist(self):
         # Pretty simple function but let's test it anyway

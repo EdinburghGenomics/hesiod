@@ -20,6 +20,14 @@ rule gzip_sequencing_summary:
             ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
          """
 
+localrules: convert_final_summary
+rule convert_final_summary:
+    output:
+        yaml = "{cell}/cell_final_summary.yaml",
+    input: lambda wc: [find_summary('final_summary.txt', RUNDIR, wc.cell)]
+    run:
+        dump_yaml(load_final_summary(str(input)), str(output.yaml))
+
 # Link and checksum the fast5 file
 # md5summer that keeps the file path out of the .md5 file
 # Note that the fast5_out() utility function determines outputs for this rule.
@@ -38,7 +46,7 @@ rule gzip_md5sum_fast5:
 
 # These two concatenate and zip and sums the fastq. The fastq are smaller so one file is OK
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
-# TODO - should possibly convert this to zip the individual chunks, as per the nolambda files?
+# TODO - should possibly convert this to zip the individual chunks, as per the no{calref} files?
 
 # I've broken out the rule that makes _fastq.list files so I can request the list without
 # making the actual merged file.
@@ -83,22 +91,22 @@ rule concat_gzip_md5sum_fastq:
 
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
-# We've decided to do the lambda mapping up front. Here's the rule to combine the filtered
+# We've decided to do the calref mapping up front. Here's the rule to combine the filtered
 # fastq.gz files, by simply concatenating them rather than unzip/rezip.
 # Note this is specific to the pass reads. We don't partition the fail reads (should we??)
-rule concat_md5sum_nolambda_fastq:
+rule concat_md5sum_nocalref_fastq:
     priority: 100
     output:
-        gz     = "{cell}/{fullid}_{barcode}_nolambda.fastq.gz",
-        md5    = "md5sums/{cell}/{fullid}_{barcode}_nolambda.fastq.gz.md5",
-        counts = "counts/{cell}/{fullid}_{barcode}_nolambda.fastq.count",
-        fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq.list"),
-        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_nlfq_count.list"),
+        gz     = "{cell}/{fullid}_{barcode}_no{calref}.fastq.gz",
+        md5    = "md5sums/{cell}/{fullid}_{barcode}_no{calref}.fastq.gz.md5",
+        counts = "counts/{cell}/{fullid}_{barcode}_no{calref}.fastq.count",
+        fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_no{calref}fq.list"),
+        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_no{calref}fq_count.list"),
     input:
-        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}nlfq.gz"     for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
-        counts    = lambda wc: [f"fastq_pass_tmp/{f}.nlfq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}nlfq.count"  for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.no{wc.calref}fq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}no{wc.calref}fq.gz"     for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        counts    = lambda wc: [f"fastq_pass_tmp/{f}.no{wc.calref}fq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}no{wc.calref}fq.count"  for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     run:
         def getinputs(*vnames):
             """Little helper to get combined input values"""
@@ -131,14 +139,14 @@ rule concat_md5sum_nolambda_fastq:
         # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
-rule concat_md5sum_lambda_bam:
+rule concat_md5sum_calref_bam:
     output:
-        bam  = "{cell}/{fullid}_{barcode}_lambda.bam",
-        md5  = "md5sums/{cell}/{fullid}_{barcode}_lambda.bam.md5",
-        fofn = temp("{cell}/{fullid}_{barcode}_lambda_bam.list")
+        bam  = "{cell}/{fullid}_{barcode}_{calref}.bam",
+        md5  = "md5sums/{cell}/{fullid}_{barcode}_{calref}.bam.md5",
+        fofn = temp("{cell}/{fullid}_{barcode}_{calref}_bam.list")
     input:
-        bam    = lambda wc: [f"fastq_pass_tmp/{f}.lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}lambda.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        bam    = lambda wc: [f"fastq_pass_tmp/{f}.{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
+        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     threads: 4
     run:
         def getinputs(*vnames):
@@ -170,7 +178,7 @@ rule concat_md5sum_lambda_bam:
 # this arrangement we are OK. See:
 #  https://www.pixelbeat.org/docs/coreutils-gotchas.html
 # In normal operation the temp dir will be removed by the "onsuccess" handler below.
-rule map_lambda:
+rule map_calref:
     output:
         fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.gz"),
         bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}{calref}.bam"),

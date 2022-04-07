@@ -1,0 +1,18 @@
+acquisition_run_id: 564d52535b8db9cd5a084b612eed13cc68eaf349
+acquisition_stopped: 2022-03-03 14:53:09.611224+00:00
+basecalling_enabled: true
+fast5_files_in_fallback: 0
+fast5_files_in_final_dest: 3126
+fastq_files_in_fallback: 0
+fastq_files_in_final_dest: 3125
+flow_cell_id: YAML_FS
+instrument: PCT0112
+is_rna: false
+position: 2-E11-H11
+processing_stopped: 2022-03-03 14:53:14.662014+00:00
+protocol: sequencing/sequencing_PRO002_DNA:FLO-PRO002:SQK-LSK109
+protocol_group_id: 21600MP_2
+protocol_run_id: f8320272-62ba-4f8d-821a-fb3dffcde338
+sample_id: 21600MP_2_0001-0004
+sequencing_summary_file: sequencing_summary_PAK00383_564d5253.txt
+started: 2022-03-02 13:21:02.322037+00:00

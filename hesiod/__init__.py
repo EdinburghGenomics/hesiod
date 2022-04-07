@@ -96,9 +96,14 @@ def parse_cell_name(run, cell):
 
     return res
 
-def load_final_summary(filename):
+def load_final_summary(filename, yamlfile=None):
     """Load the info from a final_summary file. Why could they not use YAML or JSON for these??
     """
+    # If yaml is supplied and exists, read this in preference to the text file
+    if yamlfile and os.path.exists(yamlfile):
+        with open(yamlfile) as yfh:
+            return yaml.safe_load(yfh)
+
     def make_bool(x):
         return x[0] in "1TtYy"
 
@@ -110,6 +115,10 @@ def load_final_summary(filename):
                        started                   = isoparse,
                        acquisition_stopped       = isoparse,
                        processing_stopped        = isoparse, )
+
+    # Normally we can't predict the exact filename, so allow just specifying the directory.
+    if filename.endswith('/'):
+        filename, = glob(filename + 'final_summary_*_*.txt')
 
     # Easy txt-to-dict loader
     with open(filename) as fh:
@@ -123,6 +132,31 @@ def load_final_summary(filename):
     res['is_rna'] = 'RNA' in res['protocol']
 
     return res
+
+def find_sequencing_summary(rundir, cell):
+    """For a given cell, the sequencing summary may be in the top level dir (new style) or in a
+       sequencing_summary subdirectory (old style). From MinKNOW 3.6+ the naming convention changes
+       too.
+       In any case there should be only one.
+    """
+    found = glob(f"{rundir}/{cell}/*_sequencing_summary.txt") + \
+            glob(f"{rundir}/{cell}/sequencing_summary/*_sequencing_summary.txt") + \
+            glob(f"{rundir}/{cell}/sequencing_summary_*_*.txt")
+
+    assert len(found) == 1, ( "There should be exactly one sequencing_summary.txt per cell"
+                              f" - found {len(found)}." )
+
+    return found[0]
+
+def find_summary(pattern, rundir, cell):
+    """Find other summary files. For the newer runs, this could replace find_sequencing_summary()
+    """
+    prefix, suffix = pattern.split('.')
+
+    found = glob(f"{rundir}/{cell}/{prefix}_*_*.{suffix}")
+
+    assert len(found) == 1, f"Found {len(found)} {pattern} for cell {cell}"
+    return found[0]
 
 # YAML convenience functions that use the ordered loader/saver
 # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.

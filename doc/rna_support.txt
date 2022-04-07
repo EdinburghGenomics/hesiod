@@ -37,8 +37,26 @@ protocol=sequencing/sequencing_PRO002_RNA:FLO-PRO002:SQK-RNA002
 
 I think we can simply say that if the protocol matches /RNA/ we're doing RNA.
 
-...
+...yes. I made load_final_summary() look for this and set 'is_rna' in the dict.
 
+And I decided that for the filenames I'll have "nolambda" and "noeno" - that is the filenames
+will change depending on the result of load_final_summary(). First job was to make 'lambda' a
+wildcard instead of just hard-coded in filenames. Fairly easy.
+
+Next step is that one_cell_inputs() needs to get FASTQ_PARTS dynamically. The obvious answer is
+by calling load_final_summary() but this input function doesn't want to depend on the rundata
+directory being there. So my plan is:
+
+make load_final_summary() so there is a (yamlfile) option and if this is supplied and the
+file exists it just loads the YAML from there. Then have it so the YAML is saved out much like
+sequencing_summary (which is gzipped and copied but you get the idea).
+
+And then there is kinda a dependence on the rundir but kinda not. Cool.
+And it saves confusing lambda expressions (in Python) with lambda reads (calibration strands).
+
+Also label_for_part() needs fixing. Done.
+
+---
 
 Finally, is minimap2 happy now or is it tripping up on those U's?
 It's happy, but I think my naive parameter selection for minimap2 is mapping too much. I wish I could see what

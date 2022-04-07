@@ -8,8 +8,8 @@ blob_plot_png            : {slurm_opts: '--mem=12000 --mincpus=1'}
 diamond_chunk            : {slurm_opts: '--mem=24000 --mincpus=8'}
 concat_gzip_md5sum_fastq : {slurm_opts: '--mem=24000 --mincpus=8'}
 concat_tar_md5sum_fastq  : {slurm_opts: '--mem=24000 --mincpus=6'}
-concat_md5sum_lambda_bam : {slurm_opts: '--mem=12000 --mincpus=4'}
-map_lambda               : {slurm_opts: '--mem=12000 --mincpus=4'}
+concat_md5sum_calref_bam : {slurm_opts: '--mem=12000 --mincpus=4'}
+map_calref               : {slurm_opts: '--mem=12000 --mincpus=4'}
 minionqc                 : {slurm_opts: '--exclusive --mem=0'}
 nanoplot                 : {slurm_opts: '--mem=12000 --mincpus=2'}
 samstats                 : {slurm_opts: '--mem=12000 --mincpus=2'}

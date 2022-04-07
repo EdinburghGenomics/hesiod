@@ -14,7 +14,8 @@ from pprint import pprint
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from hesiod import parse_cell_name, load_final_summary, abspath, groupby, glob
+from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
+                     find_sequencing_summary, find_summary )
 
 class T(unittest.TestCase):
 
@@ -80,6 +81,18 @@ class T(unittest.TestCase):
 
         fs = load_final_summary(example_file)
         self.assertEqual(fs['is_rna'], True)
+
+    def test_load_final_summary_more(self):
+        # I keep tweaking this function. I added a yamlfile option and the ability
+        # to load the one file in a directory. Test this.
+        example_dir = os.path.join(DATA_DIR, "fs") + "/"
+
+        fs = load_final_summary(example_dir)
+        self.assertEqual(fs['flow_cell_id'], "EXAMPLE_FS")
+
+        fs2 = load_final_summary(example_dir,
+                                 yamlfile = os.path.join(example_dir, "final_summary.yaml"))
+        self.assertEqual(fs2['flow_cell_id'], "YAML_FS")
 
     def test_abspath(self):
 
@@ -161,6 +174,17 @@ class T(unittest.TestCase):
                              PAK01183_pass_bda16547_701.fastq.gz
                              xxx.dat
                           """.split() )
+
+    def test_find_sequencing_summary(self):
+        # Moved from the Snakefile
+        run_dir = os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA")
+        cell = "16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f"
+        self.assertEqual( find_sequencing_summary( run_dir, cell ),
+                          run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
+
+        # find_summary() should do the same thing (without backwards compatibility)
+        self.assertEqual( find_summary("sequencing_summary.txt", run_dir, cell ),
+                          run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
 
 if __name__ == '__main__':
     unittest.main()
