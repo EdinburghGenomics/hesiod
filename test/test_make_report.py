@@ -6,7 +6,7 @@ import sys, os, re
 import unittest
 import logging
 from glob import glob
-from . import jstr
+from textwrap import dedent as dd
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
@@ -71,27 +71,29 @@ class T(unittest.TestCase):
         seven_cells = [ load_cell_yaml(f) for f in glob(DATA_DIR + "/cell_info/seven_cells_??_cell_info.yaml") ]
 
         self.assertEqual( format_counts_per_cells(seven_cells, heading="FOO"),
-                          jstr("""### FOO
+                          dd("""\
+                                ### FOO
 
-                                  | Part | Total Reads | Total Bases | Max Length |
-                                  |------|-------------|-------------|------------|
-                                  | All passed reads | 15488849 | 198731265339 | 217472 |
-                                  | Lambda\-filtered passed reads | 12266134 | 187067423308 | 217472 |
-                                  | All failed reads | 8181438 | 28788689895 | 240324 |
-                               """) )
+                                | Part | Total Reads | Total Bases | Max Length |
+                                |------|-------------|-------------|------------|
+                                | All passed reads | 15488849 | 198731265339 | 217472 |
+                                | Lambda\-filtered passed reads | 12266134 | 187067423308 | 217472 |
+                                | All failed reads | 8181438 | 28788689895 | 240324 |
+                             """) )
 
         # For a new run with one cell, several barcodes
         bc_cell = [ load_cell_yaml(DATA_DIR + "/cell_info/one_cell_barcoded_cell_info.yaml") ]
 
         self.assertEqual( format_counts_per_cells(bc_cell, heading="BAR"),
-                          jstr("""### BAR
+                          dd("""\
+                                ### BAR
 
-                                  | Part | Total Reads | Total Bases | Max Length |
-                                  |------|-------------|-------------|------------|
-                                  | All passed reads | 120134 | 130966011 | 11541 |
-                                  | Passed and lambda\-filtered reads | 120134 | 130966011 | 11541 |
-                                  | All failed reads | 120106 | 123147574 | 354311 |
-                               """) )
+                                | Part | Total Reads | Total Bases | Max Length |
+                                |------|-------------|-------------|------------|
+                                | All passed reads | 120134 | 130966011 | 11541 |
+                                | Passed and lambda\-filtered reads | 120134 | 130966011 | 11541 |
+                                | All failed reads | 120106 | 123147574 | 354311 |
+                             """) )
 
     def test_array_slice(self):
         """At present this doesn't test any code. I just want to check my logic.

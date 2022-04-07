@@ -9,6 +9,7 @@ from itertools import takewhile
 from pprint import pprint
 from unittest.mock import Mock, patch
 from tempfile import mkstemp
+from textwrap import dedent as dd
 
 SNAKEFILE = os.path.abspath(os.path.dirname(__file__) + '/../Snakefile.main')
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
@@ -21,26 +22,6 @@ sc_counts  = '_importme'
 find_representative_fast5 = '_importme'
 find_sequencing_summary = '_importme'
 save_out_plist = '_importme'
-
-# TODO - replace this and also jstr with textwrap.dedent.
-def fixstr(s_in):
-    """Sort out a multi-line string
-    """
-    s_lines = s_in.splitlines(True)
-
-    # Indent is length of last line + 3, because it is
-    # Discard the last line
-    indent = len(s_lines.pop()) + 3
-
-    # Strip all but the first line
-    for n, l in list(enumerate(s_lines))[1:]:
-        s_lines[n] = l[indent:]
-
-    # If first line is blank, discard it
-    if not re.search('\S', s_lines[0]):
-        s_lines[0:1] = []
-
-    return "".join(s_lines).rstrip("\n")
 
 class T(unittest.TestCase):
 
@@ -173,16 +154,18 @@ class T(unittest.TestCase):
         res = sc_counts(sc)
 
         # pformat sorts the dict keys alphabetically
-        expected = """{'testlib/testcell_123': {'.': {'fast5_fail': '<0 files>',
+        expected = """\
+                      {'testlib/testcell_123': {'.': {'fast5_fail': '<0 files>',
                                                       'fast5_pass': '<2 files>',
                                                       'fastq_fail': '<0 files>',
                                                       'fastq_pass': '<2 files>'}}}
                    """
+        expected = dd(expected).rstrip()
 
         if VERBOSE:
             print("#" + res + "#")
-            print("#" + fixstr(expected) + "#")
-        self.assertEqual(res, fixstr(expected))
+            print("#" + expected + "#")
+        self.assertEqual(res, expected)
 
     def test_find_sequencing_summary(self):
 

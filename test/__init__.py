@@ -2,30 +2,6 @@
 import re
 from unittest.mock import mock_open, DEFAULT
 
-def jstr(instr):
-    """Justify a string. Makes the tests neater.
-    """
-    # Hmm - I wrote this recently but can't for the life of me remember where it was.
-    # So I write it again.
-    # Oh, it's here in test/test_snakefile_functions.py
-    # Oh - and now I realise I should have used textwrap.dedent. Oh well, I'll fix
-    # it at some point.
-
-    if "\n" not in instr:
-        return instr
-
-    str_lines = instr.split("\n")
-
-    # Number of spaces after final "\n" gives indent,
-    if re.match("^ *$", str_lines[-1]):
-        indent = len(str_lines[-1]) + 3
-        for n in range(1, len(str_lines)):
-            str_lines[n] = re.sub(f"^ {{{indent}}}", "", str_lines[n])
-        str_lines[-1] = ''
-
-    return "\n".join(str_lines)
-
-
 def fp_mock_open(filepattern='.*', **kwargs):
     """A version of the standard mock_open that only mocks when filepattern
        matches the given pattern.
