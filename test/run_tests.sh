@@ -31,7 +31,7 @@ fi
 # just looks at one file at a time, thought it wouldn't hurt to cast
 # pylint over the code too.
 # Don't quit on error here.
-files_to_flake="*.py"
+files_to_flake="*.py hesiod/*.py"
 
 if [ "$*" == "" ] ; then
     if which pyflakes ; then

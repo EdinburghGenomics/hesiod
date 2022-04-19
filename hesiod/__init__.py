@@ -162,9 +162,9 @@ def find_summary(pattern, rundir, cell):
 # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
 def load_yaml(filename, relative_to=None):
     """Load YAML from a file (not a file handle).
-       If specified, relative paths are resolved relative to os.path.basename(relative_to)
+       If specified, relative paths are resolved relative to os.path.dirname(relative_to)
     """
-    with open(abspath(filename)) as yfh:
+    with open(abspath(filename, relative_to)) as yfh:
         return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 
 def abspath(filename, relative_to=None):
