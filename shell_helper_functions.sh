@@ -37,13 +37,13 @@ find_templates() {
     fi
 }
 
-find_ref() {
-    #And again for ref dir
-    _def_ref="$(readlink -f $(dirname "$BASH_SOURCE")/ref)"
-    echo "${REFS:-$_def_ref}"
+find_refs() {
+    #And again for refs dir
+    _def_refs="$(readlink -f $(dirname "$BASH_SOURCE")/refs)"
+    echo "${REFS:-$_def_refs}"
 
-    if ! [ -e "${REFS:-$_def_ref}/" ] ; then
-        echo "WARNING - find_ref - No such directory ${REFS:-$_def_ref}" >&2
+    if ! [ -e "${REFS:-$_def_refs}/" ] ; then
+        echo "WARNING - find_ref - No such directory ${REFS:-$_def_refs}" >&2
     fi
 }
 

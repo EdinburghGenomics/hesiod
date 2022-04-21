@@ -194,7 +194,7 @@ rule map_calref:
         gz     = "gz|",
     threads: 6
     shell:
-       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {params.ref} {input.fq} | tee >( \
+       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {input.ref} {input.fq} | tee >( \
                 lambda_splitter.awk \
                     -v paf=/dev/stdin \
                     -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \

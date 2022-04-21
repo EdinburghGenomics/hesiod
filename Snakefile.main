@@ -27,7 +27,7 @@ fi
 # does not, as SLURM resets that env var.
 export TOOLBOX="$(find_toolbox)"
 export TEMPLATES="$(find_templates)"
-export REFS="$(find_ref)"
+export REFS="$(find_refs)"
 export PATH="${PATH}:$(dirname "$0")"
 
 snakerun_drmaa "$0" "$@"
@@ -50,6 +50,12 @@ logger = snakemake.logging.logger
 # $TOOLBOX must be set to something
 TOOLBOX = f'env PATH="{os.environ["TOOLBOX"]}:$PATH"'
 PIGZ    = 'pigz -nT -9 -b512'
+
+# And $REFS
+if os.environ["REFS"] in [ '', '.', './' ]:
+    REFS = ''
+else:
+    REFS = os.path.abspath(os.environ["REFS"]) + '/'
 
 for p in os.environ['PATH'].split(':'):
     if os.path.abspath(p) == os.path.dirname(os.path.abspath(workflow.snakefile)):
@@ -222,7 +228,7 @@ def save_out_plist(yaml_files, out_file):
 
 # Reference for when we come to remove lambda reads from the FASTQ.
 # There is a different calibration reference for RNA. See doc/rna_support.txt
-calibration_refs = { k: os.path.join(os.environ.get('REFS', '.'), v + '.fasta')
+calibration_refs = { k: f'{REFS}{v}.fasta'
                      for k, v in
                      { "lambda":  "lambda_3.6kb",
                        "eno"   :  "YHR174W",
@@ -358,7 +364,7 @@ def one_cell_inputs(wc):
     barcodes = SC[cell].keys()
 
     # Load the final summary to see if this is RNA or DNA
-    fs = load_final_summary(f"{rundir}/{cell}/",
+    fs = load_final_summary(f"{RUNDIR}/{cell}/",
                             yamlfile = f"{cell}/cell_final_summary.yaml")
     fastq_parts = get_fastq_parts(fs['is_rna'])
     calref = "eno" if fs['is_rna'] else "lambda"
