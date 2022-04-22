@@ -13,6 +13,8 @@ it's hella stable for what we use it for!
 
 ---
 
-Actually, on second thoughts, I do need to load custom mudules (like yamlloader)
+Actually, on second thoughts, I do need to load custom modules (like yamlloader)
 in my Snakemake code, so back to plan A. Just means I need to roll the Snakemake fixes
 into Hesiod itself, by adding a wrapper in the toolbox. Fine.
+
+Similar things are done for SMRTino and Illuminatus.

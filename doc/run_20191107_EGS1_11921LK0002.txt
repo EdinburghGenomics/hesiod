@@ -46,3 +46,5 @@ Unit test is easy, since test/test_parse_blob_table.py is alreay testing inputs 
 The missing rows seem to be because I've added cell+taxon data points to the sparse matrix but then
 pruned out the rare taxa, and this takes all the data points out of a given cell and it vanishes.
 I need to do something similar to my cheese matrix in the unit test. Like add a cheese which has
+
+...at this point I seem to have lost interest in typing, but I believe the issue was fixed!

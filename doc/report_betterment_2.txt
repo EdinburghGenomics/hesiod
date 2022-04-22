@@ -1,0 +1,23 @@
+After updating Hesiod to handle RNA, we have another couple of requests:
+
+1) Finally fix the naming convention. We'll use "Experiment" rather than "Run" because
+that's what MinKNOW calls this thing. Caitlin is going to try grouping future runs
+so that each Experiment is actually related to one project.
+
+There's no sense in signing off batches of cells by "run" because the way that cells
+are loade means there will be different conditions per cell - it's not like Illumina
+where a fluidics issue can affect all the lanes.
+
+As part of this, add the original experiment name to the metadata just to be explicit,
+even though it's just the last part of the run ID in most cases.
+
+What do I need to correct?
+
+The RT queue will still be called "bfx-promethion-run" but I want the titles to be
+"Experiment".
+
+2) Add the PDF reports to the Hesiod report. I note that the files are provided in
+both PDF and markdown format, so I might try re-rendering them as HTML or just copy the
+PDF onto egloud and link it.
+
+
