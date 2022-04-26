@@ -252,7 +252,7 @@ class T(unittest.TestCase):
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
         expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/20190226_TEST_testrun", './pipeline']]
-        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun --subject new --comment @???'.split()]
+        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun -P Experiment --subject new --comment @???'.split()]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0][-1] = re.sub(
@@ -353,7 +353,7 @@ class T(unittest.TestCase):
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
         expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/201907010_LOCALTEST_newrun", './pipeline']]
-        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun --subject new --comment @???'.split()]
+        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun -P Experiment --subject new --comment @???'.split()]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0][-1] = re.sub(
@@ -403,8 +403,8 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made, but with an error
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = [['-r', '201907010_LOCALTEST_newrun', '-Q', 'promrun', '--subject', 'failed',
-                                                      '--reply', 'Failed at New_Run_Setup.\nSee log in /dev/stdout']]
+        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun -P Experiment --subject failed'.split() +
+                                                     ['--reply', 'Failed at New_Run_Setup.\nSee log in /dev/stdout']]
 
         # And nothing should be written to the fastqdata dir
         self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
@@ -541,13 +541,13 @@ class T(unittest.TestCase):
                                               "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
                                               "--", "pack_fast5", "main" ]]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--reply",
+        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--reply",
                                                        "All 2 cells have run on the instrument. Full report will follow soon."],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "Finished pipeline",
-                                                       "--reply", "@???" ]]
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--comment", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "Finished pipeline", "--reply", "@???" ]]
         expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2",
                                                    "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
@@ -577,8 +577,8 @@ class T(unittest.TestCase):
                                               "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
                                               "--", "pack_fast5", "main" ]]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???".split(),
-                                                     "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???".split()]
+        expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
+                                                     "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split()]
         expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2", "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa" ]]
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -623,15 +623,15 @@ class T(unittest.TestCase):
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
         # report the error to STDERR. I gues it's OK.
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--reply",
+        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--reply",
                                                        "All 2 cells have run on the instrument. Full report will follow soon." ],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "Finished pipeline",
-                                                       "--reply", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "failed",
-                                                       "--reply",
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--comment", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "Finished pipeline", "--reply", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "failed", "--reply",
                                                        "Failed at Reporting for cells [\n"
                                                        "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
                                                        "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
@@ -676,13 +676,13 @@ class T(unittest.TestCase):
                                               "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
                                               "--", "pack_fast5", "main" ]]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--reply",
+        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--reply",
                                                        "All 2 cells have run on the instrument. Full report will follow soon." ],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "processing",
-                                                       "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "failed",
-                                                       "--reply",
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "processing", "--comment", "@???"],
+                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                       "--subject", "failed", "--reply",
                                                        "Failed at Reporting for cells [\n"
                                                        "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
                                                        "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
@@ -730,10 +730,10 @@ class T(unittest.TestCase):
                                               "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
                                               "--", "pack_fast5", "main" ]]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun --subject processing --comment @???".split(),
-                                                      "-r 20000101_TEST_testrun2 -Q promrun --subject incomplete --comment @???".split(),
-                                                      [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "--subject", "failed",
-                                                        "--reply",
+        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
+                                                      "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split(),
+                                                      [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
+                                                        "--subject", "failed", "--reply",
                                                         "Failed at Reporting for cells [\n"
                                                         "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\n"
                                                         "].\n"

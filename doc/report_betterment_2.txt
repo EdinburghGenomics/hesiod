@@ -5,19 +5,24 @@ that's what MinKNOW calls this thing. Caitlin is going to try grouping future ru
 so that each Experiment is actually related to one project.
 
 There's no sense in signing off batches of cells by "run" because the way that cells
-are loade means there will be different conditions per cell - it's not like Illumina
-where a fluidics issue can affect all the lanes.
+are loaded means there will be different conditions per cell if multiple projects
+are run at once - it's not like Illumina where a fluidics issue can affect all the lanes.
 
 As part of this, add the original experiment name to the metadata just to be explicit,
 even though it's just the last part of the run ID in most cases.
 
 What do I need to correct?
 
+1)
 The RT queue will still be called "bfx-promethion-run" but I want the titles to be
-"Experiment".
+"Experiment". This required a change to the rt_runticket_manager, adding a --prefix
+option.
 
 2) Add the PDF reports to the Hesiod report. I note that the files are provided in
 both PDF and markdown format, so I might try re-rendering them as HTML or just copy the
 PDF onto egloud and link it.
 
-
+3) See for example ticket #14454 - Caitlin is pasting a load of numbers into a spreadsheet.
+We can recreate this at the top of each Hesiod report. Confirm what numbers are actually
+needed, as Caitlin says not all are relevant. Probably the percentage mapping to calib
+strand is something we care about!

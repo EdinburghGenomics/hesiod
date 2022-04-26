@@ -559,7 +559,7 @@ get_full_version(){
 # Wrapper for ticket manager that sets the run and queue (note this refers
 # to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control this.)
 rt_runticket_manager(){
-    rt_runticket_manager.py -r "$RUNID" -Q promrun "$@"
+    rt_runticket_manager.py -r "$RUNID" -Q promrun -P Experiment "$@"
 }
 
 check_for_ready_cells(){
