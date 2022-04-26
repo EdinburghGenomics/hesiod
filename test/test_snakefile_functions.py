@@ -34,6 +34,7 @@ class T(unittest.TestCase):
             snake_code = compile("".join(snake_code), sfh.name, 'exec')
 
         os.environ['TOOLBOX'] = 'NONE'
+        os.environ['REFS'] = '.'
         gdict = dict( os = os,
                       workflow = Mock(snakefile='NONE'),
                       snakemake = Mock(),
