@@ -11,7 +11,8 @@ from textwrap import dedent as dd
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from make_report import list_projects, format_counts_per_cells, load_cell_yaml
+from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, escape_md,
+                          aggregator )
 
 class T(unittest.TestCase):
 
@@ -30,6 +31,20 @@ class T(unittest.TestCase):
         pass
 
     ### THE TESTS ###
+    def test_aggregator(self):
+        """Aggregator is a handy thing that behaves like this...
+        """
+        P = aggregator('')
+
+        P('foo', 'bar')
+        P()
+        P(100)
+
+        self.assertEqual('='.join(P), "=foo=bar==100")
+
+        # This should be equivalent, and yield a copy of P._list
+        self.assertEqual(list([*P]), list(P))
+
     def test_list_projects(self):
         """This function takes a list of cells and returns a list of triples
            (name, label, [cells]).
@@ -166,6 +181,14 @@ class T(unittest.TestCase):
         self.assertEqual(stats_table3, stats_table)
 
         # Yeah that's it! I can add any keys I like to the list.
+
+    def test_escape_md(self):
+        # Double backslash is the most confusing.
+        self.assertEqual( escape_md(r'\ '), r'\\ ')
+
+        # And all the rest
+        self.assertEqual( escape_md(r'<[][\`*_{}()#+-.!>'),
+                          r'\<\[\]\[\\\`\*\_\{\}\(\)\#\+\-\.\!\>' )
 
 if __name__ == '__main__':
     unittest.main()

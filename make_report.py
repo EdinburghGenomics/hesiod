@@ -60,9 +60,7 @@ def format_report( all_info,
                    blobstats = None ):
     """Makes the report as a list of strings (lines)
     """
-
-    res = []
-    P = lambda *a: res.extend(a or [''])
+    P = aggregator()
 
     # Get the experiments(s). In older YAMLs this was recorded as 'Run'
     expts = sorted(set([ i.get('Experiment', i.get('Run')) for i in all_info.values() ]))
@@ -80,9 +78,9 @@ def format_report( all_info,
     # Header
     #########################################################################
 
-    P( "% Promethion experiment {}".format(",".join(expts)),
-       "% Hesiod version {}".format(pipedata['version']),
-       "% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")) )
+    P( f"% Promethion experiment {','.join(expts)}",
+       f"% Hesiod version {pipedata['version']}",
+       f"% {datetime.now().strftime('%A, %d %b %Y %H:%M')}" )
 
     #########################################################################
     # Run metadata
@@ -103,11 +101,12 @@ def format_report( all_info,
 
     # Overview plots from minionqc/combinedQC
     if minionqc:
-        P("\n### {}\n".format("MinionQC: Combined Length Histo ; Combined Quality Histo ; Combined Yield over Time"))
+        mqc_header = "MinionQC: Combined Length Histo ; Combined Quality Histo ; Combined Yield over Time"
+        P(f"\n### {mqc_header}\n")
         P("<div class='flex'>")
         P(" ".join(
-            "[plot](img/minqc_combined_{f}.png){{.thumbnail}}".format(f=f)
-            for f in ['combined_length_histogram', 'combined_q_histogram', 'yield_over_time']
+            f"[plot](img/minqc_combined_{x}.png){{.thumbnail}}"
+            for x in ['combined_length_histogram', 'combined_q_histogram', 'yield_over_time']
          ))
         P("</div>")
 
@@ -121,7 +120,7 @@ def format_report( all_info,
     for p, title, cells in list_projects( all_info.values(), project_realnames ):
 
         # No escaping of title - list_projects adds MD markup already
-        P( "## {}\n".format(title) )
+        P( f"## {title}\n" )
         P()
         P( ":::::: {.bs-callout}" )
 
@@ -157,21 +156,27 @@ def format_report( all_info,
     P('\n# Stats per cell\n')
     for cell, ci in sorted(all_info.items()):
         P()
-        P( "## Cell {}".format(cell) )
+        P( f"## Cell {cell}" )
         P()
+
+        # If there is a MinKNOW report then add it here
+        if ci.get('_minknow_report'):
+            rep_filename = os.path.basename(ci['_minknow_report'])
+            P( f"[MinKNOW PDF Report](minknow/{rep_filename})" )
+            P()
+
         P( ":::::: {.bs-callout}" )
 
         # We'll need this shortly. See copy_files
         cell_uid = ci['Base'].split('/')[-1]
 
-        # Basic cell metadata
         def _format(_k, _v):
             """Handle special case for dates"""
             if _k == "Date" and re.match(r'[0-9]{8}', _v):
                 _v = datetime.strptime(_v, '%Y%m%d').strftime('%d %b %Y')
             return (_k, _v)
 
-
+        # Now the metadata section
         P( format_dl( [ _format( k, v ) for k, v in ci.items()
                         if not ( k.startswith("_")
                                  or k in METADATA_HIDE ) ],
@@ -239,36 +244,38 @@ def format_report( all_info,
             '''
             for title, items in ns:
                 P( '<dl class="dl-horizontal">' )
-                P("### Nanoplot {}\n".format(escape(title)))
+                P("### Nanoplot {}\n".format(escape_md(title)))
                 for k, pv, *_ in items:
-                    P('<dt>{}</dt> <dd>{}</dd>'.format(escape(k),escape(pv)))
+                    P('<dt>{}</dt> <dd>{}</dd>'.format(escape_md(k),escape_md(pv)))
                 P( '</dl>' )
                 P()
             '''
 
         # Embed some files from MinionQC
         if '_minionqc' in ci:
-            P('\n### {}\n'.format("MinionQC: Length Histo ; Length vs Qual ; Yield over Time"))
+            mqc_header = "MinionQC: Length Histo ; Length vs Qual ; Yield over Time"
+            P(f"\n### {mqc_header}\n")
             P("<div class='flex'>")
             P(" ".join(
-                "[plot](img/minqc_{cell}_{f}.png){{.thumbnail}}".format(cell=cell_uid, f=f)
+                f"[plot](img/minqc_{cell_uid}_{f}.png){{.thumbnail}}"
                 for f in ['length_histogram', 'length_vs_q', 'yield_over_time']
              ))
             P("</div>")
 
         # Nanoplot plots
         if '_nanoplot' in ci:
-            P('\n### {}\n'.format("NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"))
+            nplot_header = "NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"
+            P(f"\n### {nplot_header}\n")
             P("<div class='flex'>")
             P(" ".join(
-                "[plot](img/nanoplot_{cell}_{f}.png){{.thumbnail}}".format(cell=cell_uid, f=f)
-                for f in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
+                f"[plot](img/nanoplot_{cell_uid}_{x}.png){{.thumbnail}}"
+                for x in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
              ))
             P("</div>")
 
 
             # Link to the NanoPlot report
-            P( "[Full NanoPlot Report](np/NanoPlot_{cell}-report.html)".format(cell=cell_uid) )
+            P( f"[Full NanoPlot Report](np/NanoPlot_{cell_uid}-report.html)" )
 
         # Blob plots as per SMRTino (the YAML file is linked rather than embedded but it's the
         # same otherwise). Often we have barcodes with no passed reads, in which case 'has_data'
@@ -279,14 +286,14 @@ def format_report( all_info,
                     if plot_group.get('has_data') is False:
                         continue
 
-                    P('\n### {}\n'.format(plot_group['title']))
+                    P(f"\n### {plot_group['title']}\n")
 
                     # plot_group['files'] will be a a list of lists, so plot
                     # each list a s a row.
                     for plot_row in plot_group['files']:
                         P("<div class='flex'>")
                         P(" ".join(
-                            "[plot](img/{f}){{.thumbnail}}".format(f=os.path.basename(p))
+                            f"[plot](img/{os.path.basename(p)}){{.thumbnail}}"
                             for p in plot_row
                          ))
                         P("</div>")
@@ -295,52 +302,50 @@ def format_report( all_info,
 
     P()
     P("*~~~*")
-    return res
+    return P
 
 def format_dl(data_pairs, title=None):
     """Formats a table of values with headings in the first column.
        Currently we do this as a <dl>, but this may change.
     """
-    res = []
-    P = lambda *a: res.extend(a or [''])
+    P = aggregator()
 
     P( '<dl class="dl-horizontal">' )
     if title:
-        P("### {}\n".format(escape(title)))
+        P(f"### {escape_md(title)}\n")
     for k, pv in data_pairs:
-        P('<dt>{}</dt> <dd>{}</dd>'.format(escape(k),escape(pv)))
+        P(f"<dt>{escape_md(k)}</dt> <dd>{escape_md(pv)}</dd>")
     P( '</dl>' )
     P()
 
-    return "\n".join(res)
+    return "\n".join(P)
 
 def format_table(headings, data, title=None):
     """Another markdown table formatter. Values will be escaped.
        Presumably the table is destined to be a DataTable.
        Returns a single string.
     """
-    res = []
-    P = lambda *a: res.extend(a or [''])
+    P = aggregator()
 
     if title:
-        P("### {}\n".format(escape(title)))
+        P(f"### {escape_md(title)}\n")
 
     # Add the header, bounded by pipes.
-    P('| {} |'.format( ' | '.join([ escape(h)
+    P('| {} |'.format( ' | '.join([ escape_md(h)
                                     for h in headings ]) ))
 
     # Add the spacer line - fix the with for easier reading of the MD
-    widths = [ len(escape(h)) for h in headings ]
+    widths = [ len(escape_md(h)) for h in headings ]
     P('|-{}|'.format( '|-'.join([ "-{:-<{w}s}".format('', w=w)
                                   for w in widths ]) ))
 
     # Add the data.
     for drow in data:
-        P('| {} |'.format( ' | '.join([ escape(d)
+        P('| {} |'.format( ' | '.join([ escape_md(d)
                                         for d in drow ]) ))
     P()
 
-    return "\n".join(res)
+    return "\n".join(P)
 
 def load_cell_yaml(filename):
     """Load the YAML and fix the counts.
@@ -383,7 +388,8 @@ def main(args):
         if '_nanoplot' in yaml_info:
             yaml_info['_nanoplot'] = abspath(yaml_info['_nanoplot'], relative_to=y)
             yaml_info['_nanoplot_data'] = load_yaml(yaml_info['_nanoplot'])
-
+        if '_minknow_report' in yaml_info:
+            yaml_info['_minknow_report'] = abspath(yaml_info['_minknow_report'], relative_to=y)
 
         all_info[yaml_info['Cell']] = yaml_info
 
@@ -421,12 +427,12 @@ def main(args):
     if (not args.out) or (args.out == '-'):
         print(*rep, sep="\n")
     else:
-        L.info("Writing to {}".format(args.out))
+        L.info(f"Writing to {args.out}")
         with open(args.out, "w") as ofh:
             print(*rep, sep="\n", file=ofh)
 
         copy_dest = os.path.dirname(args.out) or '.'
-        L.info("Copying files to {}".format(copy_dest))
+        L.info(f"Copying files to {copy_dest}")
 
         copy_files(all_info, copy_dest, minionqc=args.minionqc)
 
@@ -470,15 +476,11 @@ def list_projects(cells, realname_dict):
         else:
             # Do we know about this one?
             if n in realname_dict:
+                title = f"Project {realname_dict[n].get('name')}"
                 if realname_dict[n].get('url'):
-                    title = "Project {}\n\n[\[Go to project page\]]({})".format(
-                                      realname_dict[n].get('name'),
-                                          realname_dict[n].get('url') )
-                else:
-                    title = "Project {}".format(
-                                     realname_dict[n].get('name') )
+                    title += f"\n\n[\[Go to project page\]]({realname_dict[n].get('url')})"
             else:
-                title = "Project {}".format(n)
+                title = f"Project {n}"
             res[n] = (title, [c])
 
     # Convert dict of doubles back to list of triples and sort them too
@@ -523,26 +525,31 @@ def copy_files(all_info, base_path, minionqc=None):
         if '_nanoplot' in ci:
             nano_base = os.path.dirname(ci['_nanoplot'])
 
-            src_rep = "{nb}/NanoPlot-report.html".format(nb=nano_base)
-            dest_rep = "np/NanoPlot_{cell}-report.html".format(cell=cell_uid)
+            src_rep = f"{nano_base}/NanoPlot-report.html"
+            dest_rep = f"np/NanoPlot_{cell_uid}-report.html"
             copy_file(src_rep, os.path.join(base_path, dest_rep))
 
             for png in glob(nano_base + '/*.png'):
-                dest_png = "nanoplot_{cell}_{f}".format(cell=cell_uid, f=os.path.basename(png))
+                dest_png = f"nanoplot_{cell_uid}_{os.path.basename(png)}"
                 copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_minionqc' in ci:
             min_base = os.path.dirname(ci['_minionqc'])
 
             for png in glob(min_base + '/*.png'):
-                dest_png = "minqc_{cell}_{f}".format(cell=cell_uid, f=os.path.basename(png))
+                dest_png = f"minqc_{cell_uid}_{os.path.basename(png)}"
                 copy_file(png, os.path.join(base_path, "img", dest_png))
+
+        if '_minknow_report' in ci:
+            rep_base = os.path.dirname(ci['_minknow_report'])
+            copy_file( ci['_minknow_report'],
+                       os.path.join(base_path, "minknow", os.path.basename(ci['_minknow_report'])) )
 
     # Combined plots for MinionQC are separate
     if minionqc:
         cmin_base = os.path.dirname(minionqc)
         for png in glob(cmin_base + '/*.png'):
-            dest_png = "minqc_combined_{f}".format(f=os.path.basename(png))
+            dest_png = f"minqc_combined_{os.path.basename(png)}"
             copy_file(png, os.path.join(base_path, "img", dest_png))
 
 def get_pipeline_metadata(pipe_dir):
@@ -580,7 +587,22 @@ def get_pipeline_metadata(pipe_dir):
                  upstream = upstream,
                  rundir = rundir )
 
-def escape(in_txt, backwhack=re.compile(r'([][\`*_{}()#+-.!<>])')):
+class aggregator:
+    """A light wrapper around a list to save some typing when building
+       a list of lines to be printed.
+    """
+    def __init__(self, *args):
+        self._list = list()
+        if args:
+            self(*args)
+
+    def __call__(self, *args):
+        self._list.extend([str(a) for a in args] or [''])
+
+    def __iter__(self, *args):
+        return iter(self._list)
+
+def escape_md(in_txt, backwhack=re.compile(r'([][\\`*_{}()#+-.!<>])')):
     """ HTML escaping is not the same as markdown escaping
     """
     return re.sub(backwhack, r'\\\1', str(in_txt))

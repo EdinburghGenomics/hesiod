@@ -148,6 +148,19 @@ def find_sequencing_summary(rundir, cell):
 
     return found[0]
 
+def find_minknow_report(rundir, cell):
+    """Simpler than find_sequencing_summary() cos we only need to worry about one naming
+       convention (for now).
+    """
+    found = glob(f"{rundir}/{cell}/report_*.pdf")
+
+    assert len(found) <=1, ( "There should be exactly one PDF report per cell"
+                             f" - found {len(found)}." )
+
+    # Note we're returning a list here. If the report is not found we return an empty list,
+    # and the pipeline will create an empty file.
+    return found
+
 def find_summary(pattern, rundir, cell):
     """Find other summary files. For the newer runs, this could replace find_sequencing_summary()
     """
