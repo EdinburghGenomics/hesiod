@@ -97,7 +97,6 @@ def read_fast5(fobj):
         # Run ID (should be in the filename anyway!)
         res['RunID'] = read0.attrs['run_id']
 
-
         # Stuff from 'context_tags'
         for x in ['ExperimentType', 'SequencingKit', 'FlowcellType']:
             res[x] = 'unknown'

@@ -35,7 +35,7 @@ class RunStatus:
             self.fastqdata_path = os.path.join(run_dir, 'pipeline', 'output')
             self.run_path = run_dir
 
-        remote_info_for_run = (upstream or {}).get(self.get_run_id(), dict())
+        remote_info_for_run = (upstream or {}).get(self.get_experiment(), dict())
         self.remote_cells = remote_info_for_run.get('cells', set())
         self.remote_loc = remote_info_for_run.get('loc', None)
 
@@ -161,7 +161,9 @@ class RunStatus:
         if not self._exists_pipeline('.'):
             return "new"
 
-        # Run in aborted state should not be subject to any further processing
+        # Experiment in aborted state should not be subject to any further processing
+        # But beware - it's still possible that the lab could add cells to the experiment, so
+        # best to abort the individual cells.
         if self._was_aborted():
             return "aborted"
 
@@ -248,8 +250,8 @@ class RunStatus:
         """
         return [c for c, v in sorted(self.get_cells().items()) if v in states]
 
-    def get_run_id(self):
-        """ The directory name is the run name. Allow a .xxx extension
+    def get_experiment(self):
+        """ The directory name is the experiment name. Allow a .xxx extension
             since there are no '.'s is PacBio run names.
         """
         realdir = os.path.basename(os.path.realpath(self.run_path))
@@ -260,7 +262,7 @@ class RunStatus:
             part of the run ID.
         """
         try:
-            return self.get_run_id().split('_')[1]
+            return self.get_experiment().split('_')[1]
         except IndexError:
             return "unknown"
 
@@ -280,7 +282,7 @@ class RunStatus:
 
     def get_yaml(self, debug=True):
         try:
-            return '\n'.join([ 'RunID: '        + self.get_run_id(),
+            return '\n'.join([ 'Experiment: '   + self.get_experiment(),
                                'Instrument: '   + self.get_instrument(),
                                'Upstream: '     + (self.remote_loc or 'LOCAL'),
                                'Cells: '        + '\t'.join(sorted(self.get_cells())),
@@ -297,7 +299,7 @@ class RunStatus:
             if debug: raise
             pstatus = 'aborted' if self._was_aborted() else 'unknown'
 
-            return '\n'.join([ 'RunID: ' + self.get_run_id(),
+            return '\n'.join([ 'Experiment: ' + self.get_experiment(),
                                'Instrument: unknown',
                                'Upstream: unknown',
                                'Cells: ',

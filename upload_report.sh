@@ -10,10 +10,10 @@ set -euo pipefail
 
 # First step...
 # See where to get the report from (by default, right here)
-# The run name could theoretically be different from the 'true' run name but we want the report
-# location to match the directory name where the run is stored.
+# The experiment name could theoretically be different from the 'true' expt name but we want the report
+# location to match the directory name where the experiment is stored.
 cd "${1:-.}"
-runname="`basename $PWD`"
+expname="`basename $PWD`"
 
 function echorun(){
     printf $'%q ' "$@" ; printf '\n'
@@ -40,19 +40,19 @@ dest="${REPORT_DESTINATION}"
 # Any required SSH settings should go in ~/.ssh/config
 RSYNC_CMD="echorun ${RSYNC_CMD:-rsync}"
 
-echo "Uploading report for $runname to $dest/..." >&2
-$RSYNC_CMD -drvlOt all_reports $dest/$runname/ >&2
+echo "Uploading report for $expname to $dest/..." >&2
+$RSYNC_CMD -drvlOt all_reports $dest/$expname/ >&2
 
 # Add the index to redirect. We now have to make this a PHP script but at least the content is totally fixed.
 # This is very similar to what we have on Illuminatus (but not quite).
 index_php="$(dirname $BASH_SOURCE)/templates/index.php"
-if $RSYNC_CMD -vpL "$index_php" $dest/$runname/ >&2 ; then
-    echo "...done. Report uploaded and index.php written to ${dest#*:}/$runname/." >&2
+if $RSYNC_CMD -vpL "$index_php" $dest/$expname/ >&2 ; then
+    echo "...done. Report uploaded and index.php written to ${dest#*:}/$expname/." >&2
 else
-    echo "...done. Report uploaded but failed to write index.php to ${dest#*:}/$runname/." >&2
+    echo "...done. Report uploaded but failed to write index.php to ${dest#*:}/$expname/." >&2
 fi
 
 # Say where to find it:
 # eg. https://egcloud.bio.ed.ac.uk/hesiod/...
-echo "Link to report is: ${REPORT_LINK:-$REPORT_DESTINATION}/$runname" >&2
-echo "${REPORT_LINK:-$REPORT_DESTINATION}/$runname"
+echo "Link to report is: ${REPORT_LINK:-$REPORT_DESTINATION}/$expname" >&2
+echo "${REPORT_LINK:-$REPORT_DESTINATION}/$expname"

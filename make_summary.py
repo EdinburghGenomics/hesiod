@@ -6,7 +6,7 @@ from pprint import pformat
 
 from hesiod import parse_cell_name, glob
 
-""" Makes a summary (in text format) for a run, mostly for the benefit of RT.
+""" Makes a summary (in text format) for an experiment, mostly for the benefit of RT.
 
     This wants to be able to run before any processing happens, unlike the reports.
     Unlike make_report, this does not expect to be supplied with a list of .yaml files,
@@ -22,10 +22,10 @@ def main(args):
     # Start by reporting the working dir
     rep = [os.path.realpath(args.dir)]
 
-    if args.runid:
-        runid = args.runid
+    if args.expid:
+        expid = args.expid
     else:
-        runid = os.path.basename(os.path.realpath(args.dir))
+        expid = os.path.basename(os.path.realpath(args.dir))
 
     if args.cells:
         cells = args.cells.split('\t')
@@ -42,13 +42,11 @@ def main(args):
         upstream = None
 
     # Report is fairly simple right now.
-    rep.append( "Run {}{} with {} cells".format(runid,
-                                                " ({})".format(upstream) if upstream else "",
-                                                len(cells)) )
-    rep.append("")
+    rep.append( f"Experiment {expid} ({upstream or 'LOCAL'}) with {len(cells)} cells" )
+    rep.append( "" )
 
     # Now for each cell. Report them in slot order (how does one correctly sort that?)
-    cell_infos = sorted([ (c, parse_cell_name(runid, c)) for c in cells ], key=lambda i: i[1].get('Slot', ''))
+    cell_infos = sorted([ (c, parse_cell_name(expid, c)) for c in cells ], key=lambda i: i[1].get('Slot', ''))
 
     # Could also get this from the caller??
     for cellname, ci in cell_infos:
@@ -126,9 +124,9 @@ def scan_cells(run_dir):
              for fs in glob( "{}/*/*/fastq_pass/".format(run_dir) ) ]
 
 def parse_args(*args):
-    description = """ Makes a summary (in text format) for a run, by scanning the directory.
+    description = """ Makes a summary (in text format) for an experiment, by scanning the directory.
                       Unlike make_report.py, this one always runs on the original source dir,
-                      not the output directory, and does not save/use any intermadiate YAML
+                      not the output directory, and does not save/use any intermediate YAML
                       files.
                   """
     argparser = ArgumentParser( description=description,
@@ -137,10 +135,10 @@ def parse_args(*args):
                             help="Where to save the textual report. Defaults to stdout.")
     argparser.add_argument("--dir", default=".",
                             help="Where to scan, if not the current dir.")
-    argparser.add_argument("--runid",
-                            help="Hint what we expect the run ID to be.")
+    argparser.add_argument("--expid",
+                            help="Hint what we expect the experiment ID to be.")
     argparser.add_argument("--upstream",
-                            help="Hint the upstream location for this run.")
+                            help="Hint the upstream location for this experiment.")
     argparser.add_argument("--cells",
                             help="Hint what we expect the cells to be.")
     argparser.add_argument("--fudge", action="store_true",

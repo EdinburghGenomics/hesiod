@@ -32,7 +32,7 @@ fi
 instrument="$UPSTREAM_NAME"
 
 # Chop the last dir name and condense all the results.
-# Then plonk the date from the first flowcell onto the run name.
+# Then plonk the date from the first flowcell onto the experiment name.
 last_dir=''
 last_munged=''
 
@@ -56,7 +56,7 @@ while read l ; do
         # Finally remove any spaces
         last_munged="$(tr -s ' ' '_*' <<<"$last_munged")"
 
-        # Remember this name for all lines with this run name
+        # Remember this name for all lines with this experiment name
         last_dir="$this_dir"
     fi
     echo "$last_munged"$'\t'"$UPSTREAM_LOC/$this_dir"$'\t'"$cell"

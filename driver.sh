@@ -17,16 +17,17 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix..
 #  Runs are synced from UPSTREAM_{NAME} to PROM_RUNS then, as each cell completes, the
 #  files are compressed and processed into FASTQDATA, from where a report is
 #  generated.
-#  This script will go through all the runs in PROM_RUNS and take action on them as
+#  This script will go through all the experiments in PROM_RUNS and take action on them as
 #  needed according to the state machine model. run_status.py is called to
-#  determine the state. For runs in UPSTREAM and not in PROM_RUNS an action_new
+#  determine the state. For experiments in UPSTREAM and not in PROM_RUNS an action_new
 #  event is triggered.
 #  As a well behaved CRON job this script should only output critical error messages
 #  to STDOUT - this is controlled by the MAINLOG setting.
 #  The script wants to run every 5 minutes or so, and having multiple instances
 #  in flight at once is fine (and expected), though in fact there are race conditions
-#  possible if two instances start at once and claim the same run for processing. This
-#  might happen in the case of an NFS hang, but on Lustre we just assume all will be well!
+#  possible if two instances start at once and claim the same experiment for processing. This
+#  might happen in the case of an NFS hang, but on Lustre we just assume all will be well
+#  (and if not, Snakemake locking will trigger a clean failure).
 #
 #  Note within this script I've tried to use ( subshell blocks ) along with "set -e"
 #  to emulate eval{} statements in Perl. It does work but you have to be really careful
@@ -34,7 +35,7 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix..
 #  the manner of ( foo ) || handle_error won't do what you expect.
 #
 #  Also note the non-standard $IFS setting. If you're not sure what this does, check the
-#  BASH manual.
+#  BASH manual. Yes, I should have used arrays for this.
 
 ###--->>> CONFIGURATION <<<---###
 
@@ -61,7 +62,7 @@ fi
 
 # LOG_DIR is ignored if MAINLOG is set explicitly.
 LOG_DIR="${LOG_DIR:-${HOME}/hesiod/logs}"
-RUN_NAME_REGEX="${RUN_NAME_REGEX:-.+_.+_.+}"
+EXP_NAME_REGEX="${EXP_NAME_REGEX:-${RUN_NAME_REGEX:-.+_.+_.+}}"
 
 BIN_LOCATION="${BIN_LOCATION:-$HESIOD_HOME}"
 #PATH="$(readlink -m $BIN_LOCATION):$PATH" # -- Needs to be done after VEnv activation
@@ -96,28 +97,29 @@ debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then log "$@" ; else [ $# = 0 ] && cat >/
 
 # TODO - decide if PROM_RUNS needs a marker file like .smrtino uses.
 
-# Per-run log for more detailed progress messages, goes into the output
+# Per-experiment log for more detailed progress messages, goes into the output
 # directory. Obvously this can't be used in action_new until the directory is made.
-# Main log on FD5, per-run log on FD6
+# Main log on FD5, per-experiment log on FD6
 plog() {
-    if [ -z "${per_run_log:-}" ] ; then
-        per_run_log="$RUN_OUTPUT/pipeline.log"
+    if [ -z "${per_expt_log:-}" ] ; then
+        per_expt_log="$RUN_OUTPUT/pipeline.log"
         # In LOG_SPEW mode, log to the terminal too
         if [ "${LOG_SPEW:-0}" != 0 ] ; then
-            exec 6> >(tee -a "$per_run_log" >&5)
+            exec 6> >(tee -a "$per_expt_log" >&5)
         else
-            exec 6>>"$per_run_log"
+            exec 6>>"$per_expt_log"
         fi
     fi
     if ! { [ $# = 0 ] && cat >&6 || echo "$@" >&6 ; } ; then
-       log '!!'" Failed to write to $per_run_log"
+       log '!!'" Failed to write to $per_expt_log"
        log "$@"
     fi
 }
 
 plog_start() {
-    # Unset $per_run_log or else all the logs go to the first run seen
-    unset per_run_log
+    # Unset $per_expt_log or else all the logs go to the first experiment seen,
+    # which is horribly wrong.
+    unset per_expt_log
     plog $'>>>\n>>>\n>>>'" $0 starting action_$STATUS at `date`"
 }
 
@@ -151,7 +153,7 @@ fi
 PATH="$(readlink -m $BIN_LOCATION):$PATH"
 
 # Tools may reliably use this to report the version of Hesiod being run right now.
-# (You should look at pipeline/start_times to see which versions have touched a given run.)
+# (You should look at pipeline/start_times to see which versions have touched a given experiment.)
 # Note we have to do this after the VEnv activation which is after the log start so we
 # can't log the version in the log header. This shouldn't matter for production as the
 # full path of this script will indicate the version being run.
@@ -159,9 +161,9 @@ export HESIOD_VERSION=$(hesiod_version.py)
 
 ###--->>> ACTION CALLBACKS <<<---###
 
-# 3) Define an action for each possible status that a promethion run can have:
+# 3) Define an action for each possible status that a promethion experiment can have:
 
-# new)         - run is on upstream but not on PROM_RUNS
+# new)         - experiment is on upstream but not on PROM_RUNS
 # sync_needed) - one or more cells to be synced (note this action is deferred)
 # cell_ready)  - cell is done and we need to proces it and make an updated report
 
@@ -169,9 +171,9 @@ export HESIOD_VERSION=$(hesiod_version.py)
 
 # syncing)     - data is being fetched but there is nothing to process yet
 # processing)  - the pipeline is working and there are no new cells to sync
-# complete)    - the pipeline has finished processing all known cells on this run and made a report
-# aborted)     - the run is not to be processed further
-# failed)      - the pipeline tried to process the run but failed somewhere
+# complete)    - the pipeline finished processing all known cells within experiment and made a report
+# aborted)     - the experiment, including any new cells added, is not to be processed further
+# failed)      - the pipeline tried to process the experiment but failed somewhere
 # unknown)     - anything else. ie. something is broken
 
 # There are also some compound states
@@ -181,7 +183,7 @@ export HESIOD_VERSION=$(hesiod_version.py)
 
 # TODO - consider if we need a separate reporting state. I guess not.
 
-# All actions can see CELLS STATUS RUNID INSTRUMENT CELLSABORTED as reported by run_status.py, and
+# All actions can see CELLS STATUS EXPERIMENT INSTRUMENT CELLSABORTED as reported by run_status.py, and
 # RUN_OUTPUT (the input dir is simply the CWD)
 # The cell_ready action can read the CELLSREADY array which is guaranteed to be non-empty
 
@@ -190,41 +192,41 @@ action_new(){
     # Have a 'from' file containing the upstream location
     # Also a matching output directory and back/forth symlinks
     _cc=`twc $CELLS`
-    _run_dir="$(dir_for_run "$RUNID")"
-    _run_dir_dir="$(dirname "$PROM_RUNS/$_run_dir")"
+    _exp_dir="$(dir_for_run "$EXPERIMENT")"
+    _exp_dir_dir="$(dirname "$PROM_RUNS/$_exp_dir")"
 
     if [ "$RUNUPSTREAM" = LOCAL ] ; then
         # The run_status.py script will report 'LOCAL' if the upstream record is missing, but we then
         # below write this value explicitly into the upstream file.
-        log "\_NEW $RUNID (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
-        _msg1="New run in $PROM_RUNS with $_cc cells."
+        log "\_NEW $EXPERIMENT (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
+        _msg1="New experiment in $PROM_RUNS with $_cc cells."
     else
-        log "\_NEW $RUNID with $_cc cells. Creating skeleton directories in $_run_dir_dir and $FASTQDATA."
-        _msg1="Syncing new run from $RUNUPSTREAM to $_run_dir_dir with $_cc cells."
+        log "\_NEW $EXPERIMENT with $_cc cells. Creating skeleton directories in $_exp_dir_dir and $FASTQDATA."
+        _msg1="Syncing new experiment from $RUNUPSTREAM to $_exp_dir_dir with $_cc cells."
     fi
 
-    # BREAK=1 is ignored when processing new runs from upstream, because that loop doesn't check BREAK,
-    # but causes the main loop to halt when processing new local runs found by 'compgen -G'.
+    # BREAK=1 is ignored when processing new experiments from upstream, because that loop doesn't check BREAK,
+    # but causes the main loop to halt when processing new local experiments found by 'compgen -G'.
     # Is this ideal?
     # If something fails we should assume that something is wrong  with the FS and not try to
-    # process more runs. However, if nothing fails we can process multiple new runs in one go,
+    # process more experiments. However, if nothing fails we can process multiple new experiments in one go,
     # be they local or remote.
     BREAK=1
-    if mkdir -vp "$PROM_RUNS/$_run_dir/pipeline" |&debug ; then
-        cd "$PROM_RUNS/$_run_dir"
+    if mkdir -vp "$PROM_RUNS/$_exp_dir/pipeline" |&debug ; then
+        cd "$PROM_RUNS/$_exp_dir"
         echo "$RUNUPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
-        log "FAILED $RUNID (creating $PROM_RUNS/$_run_dir/pipeline)"
+        log "FAILED $EXPERIMENT (creating $PROM_RUNS/$_exp_dir/pipeline)"
         return
     fi
 
-    # Now, this should fail if $FASTQDATA/$RUNID already exists or can't be created.
-    RUN_OUTPUT="$FASTQDATA/$RUNID"
+    # Now, this should fail if $FASTQDATA/$EXPERIMENT already exists or can't be created.
+    RUN_OUTPUT="$FASTQDATA/$EXPERIMENT"
     if _msg2="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
         debug "$_msg2"
         plog_start
-        log "Logging to $per_run_log"
+        log "Logging to $per_expt_log"
         plog "$_msg1"
         plog "$_msg2"
         chgrp -c --reference="$RUN_OUTPUT" ./pipeline |&plog
@@ -239,28 +241,29 @@ action_new(){
         log "$_msg2"
         # Prevent writing to the pipeline log during failure handling as we don't own it!
         (  plog() { ! [ $# = 0 ] || cat >/dev/null ; }
-           per_run_log="$MAINLOG"
+           per_expt_log="$MAINLOG"
            pipeline_fail New_Run_Setup
         )
         return
     fi
 
     # Now detect if any cells are already complete, so we can skip the sync on the
-    # next run-through. This will only be the case for local runs.
+    # next run-through. This will only be the case for local experiments - ie. those
+    # copied in directly.
     check_for_ready_cells
 
     # Triggers a summary to be sent to RT as a comment, which should create
-    # the new RT ticket. Note that there will never be a report for a brand new run, just a summary.
+    # the new RT ticket. Note that there will never be a report for a brand new experiment, just a summary.
     # If this fails for some reason, press on.
     ( send_summary_to_rt comment \
                          new \
-                         "$_msg1"$'\n\n'"This is a new run - there is no report yet." ) |& plog || true
+                         "$_msg1"$'\n\n'"This is a new experiment - there is no report yet." ) |& plog || true
     log "DONE"
 }
 
 action_cell_ready(){
     # This is the main event. Start processing and then report.
-    log "\_CELL_READY $RUNID. Time to process `twc $CELLSREADY` cells (`twc $CELLSDONE` already done)."
+    log "\_CELL_READY $EXPERIMENT. Time to process `twc $CELLSREADY` cells (`twc $CELLSDONE` already done)."
     plog_start
 
     for _c in $CELLSREADY ; do
@@ -274,9 +277,9 @@ action_cell_ready(){
     # Combined list of cells ready and done
     _cells_ready_or_done="$(tjoin $'\t' "$CELLSREADY" "$CELLSDONE")"
 
-    # This will be a no-op if the run isn't really complete, and will return 3
+    # This will be a no-op if the experiment isn't really complete, and will return 3
     # If contacting RT fails it will return 1
-    ( notify_run_complete ) |&plog || _res=$?
+    ( notify_experiment_complete ) |&plog || _res=$?
     if [ ${_res:-0} = 3 ] ; then
         _report_status="incomplete"
         _report_level=comment
@@ -297,7 +300,7 @@ action_cell_ready(){
     # As usual, the Snakefile controls the processing
     plog "Preparing to process cell(s) $_cellsready into $RUN_OUTPUT"
     set +e ; ( set -e
-      log "  Starting Snakefile.main on $RUNID."
+      log "  Starting Snakefile.main on $EXPERIMENT."
 
       # Log the start in a way a script can easily read back (humans can check the main log!)
       save_start_time
@@ -319,7 +322,7 @@ action_cell_ready(){
       # Now we can make the report, which may be interim or final. We should only
       # ever have one of these running at a time.
       if ! upload_report | plog ; then
-        log "Processing completed but failed to upload the report. See $per_run_log"
+        log "Processing completed but failed to upload the report. See $per_expt_log"
         false
       fi
 
@@ -331,7 +334,7 @@ action_cell_ready(){
                               "Processing completed for cells $_cellsready. Run report is at" \
                               FUDGE ;
       then
-        log "Failed to send summary to RT. See $per_run_log"
+        log "Failed to send summary to RT. See $per_expt_log"
         false
       fi
 
@@ -359,24 +362,24 @@ action_cell_ready(){
 SYNC_QUEUE=()
 action_sync_needed(){
     # Deferred action - add to the sync queue. No plogging just yet.
-    # Note that if another run needs attention we may never actually get to process
+    # Note that if another experiment needs attention we may never actually get to process
     # the contents of the SYNC_QUEUE
-    SYNC_QUEUE+=("$RUNID")
-    log "\_SYNC_NEEDED $RUNID. Added to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
+    SYNC_QUEUE+=("$EXPERIMENT")
+    log "\_SYNC_NEEDED $EXPERIMENT. Added to SYNC_QUEUE for deferred processing (${#SYNC_QUEUE[@]} items in queue)."
 }
 
 action_processing_sync_needed(){
-    debug "\_PROCESSING_SYNC_NEEDED $RUNID. Calling action_sync_needed..."
+    debug "\_PROCESSING_SYNC_NEEDED $EXPERIMENT. Calling action_sync_needed..."
 
     # Same as above
     action_sync_needed
 }
 
 action_incomplete(){
-    debug "\_INCOMPLETE $RUNID."
+    debug "\_INCOMPLETE $EXPERIMENT."
 
     # When there are cells with no .synced flag but also no upstream to fetch from.
-    # Possibly we are writing files directly into the run dir?
+    # Possibly we are pushing files directly into the rundata directory?
     # No BREAK here since there is the potential for sticking in a loop. Incomplete
     # cells that will never be completed should be aborted as soon as possible.
     plog_start
@@ -391,19 +394,19 @@ action_incomplete(){
 }
 
 action_syncing(){
-    debug "\_SYNCING $RUNID."
+    debug "\_SYNCING $EXPERIMENT."
 }
 
 action_processing_syncing(){
-    debug "\_PROCESSING_SYNCING $RUNID."
+    debug "\_PROCESSING_SYNCING $EXPERIMENT."
 }
 
 action_processing(){
-    debug "\_PROCESSING $RUNID."
+    debug "\_PROCESSING $EXPERIMENT."
 }
 
 action_failed() {
-    # failed runs need attention from an operator, so log the situatuion
+    # failed experiments need attention from an operator, so log the situatuion
     set +e
     _reason=`cat pipeline/failed 2>/dev/null`
     if [ -z "$_reason" ] ; then
@@ -412,42 +415,42 @@ action_failed() {
         _reason=`cat ${_lastfail##* } 2>/dev/null`
     fi
 
-    log "\_FAILED $RUNID ($_reason)"
+    log "\_FAILED $EXPERIMENT ($_reason)"
 }
 
 action_aborted() {
-    # aborted runs are not our concern
+    # aborted experiments are not our concern
     true
 }
 
 action_complete() {
-    # the pipeline already fully completed for this run - Yay! - nothing to be done ...
+    # the pipeline already fully completed for this experiment - Yay! - nothing to be done ...
     true
 }
 
 action_stripped() {
-    # The data deleter is currently cleaning the run up. Nothing for us here.
+    # The data deleter is currently cleaning the experiment up. Nothing for us here.
     true
 }
 
 action_unknown() {
-    # this run is broken somehow ... nothing to be done...
+    # this experiment is broken somehow ... nothing to be done by the driver...
     log "\_skipping `pwd` because status is $STATUS"
 }
 
 # Not really an action but almost:
 do_sync(){
     # See doc/syncing.txt
-    # Called per run, and needs to sync all cells for which there is a remote
+    # Called per experiment, and needs to sync all cells for which there is a remote
     # in $UPSTREAM_INFO but no {cell}.synced
 
     # If break was set, abort any other syncs
     if [ "$BREAK" != 0 ] ; then
-        log "\_DO_SYNC $RUNID - aborting as BREAK=$BREAK"
+        log "\_DO_SYNC $EXPERIMENT - aborting as BREAK=$BREAK"
         touch pipeline/sync.failed ; return
     fi
 
-    log "\_DO_SYNC $RUNID"
+    log "\_DO_SYNC $EXPERIMENT"
     plog ">>> $0 starting sync (status=$STATUS) at `date`."
 
     # assertion - status should have been set already
@@ -456,16 +459,16 @@ do_sync(){
         return
     fi
 
-    # Work out the right SYNC_CMD. The instrument/upstream name is the second part of the RUNID.
-    _instrument=`sed 's/[^_]\+_\([^_]\+\)_.*/\1/' <<<"$RUNID"`
+    # Work out the right SYNC_CMD. The instrument/upstream name is the second part of the EXPERIMENT.
+    _instrument=`sed 's/[^_]\+_\([^_]\+\)_.*/\1/' <<<"$EXPERIMENT"`
     eval _sync_cmd="\${SYNC_CMD_${_instrument}:-}"
     _sync_cmd="${_sync_cmd:-$SYNC_CMD}"  # Or the default?
     _sync_cmd="${_sync_cmd:-false}"      # Well there should be a command :-/
 
     # Loop through cells
-    while read run upstream cell ; do
+    while read experiment upstream cell ; do
 
-        # Note as well as $run we also have $run_dir set which incorporates the batch directory,
+        # Note as well as $experiment we also have $run_dir set which incorporates the batch directory,
         # and $run_dir_full which is the full local path.
         # This is what should be used in the sync_cmd templates.
 
@@ -487,7 +490,7 @@ do_sync(){
 
             # Run the SYNC_CMD - if the return code is 130 or 20 then abort all
             # pending ops (presume Ctrl+C was pressed) else if there is an error
-            # proceed to the next run. Note it is essential to redirect stdin!
+            # proceed to the next experiment. Note it is essential to redirect stdin!
             eval echo "Running: $_sync_cmd" | plog
             if eval $_sync_cmd </dev/null |&plog ; then
                 true
@@ -500,7 +503,7 @@ do_sync(){
             plog "Cell $cell is already synced and/or complete"
         fi
 
-    done < <(awk -F "$IFS" -v runid="$RUNID" '$1 == runid {print}' <<<"$UPSTREAM_INFO")
+    done < <(awk -F "$IFS" -v expid="$EXPERIMENT" '$1 == expid {print}' <<<"$UPSTREAM_INFO")
 
     check_for_ready_cells
     mv pipeline/sync.started pipeline/sync.done
@@ -556,10 +559,10 @@ get_full_version(){
     echo "Hesiod $HESIOD_VERSION [${USER:-[unknown user]}@${HOSTNAME:-[unknown host]}:${HESIOD_HOME}]"
 }
 
-# Wrapper for ticket manager that sets the run and queue (note this refers
+# Wrapper for ticket manager that sets the experiment and queue (note this refers
 # to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control this.)
 rt_runticket_manager(){
-    rt_runticket_manager.py -r "$RUNID" -Q promrun -P Experiment "$@"
+    rt_runticket_manager.py -r "$EXPERIMENT" -Q promrun -P Experiment "$@"
 }
 
 check_for_ready_cells(){
@@ -581,13 +584,13 @@ check_for_ready_cells(){
     done
 
     if [ $_count -gt 0 ] ; then
-        log "$_count cells on this run are now ready for processing."
+        log "$_count cells in this experiment are now ready for processing."
     fi
 }
 
-notify_run_complete(){
-    # Tell RT that the run finished. Ie. that all cells seen are synced and ready to process.
-    # As the number of cells in a run is open-ended, this may happen more than once, but only
+notify_experiment_complete(){
+    # Tell RT that the experiment finished. Ie. that all cells seen are synced and ready to process.
+    # As the number of cells in an experiment is open-ended, this may happen more than once, but only
     # once for any given number of cells.
     _cc=`twc $CELLS`
     _ca=`twc $CELLSABORTED`
@@ -622,7 +625,7 @@ upload_report() {
 
     # Get a handle on logging.
     plog </dev/null
-    _plog="${per_run_log}"
+    _plog="${per_expt_log}"
 
     # Push to server and capture the result (upload_report.sh runs OK and prints a URL)
     # We want stderr from upload_report.sh to go to stdout, so it gets plogged.
@@ -668,14 +671,14 @@ send_summary_to_rt() {
         _fudge=--fudge
     fi
 
-    echo "Sending new summary of this run to RT."
+    echo "Sending new summary of this experiment to RT."
 
     # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
     { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
             _last_upload_report="Report not yet generated."
 
-      _run_summary="$(make_summary.py --runid "$RUNID" --cells "$CELLS" $_fudge 2>&3)" || \
-            _run_summary="Error making run summary."
+      _run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "$CELLS" $_fudge 2>&3)" || \
+            _run_summary="Error making experiment summary."
     } 3>&1
 
     # Switch spaces to &nbsp; in the summary. This doesn't really fix the table but it does help.
@@ -695,7 +698,7 @@ send_summary_to_rt() {
 }
 
 dir_for_run(){
-    # Decide where a run should live based upon PROM_RUNS_BATCH
+    # Decide where rundata for an experiment should live based upon PROM_RUNS_BATCH
     if [ "${PROM_RUNS_BATCH:-none}" = year ] ; then
         echo "${1:0:4}/$1"
     elif [ "${PROM_RUNS_BATCH:-none}" = month ] ; then
@@ -726,13 +729,13 @@ pipeline_fail() {
     fi
 
     # Send an alert to RT.
-    # Note that after calling 'plog' we can query '$per_run_log' since all shell vars are global.
+    # Note that after calling 'plog' we can query '$per_expt_log' since all shell vars are global.
     plog "Attempting to notify error to RT"
-    if rt_runticket_manager --subject failed --reply "Failed at $_failure."$'\n'"See log in $per_run_log" |& plog ; then
-        log "FAIL $_failure on $RUNID; see $per_run_log"
+    if rt_runticket_manager --subject failed --reply "Failed at $_failure."$'\n'"See log in $per_expt_log" |& plog ; then
+        log "FAIL $_failure on $EXPERIMENT; see $per_expt_log"
     else
         # RT failure. Complain to STDERR in the hope this will generate an alert mail via CRON
-        msg="FAIL $_failure on $RUNID, and also failed to report the error via RT."$'\n'"See $per_run_log"
+        msg="FAIL $_failure on $EXPERIMENT, and also failed to report the error via RT."$'\n'"See $per_expt_log"
         echo "$msg" >&2
         log "$msg"
     fi
@@ -745,8 +748,8 @@ project_realnames() {
     project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t $CELLS || true
 }
 
-get_run_status() { # run_dir
-  # invoke run_status.py in CWD and collect some meta-information about the run.
+get_run_status() {
+  # invoke run_status.py in CWD and collect some meta-information about the experiment.
   # We're passing this info to the state functions via global variables.
 
   # This construct allows error output to be seen in the log.
@@ -754,7 +757,7 @@ get_run_status() { # run_dir
         run_status.py -I "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
   # Capture the various parts into variables (see test/grs.sh)
-  for _v in RUNID/RunID INSTRUMENT/Instrument \
+  for _v in EXPERIMENT/Experiment INSTRUMENT/Instrument \
             CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellsDone CELLSABORTED/CellsAborted \
             STATUS/PipelineStatus RUNUPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
@@ -805,7 +808,7 @@ else
     prom_runs_list=("$PROM_RUNS"/*_*/)
 fi
 
-log ">> Looking for run directories matching regex $prom_runs_prefix/$RUN_NAME_REGEX/"
+log ">> Looking for run directories matching regex $prom_runs_prefix/$EXP_NAME_REGEX/"
 
 # If there is nothing in "$PROM_RUNS" and nothing in "$UPSTREAM_INFO" it's an error.
 # Seems best to be explicit checking this. Could be an error in the batch setting?
@@ -820,19 +823,19 @@ fi
 BREAK=0
 for run in "${prom_runs_list[@]}" ; do
 
-    if ! [[ "`basename $run`" =~ ^${RUN_NAME_REGEX}$ ]] ; then
+    if ! [[ "`basename $run`" =~ ^${EXP_NAME_REGEX}$ ]] ; then
         debug "Ignoring `basename $run`"
         continue
     fi
 
     # TODO - consider pruning the list of runs to avoid get_run_status on every old run.
 
-    # This sets RUNID, STATUS, etc. as a side-effect
+    # This sets EXPERIMENT, STATUS, etc. as a side-effect
     get_run_status "$run"
 
     # Taken from SMRTino - normally we don't log all the boring stuff
     if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] || [ "$STATUS" = stripped ] ; then _log=debug ; else _log=log ; fi
-    $_log "$RUNID with `twc $CELLS` cell(s) and status=$STATUS"
+    $_log "$EXPERIMENT with `twc $CELLS` cell(s) and status=$STATUS"
 
     # Call the appropriate function in the appropriate directory.
     pushd "$run" >/dev/null
@@ -858,32 +861,32 @@ fi
 # Now synthesize new run events
 STATUS=new
 if [ -n "$UPSTREAM" ] ; then
-    log ">> Handling new upstream runs matching regex $RUN_NAME_REGEX"
+    log ">> Handling new upstream runs matching regex $EXP_NAME_REGEX"
     [[ -n "$UPSTREAM_INFO" ]] || log "No runs seen"
-    while read RUNID ; do
+    while read EXPERIMENT ; do
 
         # Work out where it should go based on PROM_RUNS_BATCH
-        run_dir="$(dir_for_run "$RUNID")"
+        run_dir="$(dir_for_run "$EXPERIMENT")"
 
         if [ -e "$PROM_RUNS/$run_dir" ] ; then
-            debug "Run $RUNID is not new"
+            debug "Run $EXPERIMENT is not new"
             continue
         fi
-        if ! [[ "$RUNID" =~ ^${RUN_NAME_REGEX}$ ]] ; then
-            debug "Ignoring $RUNID due to regex"
+        if ! [[ "$EXPERIMENT" =~ ^${EXP_NAME_REGEX}$ ]] ; then
+            debug "Ignoring $EXPERIMENT due to regex"
             continue
         fi
 
         # Set vars to match get_run_status. Remember we have IFS set globally to "\t" in this script.
-        RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$RUNID" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
-        CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$RUNID" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
+        RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$EXPERIMENT" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
+        CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$EXPERIMENT" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
         CELLS="${CELLS%$IFS}" # chop trailing tab
         CELLSPENDING=""
 
-        unset per_run_log # Should be done by plog_start in any case.
+        unset per_expt_log # Should be done by plog_start in any case.
         eval action_"$STATUS"
         # Should never actually get an error here unless the called function calls "set +e"
-        [ $? = 0 ] || log "Error while trying to run action_$STATUS on $RUNID"
+        [ $? = 0 ] || log "Error while trying to run action_$STATUS on $EXPERIMENT"
         set -e
 
     done < <(printf "%s" "$UPSTREAM_INFO" | awk -F "$IFS" '{print $1}' | uniq)
@@ -895,8 +898,9 @@ if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
     log ">> Processing SYNC_QUEUE"
     nn=1
     # First loop prepares to sync
-    for RUNID in "${SYNC_QUEUE[@]}" ; do
-        run_dir="$(dir_for_run "$RUNID")"
+    for EXPERIMENT in "${SYNC_QUEUE[@]}" ; do
+        run="$EXPERIMENT"
+        run_dir="$(dir_for_run "$EXPERIMENT")"
         run_dir_full="$PROM_RUNS/$run_dir"
         # Not using touch_atomic since it's possible sync.started and sync.failed are both
         # present.
@@ -911,14 +915,14 @@ if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
     done
 
     # Second loop actually syncs
-    for RUNID in "${SYNC_QUEUE[@]}" ; do
-        run_dir="$(dir_for_run "$RUNID")"
+    for EXPERIMENT in "${SYNC_QUEUE[@]}" ; do
+        run_dir="$(dir_for_run "$EXPERIMENT")"
         run_dir_full="$PROM_RUNS/$run_dir"
         # Note this sets RUN_OUTPUT as needed for plog...
         get_run_status "$run_dir_full"
 
         pushd "$run_dir_full" >/dev/null
-        unset per_run_log
+        unset per_expt_log
         eval do_sync
         # Should never actually get an error here unless do_sync calls "set +e"
         [ $? = 0 ] || log "Error while trying to run Rsync on $run_dir"
