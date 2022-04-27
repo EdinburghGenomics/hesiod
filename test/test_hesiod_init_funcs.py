@@ -7,6 +7,7 @@
 import sys, os, re
 import unittest
 import logging
+from collections import OrderedDict
 from datetime import datetime, timezone
 from dateutil.tz.tz import tzutc
 from pprint import pprint
@@ -35,18 +36,19 @@ class T(unittest.TestCase):
     def test_parse_cell_name(self):
 
         res = parse_cell_name('20210520_EGS1_16031BA', '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f')
+        self.assertEqual(type(res), OrderedDict)
         self.assertEqual(dict(res), dict(
-                    Run       = '20210520_EGS1_16031BA',
-                    Cell      = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f',
-                    Library   = '16031BApool01',
-                    Date      = '20210520',
-                    Number    = '1105',
-                    Slot      = '2-E1-H1',
-                    CellID    = 'PAG23119',
-                    Checksum  = '76e7e00f',
-                    Project   = '16031',
-                    Base      = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/'
-                                  '20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f' ) )
+                    Experiment = '20210520_EGS1_16031BA',
+                    Cell       = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f',
+                    Library    = '16031BApool01',
+                    Date       = '20210520',
+                    Number     = '1105',
+                    Slot       = '2-E1-H1',
+                    CellID     = 'PAG23119',
+                    Checksum   = '76e7e00f',
+                    Project    = '16031',
+                    Base       = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/'
+                                   '20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f' ) )
 
     def test_load_final_summary(self):
 

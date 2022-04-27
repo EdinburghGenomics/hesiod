@@ -15,8 +15,8 @@ def glob():
 
     key_regex = re.compile(r"(?<=[._])(\d+)(?=[._])")
     def key_func(filename):
-        """Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
-           that dictionary sort will produce a numeric sort.
+        r"""Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
+            that dictionary sort will produce a numeric sort.
         """
         return re.sub(key_regex, lambda d: d.group().rjust(8,'0'), filename)
 
@@ -65,11 +65,11 @@ def _determine_version():
 
     return vers
 
-def parse_cell_name(run, cell):
+def parse_cell_name(experiment, cell):
     """Things we get from parsing wildcards.cell
     """
     res = OrderedDict()
-    res['Run'] = run
+    res['Experiment'] = experiment
     res['Cell'] = cell
 
     # Now shred the filename.
@@ -92,7 +92,7 @@ def parse_cell_name(run, cell):
 
     # Given all this, what do we call output files releting to this cell?
     # See doc/naming_convention.txt
-    res['Base'] = "{Cell}/{Run}_{Library}_{CellID}_{Checksum}".format(**res)
+    res['Base'] = "{Cell}/{Experiment}_{Library}_{CellID}_{Checksum}".format(**res)
 
     return res
 

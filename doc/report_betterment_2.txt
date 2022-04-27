@@ -11,12 +11,17 @@ are run at once - it's not like Illumina where a fluidics issue can affect all t
 As part of this, add the original experiment name to the metadata just to be explicit,
 even though it's just the last part of the run ID in most cases.
 
+How to get this? 
+
 What do I need to correct?
 
 1)
 The RT queue will still be called "bfx-promethion-run" but I want the titles to be
 "Experiment". This required a change to the rt_runticket_manager, adding a --prefix
 option.
+
+I also want to chenge make_report. Pretty easy. I'll also change the name in the YAML,
+but retain support for reporting old YAML files.
 
 2) Add the PDF reports to the Hesiod report. I note that the files are provided in
 both PDF and markdown format, so I might try re-rendering them as HTML or just copy the

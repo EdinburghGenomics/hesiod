@@ -65,17 +65,17 @@ else:
     os.environ['PATH'] += ':' + os.path.dirname(workflow.snakefile)
 
 # If not supplied, just assume the usual symlink will work...
-RUNDIR = config.get('rundata', 'rundata')
-if not os.path.exists(RUNDIR):
-    logger.warning(f"WARNING: {RUNDIR} is not a directory. Suppressing rules that reference RUNDIR.")
-    RUNDIR = None
+EXPDIR = config.get('rundata', 'rundata')
+if not os.path.exists(EXPDIR):
+    logger.warning(f"WARNING: {EXPDIR} is not a directory. Suppressing rules that reference EXPDIR.")
+    EXPDIR = None
 
 def cellname_to_base(c):
     """Given a cell name, what base name do we choose for the output files?
     """
-    return parse_cell_name(RUN, c)['Base']
+    return parse_cell_name(EXPERIMENT, c)['Base']
 
-def scan_cells(rundir, config):
+def scan_cells(expdir, config):
     """ Work out all the cells to process. Normally simple since the list is just passed in
         by driver.sh in config['cellsready'] but I do want to be able to process all by default so
         there is some scanning capability too.
@@ -88,11 +88,11 @@ def scan_cells(rundir, config):
     if 'cells' in config:
         # Believe what we are told
         cells = config['cells'].split('\t')
-    elif rundir:
+    elif expdir:
         # Look for valid cells.
-        cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{rundir}/*/*/fastq_????/") ))
+        cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{expdir}/*/*/fastq_????/") ))
     else:
-        # Look for cells here in the output (presumably the run already processed and the raw dir was removed)
+        # Look for cells here in the output (presumably the experiment already processed and the rundata was removed)
         cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"*/*/cell_info.yaml") ]
 
     if 'cellsready' in config:
@@ -101,13 +101,13 @@ def scan_cells(rundir, config):
 
         for c in cellsready:
             assert c in cells, f'Invalid cell (no fastq_pass or not listed in config["cells"]): {c}'
-    elif rundir:
+    elif expdir:
         # Look for cells with a final_summary.txt (as made by MinKNOW). Note the new name in MinKNOW 3.6+
         cellsready = [ c for c in cells if (
-                       glob(f"{rundir}/{c}/final_summary.txt") or
-                       glob(f"{rundir}/{c}/final_summary_*_*.txt") ) ]
+                       glob(f"{expdir}/{c}/final_summary.txt") or
+                       glob(f"{expdir}/{c}/final_summary_*_*.txt") ) ]
     else:
-        # If there is no RUNDIR this makes most sense by default.
+        # If there is no EXPDIR this makes most sense by default.
         cellsready = cells
 
     if not cellsready:
@@ -116,16 +116,16 @@ def scan_cells(rundir, config):
 
     res = { c: dict() for c in cellsready }
 
-    if rundir:
+    if expdir:
         for c, d in res.items():
             for pf, filetype in product(["pass", "fail"], ["fastq", "fastq.gz", "fast5"]):
                 category = f"{filetype}_{pf}"
                 cat_dir  = f"{filetype.split('.')[0]}_{pf}"
                 # Collect un-barcoded files
-                non_barcoded_files = [ f[len(rundir) + 1:]
-                                       for f in glob(f"{rundir}/{c}/{cat_dir}/*.{filetype}") ]
-                barcoded_files = [ f[len(rundir) + 1:]
-                                   for f in glob(f"{rundir}/{c}/{cat_dir}/*/*.{filetype}") ]
+                non_barcoded_files = [ f[len(expdir) + 1:]
+                                       for f in glob(f"{expdir}/{c}/{cat_dir}/*.{filetype}") ]
+                barcoded_files = [ f[len(expdir) + 1:]
+                                   for f in glob(f"{expdir}/{c}/{cat_dir}/*/*.{filetype}") ]
                 if non_barcoded_files:
                     d.setdefault('.', dict())[category] = non_barcoded_files
                 for bf in barcoded_files:
@@ -147,12 +147,12 @@ def scan_cells(rundir, config):
             # tack them on with fast5_fail. If I see "skipped" files _and_ barcodes well then I really
             # dunno.
             if '.' in d:
-                d['.']['fast5_fail'].extend( [ f[len(rundir) + 1:]
-                                               for f in glob(f"{rundir}/{c}/fast5_skip/*.fast5") ] )
+                d['.']['fast5_fail'].extend( [ f[len(expdir) + 1:]
+                                               for f in glob(f"{expdir}/{c}/fast5_skip/*.fast5") ] )
 
         # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
-            fs = load_final_summary(f"{rundir}/{c}/")
+            fs = load_final_summary(f"{expdir}/{c}/")
             for ft in ["fastq", "fast5"]:
                 # Add zipped and unzipped FASTQ files...
                 ft_sum = sum( len(fileslist[f"{ft}{z}_{pf}"])
@@ -205,7 +205,7 @@ def find_representative_fast5(cell, sc, try_glob=True):
         raise RuntimeError("No representative FAST5 found and try_glob is False")
 
 def fast5_out(f5_in):
-    """Given a .fast5 file in the rundir, say what the output .fast5 will be
+    """Given a .fast5 file in the expdir, say what the output .fast5 will be
     """
     f5_split = f5_in.split('/')
     pf = f5_split[2].split('_')[1]
@@ -265,6 +265,60 @@ def label_for_part(part, barcode='.'):
 
     return pls.get(part, pls['_default'])
 
+def get_cell_info(experiment, cell, cell_content, counts, fin_summary, blobs, nanoplot, fast5_meta):
+    """Compiles the content of cell_info.yaml from various bits and pieces.
+       Only really for use by the 'one_cell' rule.
+    """
+    ci = parse_cell_name(experiment, cell)
+
+    # Add pass/fail number of files. If the EXPDIR is not available we'll not attempt
+    # to recalculate this. I could still count fast5 files but a better approach would be
+    # to serialize SC[wildcards.cell] and just keep hold of this for info, if it were needed.
+    for pf in ["pass", "fail"]:
+        try:
+            # We can't guarantee the counts in fastq and fast5 match. Record all counts.
+            # The dict comprehension aggregates over all barcodes.
+            cell_files = { k: [f for cfb in cell_content.values() for f in cfb[f'{k}_{pf}']]
+                           for k in ["fastq", "fast5"] }
+            # Add in gzipped file counts
+            cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb.get(f'fastq.gz_{pf}',[])]
+            ci['Files in '+pf] = len(cell_files['fastq'])
+            ci['Files in fast5 '+pf] = len(cell_files['fast5'])
+
+        except KeyError as e:
+            # FIXME - see comment above.
+            logger.warning(repr(e))
+            ci['Files in '+pf] = "unknown"
+
+    # Add info from the .count files - add in '_label' and '_barcode' but I'm not sure
+    # if we will split them out by barcode in the report or just add them up.
+    ci['_counts'] = []
+
+    for pf in get_fastq_parts(fin_summary['is_rna']):
+        for bc in cell_content:
+            # The items in counts come from input.counts. Assume each YAML
+            # file yields a dict
+            cdata = counts[(bc, pf)]
+            cdata['_label'] = f"{label_for_part(pf).capitalize()} reads"
+            cdata['_barcode'] = bc
+            ci['_counts'].append(cdata)
+
+    # The fin_summary also contains the original experimiment name, which I could get from
+    # rundata/pipeline/upstream but this seems more robust.
+    if fin_summary.get('protocol_group_id'):
+        ci['UpstreamExpt'] = fin_summary['protocol_group_id']
+
+    # Link to other reports. I'm now using paths relative to the file rather than the
+    # root of the run dir.
+    ci['_blobs'] = [ f"../../{b}" for b in blobs ]
+    ci['_nanoplot'] = f"../../{nanoplot}"
+    #ci['_minionqc'] = str(input.minionqc)
+
+    # Fold in the fast5_metadata
+    ci.update(fast5_meta)
+
+    return ci
+
 # NanoPlot makes many plots, but here are the ones we care about:
 NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", "NumberOfReads_Over_Time" ]
 
@@ -273,13 +327,13 @@ NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
 # Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
 # Note - nothing is aggregated per-lib just yet?!
-SC, COUNTS = scan_cells(RUNDIR, config)
-RUN = os.path.basename(os.path.realpath('.')).split('.')[0]
-CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(RUN, c)['Library'], True)
-CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(RUN, c)['Project'], True)
+SC, COUNTS = scan_cells(EXPDIR, config)
+EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
+CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(EXPERIMENT, c)['Library'], True)
+CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(EXPERIMENT, c)['Project'], True)
 
 logger.info( f"config =\n{pformat(config)}" )
-logger.info( f"RUN {RUN}, SC =\n{sc_counts(SC)}" )
+logger.info( f"EXPERIMENT {EXPERIMENT}, SC =\n{sc_counts(SC)}" )
 
 # Global wildcard patterns
 wildcard_constraints:
@@ -364,7 +418,7 @@ def one_cell_inputs(wc):
     barcodes = SC[cell].keys()
 
     # Load the final summary to see if this is RNA or DNA
-    fs = load_final_summary(f"{RUNDIR}/{cell}/",
+    fs = load_final_summary(f"{EXPDIR}/{cell}/",
                             yamlfile = f"{cell}/cell_final_summary.yaml")
     fastq_parts = get_fastq_parts(fs['is_rna'])
     calref = "eno" if fs['is_rna'] else "lambda"
@@ -393,52 +447,28 @@ def one_cell_inputs(wc):
 rule one_cell:
     output: "{cell}/cell_info.yaml"
     input: unpack(one_cell_inputs)
+    params:
+        base = lambda wc: cellname_to_base(wc.cell)
     run:
-        ci = parse_cell_name(RUN, wildcards.cell)
-        base = cellname_to_base(wildcards.cell)
-
-        # Add pass/fail number of files. If the RUNDIR is not available we'll not attempt
-        # to recalculate this. I could still count fast5 files but a better approach would be
-        # to serialize SC[wildcards.cell] and just keep hold of this for info.
-        cell_content = SC[wildcards.cell]
-        for pf in ["pass", "fail"]:
-            try:
-                # Maybe we can't guarantee the counts in fastq and fast5 match?!
-                # Nope - they should always match.
-                cell_files = { k: [f for cfb in cell_content.values() for f in cfb[f'{k}_{pf}']]
-                               for k in ["fastq", "fast5"] }
-                # Add in gzipped file counts
-                cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb[f'fastq.gz_{pf}']]
-                ci['Files in '+pf] = len(cell_files['fastq'])
-                ci['Files in fast5 '+pf] = len(cell_files['fast5'])
-
-            except KeyError as e:
-                # FIXME - see comment above.
-                logger.warning(repr(e))
-                ci['Files in '+pf] = "unknown"
-
-        # Add info from the .count files - add in '_label' and '_barcode' but I'm not sure
-        # if we will split them out by barcode in the report or just add them up.
-        ci['_counts'] = []
-
+        # The final summary data has been parsed into YAML
         fin_summary = load_final_summary(None, yamlfile = str(input.fin_summary))
-        for pf in get_fastq_parts(fin_summary['is_rna']):
-            for bc in SC[wildcards.cell]:
-                # Reading from input.counts
-                cdata = load_yaml(f"counts/{base}_{bc}_{pf}.fastq.count")
-                cdata['_label'] = f"{label_for_part(pf).capitalize()} reads"
-                cdata['_barcode'] = bc
-                ci['_counts'].append(cdata)
-
-        # Link to other reports. I'm now using paths relative to the file rather than the
-        # root of the run dir.
-        ci['_blobs'] = [ f"../../{b}" for b in input.blobs ]
-        ci['_nanoplot'] = f"../../{input.nanoplot_r[0]}"
-        #ci['_minionqc'] = str(input.minionqc)
-
-        # Fold in the fast5_metadata
+        # Ditto the FAST5 metadata
         mdata = load_yaml(str(input.fast5_meta))
-        ci.update(mdata)
+        # The counts files have sequence counts (not file counts) per barcode and pass/fail
+        cdata = dict()
+        for c in input.counts:
+            # Extract the bc and pf from the filename, then save into the counts dict
+            bc, pf = c[len(f"counts/{params.base}_"):-len(".fastq.count")].split("_")
+            cdata[(bc, pf)] = load_yaml(c)
+
+        ci = get_cell_info( experiment = EXPERIMENT,
+                            cell = wildcards.cell,
+                            cell_content = SC[wildcards.cell],
+                            counts = cdata,
+                            fin_summary = fin_summary,
+                            blobs = input.blobs,
+                            nanoplot = input.nanoplot_r[0],
+                            fast5_meta = mdata )
 
         dump_yaml(ci, str(output))
 
@@ -455,8 +485,8 @@ rule fast5_metadata:
 
 # Only if the run directory is in place, load the rules that filter, compress and combine the
 # original files.
-if RUNDIR:
-    include: "Snakefile.rundir"
+if EXPDIR:
+    include: "Snakefile.rundata"
 
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
@@ -481,7 +511,7 @@ rule nanoplot:
 
         # We need a special case when there are no passing reads as NanoPlot will choke.
         # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
-        # if RUNDIR is not set, so inspect input.passlist which should be preserved. Since
+        # if EXPDIR is not set, so inspect input.passlist which should be preserved. Since
         # adding barcode support, there may be multiple passlist files.
         # Since adding .fastq.gz support there are these to consider too.
         if all( os.path.getsize(p) == 0 for p in input.passlist ):

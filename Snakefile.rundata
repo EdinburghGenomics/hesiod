@@ -3,7 +3,7 @@
 # Rules to filter, compress and combine the original files.
 # These rules are designed to be included in Snakefile.main and will not run standalone.
 
-# Note that these rules are bypassed if the run directory is missing, allowing us to repeat QC
+# Note that these rules are bypassed if the rundata directory is missing, allowing us to repeat QC
 # without errors relating to missing files.
 
 # Compress the file discovered by the above function and rename it, matching the base of
@@ -13,7 +13,7 @@ rule gzip_sequencing_summary:
     output:
         gz  = "{cell}/{fullid}_sequencing_summary.txt.gz",
         md5 = "md5sums/{cell}/{fullid}_sequencing_summary.txt.gz.md5"
-    input:  lambda wc: [find_sequencing_summary(RUNDIR, wc.cell)]
+    input:  lambda wc: [find_sequencing_summary(EXPDIR, wc.cell)]
     threads: 2
     shell:
         r"""{PIGZ} -v -p{threads} -Nc {input} >{output.gz}
@@ -24,7 +24,7 @@ localrules: convert_final_summary
 rule convert_final_summary:
     output:
         yaml = "{cell}/cell_final_summary.yaml",
-    input: lambda wc: [find_summary('final_summary.txt', RUNDIR, wc.cell)]
+    input: lambda wc: [find_summary('final_summary.txt', EXPDIR, wc.cell)]
     run:
         dump_yaml(load_final_summary(str(input)), str(output.yaml))
 
@@ -37,7 +37,7 @@ rule gzip_md5sum_fast5:
         f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
         md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
     input:
-        RUNDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
+        EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
     threads: 2
     shell:
        r"""ln {input} {output.f5}
@@ -56,7 +56,7 @@ rule list_fastq:
     output:
         fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq{gz,\.gz|}.list"
     input:
-        fastq = lambda wc: [f"{RUNDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"fastq{wc.gz}_{wc.pf}"]]
+        fastq = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"fastq{wc.gz}_{wc.pf}"]]
     run:
         # Just write all the input files to the output file.
         with open(output.fofn, "w") as fh:
@@ -184,7 +184,7 @@ rule map_calref:
         bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}{calref}.bam"),
         counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.count"),
     input:
-        fq     = lambda wc: f"{RUNDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.'),
+        fq     = lambda wc: f"{EXPDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.'),
         ref    = ancient(lambda wc: calibration_refs[wc.calref]),
     params:
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',

@@ -45,7 +45,6 @@ rule per_cell_blob_plots:
     output: "blob/{base}_{barcode}_plots.yaml"
     input:
         png = lambda wc: expand( "blob/{base}_{bc}_{pf}.{taxlevel}.{extn}{thumb}.png",
-                     # FIXME insert barcode in base
                       base = wc.base,
                       bc = wc.barcode,
                       pf = BLOB_PARTS,
@@ -164,7 +163,7 @@ rule bam_to_subsampled_fasta:
         """
 
 # Makes a .complexity file for our FASTA file
-# {foo} will be blob/{cell}/{ci[Run]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta
+# {foo} will be blob/{cell}/{ci[Experiment]}_{ci[Library]}_{ci[CellID]}_{pf}+sub{ss}.fasta
 rule fasta_to_complexity:
     output: "{foo}.complexity"
     input: "{foo}.fasta"

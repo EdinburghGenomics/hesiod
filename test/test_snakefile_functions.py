@@ -10,6 +10,7 @@ from pprint import pprint
 from unittest.mock import Mock, patch
 from tempfile import mkstemp
 from textwrap import dedent as dd
+from collections import OrderedDict
 
 SNAKEFILE = os.path.abspath(os.path.dirname(__file__) + '/../Snakefile.main')
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
@@ -21,6 +22,8 @@ scan_cells = '_importme'
 sc_counts  = '_importme'
 find_representative_fast5 = '_importme'
 save_out_plist = '_importme'
+get_cell_info = '_importme'
+label_for_part = '_importme'
 
 class T(unittest.TestCase):
 
@@ -46,6 +49,11 @@ class T(unittest.TestCase):
         funcs_to_import = [ k for k, v in globals().items() if v == "_importme" ]
         for func in funcs_to_import:
             globals()[func] = gdict[func]
+
+        # Now we can fix the logging for the Snakefile functions which normally log
+        # to the Snakemake logger.
+        gdict['logger'] = logging.getLogger()
+        gdict['logger'].setLevel(logging.DEBUG if VERBOSE else logging.CRITICAL)
 
     def setUp(self):
         # See the errors in all their glory
@@ -189,6 +197,56 @@ class T(unittest.TestCase):
         finally:
             # Delete the temp file
             os.unlink(out_file)
+
+    def test_label_for_part(self):
+        # Not much to say about this. It just does a dict lookup
+        self.assertEqual(label_for_part("eno"), "passed and control-mapping")
+        self.assertEqual(label_for_part("eno", "barcode00"), "barcode00 control-mapping")
+
+    def test_get_cell_info(self):
+        """Just test the base case. We can add more if needed, of if bugs are suspected.
+        """
+        expected = { 'Experiment': "20220101_EGS1_12345AA",
+                     'Cell': '12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef',
+                     'Library': '12345AA0018',
+                     'Date': '20220101',
+                     'Number': '1234',
+                     'Slot': '1-A1-A1',
+                     'CellID': 'AAA66666',
+                     'Checksum': 'deadbeef',
+                     'Project': '12345',
+                     'Base': '12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef/'
+                             '20220101_EGS1_12345AA_12345AA0018_AAA66666_deadbeef',
+                     'Files in pass': 'unknown',
+                     'Files in fail': 1,
+                     'Files in fast5 fail': 1,
+                     '_counts': [
+                        {'_barcode': '.', '_label': 'All passed reads'},
+                        {'_barcode': '.', '_label': 'Passed and lambda-filtered reads'},
+                        {'_barcode': '.', '_label': 'All failed reads'} ],
+                     '_blobs': ['../../__blob__'],
+                     '_nanoplot': '../../__nanoplot__',
+                   }
+
+
+        got = get_cell_info( experiment = "20220101_EGS1_12345AA",
+                             cell = "12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef",
+                             cell_content = { '.': dict( fast5_pass = ['x.fast5'],
+                                                         fastq_fail = ['y.fastq'],
+                                                         fast5_fail = ['y.fast5'] ) },
+                             counts = { ('.','pass'): dict(),
+                                        ('.','fail'): dict(),
+                                        ('.','nolambda'): dict() },
+                             fin_summary = dict(is_rna = False),
+                             blobs = ['__blob__'],
+                             nanoplot = '__nanoplot__',
+                             fast5_meta = dict() )
+
+        if VERBOSE:
+            pprint(got)
+
+        self.assertEqual( type(got), OrderedDict )
+        self.assertEqual( dict(got), expected )
 
 if __name__ == '__main__':
     unittest.main()

@@ -12,8 +12,8 @@ from hesiod import hesiod_version, glob, load_yaml, abspath, groupby
 
 # Things we don't want to see in the Metadata section (as it's too cluttered)
 METADATA_HIDE = set('''
-    Run         Cell            Base            Date            Number
-    Checksum    Fast5Version    BaseCallerTime
+    Run       Experiment   Cell            Base            Date
+    Number    Checksum     Fast5Version    BaseCallerTime  UpstreamExpt
 '''.split())
 
 def format_counts_per_cells(cells, heading="Read summary"):
@@ -64,8 +64,15 @@ def format_report( all_info,
     res = []
     P = lambda *a: res.extend(a or [''])
 
-    # Get the run(s)
-    runs = sorted(set([ i['Run'] for i in all_info.values() ]))
+    # Get the experiments(s). In older YAMLs this was recorded as 'Run'
+    expts = sorted(set([ i.get('Experiment', i.get('Run')) for i in all_info.values() ]))
+    # We also may have the original Experiment name (without the date and machine ID)
+    upstream_expts = sorted(set([ i.get('UpstreamExpt') for i in all_info.values() ]))
+
+    # Just in case of missing info
+    expts = [ e for e in expts if e ] or ["No name"]
+    upstream_expts = [ e for e in upstream_expts if e ] or ["Not set"]
+
     #instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
     libs = sorted(set([ i['Cell'].split('/')[0] for i in all_info.values() ]))
 
@@ -73,7 +80,7 @@ def format_report( all_info,
     # Header
     #########################################################################
 
-    P( "% Promethion run {}".format(",".join(runs)),
+    P( "% Promethion experiment {}".format(",".join(expts)),
        "% Hesiod version {}".format(pipedata['version']),
        "% {}".format(datetime.now().strftime("%A, %d %b %Y %H:%M")) )
 
@@ -81,15 +88,16 @@ def format_report( all_info,
     # Run metadata
     #########################################################################
     P()
-    P( "# About this run (experiment? project?)\n")
+    P( "# About this experiment\n")
 
-    P( format_dl( [( 'Run ID',            ",".join(runs) ),
-                   ( 'Upstream Location', pipedata['upstream'] ),
-                   #( 'Instrument',        ",".join(instr) ),
-                   ( 'Cell Count',        len(all_info) if totalcells is None else totalcells ),
-                   ( 'Library Count',     len(libs) ),
-                   ( 'Start Time',        (pipedata['start_times'] or ['unknown'])[0] ),
-                   ( 'Last Run Time',     (pipedata['start_times'] or ['unknown'])[-1], )],
+    P( format_dl( [( 'Experiment',          ",".join(expts) ),
+                   ( 'Upstream Experiment', ",".join(upstream_expts) ),
+                   ( 'Upstream Location',   pipedata['upstream'] ),
+                   #( 'Instrument',         ",".join(instr) ),
+                   ( 'Cell Count',          len(all_info) if totalcells is None else totalcells ),
+                   ( 'Library Count',       len(libs) ),
+                   ( 'Start Time',          (pipedata['start_times'] or ['unknown'])[0] ),
+                   ( 'Last Run Time',       (pipedata['start_times'] or ['unknown'])[-1], )],
                   title="Metadata") )
 
 
