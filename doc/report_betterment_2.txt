@@ -35,9 +35,31 @@ no relation to the PDF. OK. I'll just add on the PDF then.
 Copy (or hard-link) as part of the Snakefile.rundata, and then tag onto the report
 right under the cell heading.
 
+Done, I think. Needs much testing.
+
 3) See for example ticket #14454 - Caitlin is pasting a load of numbers into a spreadsheet.
 We can recreate this at the top of each Hesiod report. Confirm what numbers are actually
 needed, as Caitlin says not all are relevant. Probably the percentage mapping to calib
 strand is something we care about!
 
 (Maybe do a pipeline release before this part, to get the RNA support and new naming out there)
+
+Experiment Name - upstream name
+Sample ID - easy. first part of cell ID
+Run ID - the uuid
+Flow Cell ID - PAMXXXX
+Run Length - get from the final summary
+Reads Generated (M) - we have this in cell_info.yaml (pass and fail)
+Estimated Bases (Gb) - ditto
+Passed Bases (Gb) - ditto (and we can give a percentage)
+Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
+Pores at T0 - Not sure how to get these things
+Pores at T12
+Pores at T24
+Pores at T36
+Pores at T48
+Pores at T72
+Flush performed? - Not sure the instrument even knows this
+
+We should add the "Active pores over time" plot from NanoPlot to the main report too.
+

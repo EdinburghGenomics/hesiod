@@ -39,11 +39,11 @@ else
         "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
 
-        pip_install pip==19.3.1
-        pip_install pyyaml==5.4.1
-        pip_install yamlloader==1.0.0
+        pip_install 'pip<22'
+        pip_install pyyaml==6.0
+        pip_install yamlloader==1.1.0
         pip_install Rt==1.0.11
-        pip_install python-dateutil==2.8.1
+        pip_install python-dateutil==2.8.2
 
         # things needed for Blobtools - we are using
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
@@ -65,14 +65,16 @@ else
         pip_install h5py==3.1.0
 
         # Here’s the big one
-        pip_install pauvre==0.2
-        pip_install pillow==8.1.0
-        pip_install pyarrow==2.0.0
-        pip_install seaborn==0.10.1
-        pip_install kaleido==0.1.0
-        pip_install threadpoolctl==2.1.0
+        pip_install pauvre==0.2.3
+        pip_install pillow==8.4.0
+        pip_install pyarrow==6.0.1
+        pip_install seaborn==0.11.2
+        pip_install kaleido==0.2.1
+        pip_install threadpoolctl==3.1.0
         pip_install biopython==1.79       # was 1.76
-        pip_install NanoPlot==1.33.1
+        pip_install tenacity==8.0.1
+        pip_install plotly==5.7.0
+        pip_install NanoPlot==1.40.0
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell
