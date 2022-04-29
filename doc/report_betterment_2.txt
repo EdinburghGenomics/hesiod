@@ -69,3 +69,4 @@ DONE
 
 And I've added the whole of the final_summary info to info.yaml, and now make_report
 can make a nice table to go at the top.
+DONE. Time to test it!

@@ -18,6 +18,7 @@ _counts:
   read_length: 2-8185
   total_bases: 2230492697
   non_n_bases: 2230492697
+  _part: pass
   _label: All passed reads
   _barcode: .
 - filename: 20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._noeno.fastq
@@ -25,6 +26,7 @@ _counts:
   read_length: 2-8185
   total_bases: 246713403
   non_n_bases: 246713403
+  _part: noeno
   _label: Passed and control-filtered reads
   _barcode: .
 - filename: 20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._fail.fastq
@@ -32,6 +34,7 @@ _counts:
   read_length: 1-268382
   total_bases: 353708391
   non_n_bases: 353708391
+  _part: fail
   _label: All failed reads
   _barcode: .
 UpstreamExpt: 18701TK0001
@@ -57,7 +60,7 @@ _final_summary:
   started: 2022-03-15 15:02:09.483092+00:00
 _blobs:
 - ../../blob/18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._plots.yaml
-_nanoplot: ../../nanoplot/18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/NanoStats.yaml
+_nanoplot: ./18701TK0001_NanoStats.yaml
 _minknow_report: ../../18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_report.pdf
 Fast5Version: '2.3'
 StartTime: Tuesday, 15 Mar 2022 15:02:09

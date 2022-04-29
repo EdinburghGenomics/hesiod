@@ -303,6 +303,7 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
             # The items in counts come from input.counts. Assume each YAML
             # file yields a dict
             cdata = counts[(bc, pf)]
+            cdata['_part'] = pf
             cdata['_label'] = f"{label_for_part(pf).capitalize()} reads"
             cdata['_barcode'] = bc
             ci['_counts'].append(cdata)

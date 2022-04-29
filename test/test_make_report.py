@@ -11,8 +11,8 @@ from textwrap import dedent as dd
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, escape_md,
-                          aggregator )
+from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, load_yaml,
+                          abspath, escape_md, aggregator, get_cell_summary )
 
 class T(unittest.TestCase):
 
@@ -184,31 +184,38 @@ class T(unittest.TestCase):
 
     def test_get_cell_summary(self):
 
-        all_info = { "18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e":
-                     load_cell_yaml(DATA_DIR + "/cell_info/18701TK0001_cell_info.yaml") }
+        yaml_file = DATA_DIR + "/cell_info/18701TK0001_cell_info.yaml"
+        yaml_info = load_cell_yaml(yaml_file)
 
-        # Fixme - need to add in the nanoplot data and re-dump
+        # Load in the NanoPlot data
+        yaml_info['_nanoplot_data'] = load_yaml(abspath( yaml_info['_nanoplot'],
+                                                         relative_to = yaml_file ))
+
+        # We'll just use thissingle cell to test with
+        all_info = { "18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e":
+                     yaml_info }
 
         cs_headings, cs_rows = get_cell_summary(all_info)
 
-        self.assertEqual(cs_headings, [ "Experiment Name",
-                                        "Sample ID",
-                                        "Run ID",
-                                        "Flow Cell ID",
-                                        "Run Length",
-                                        "Reads Generated (M)",
-                                        "Estimated Bases (Gb)",
-                                        "Passed Bases (Gb)",
-                                        "Estimated N50 (kb)" ])
-        self.assertEqual(cs_rows, [ "18701TK0001",
-                                    "18701TK0001",
-                                    "06ff254e-c2e1-4b07-a7de-5c240124386c",
-                                    "PAI99791",
-                                    "72 hours",
-                                    "x",
-                                    "x",
-                                    "x",
-                                    "x" ]
+        self.assertEqual(list(cs_headings), [ "Experiment Name",
+                                              "Sample ID",
+                                              "Run ID",
+                                              "Flow Cell ID",
+                                              "Run Length",
+                                              "Reads Generated (M)",
+                                              "Estimated Bases (Gb)",
+                                              "Passed Bases (Gb)",
+                                              "Estimated N50 (kb)" ])
+        self.assertEqual(len(cs_rows), 1)
+        self.assertEqual(list(cs_rows[0]), [ "18701TK0001",
+                                             "18701TK0001",
+                                             "06ff254e-c2e1-4b07-a7de-5c240124386c",
+                                             "PAI99791",
+                                             "72 hours",
+                                             "2.48",
+                                             "2.58",
+                                             "2.23",
+                                             "1.36" ])
 
     def test_escape_md(self):
         # Double backslash is the most confusing.

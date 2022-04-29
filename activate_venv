@@ -75,6 +75,9 @@ else
         pip_install tenacity==8.0.1
         pip_install plotly==5.7.0
         pip_install NanoPlot==1.40.0
+
+        # Helpful for running the unit tests
+        pip_install pyflakes
     )
     if [ $? = 0 ] ; then
         # We need this since we quit the subshell

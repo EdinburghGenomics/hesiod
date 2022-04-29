@@ -221,10 +221,11 @@ class T(unittest.TestCase):
                      'Files in fail': 1,
                      'Files in fast5 fail': 1,
                      '_counts': [
-                        {'_barcode': '.', '_label': 'All passed reads'},
-                        {'_barcode': '.', '_label': 'Passed and lambda-filtered reads'},
-                        {'_barcode': '.', '_label': 'All failed reads'} ],
+                        {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass'},
+                        {'_barcode': '.', '_label': 'Passed and lambda-filtered reads', '_part': 'nolambda'},
+                        {'_barcode': '.', '_label': 'All failed reads', '_part': 'fail'} ],
                      '_blobs': ['../../__blob__'],
+                     '_final_summary': {'is_rna': False},
                      '_nanoplot': '../../__nanoplot__',
                    }
 

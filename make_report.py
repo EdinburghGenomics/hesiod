@@ -62,8 +62,49 @@ def get_cell_summary( all_info ):
             Passed Bases (Gb) - ditto (and we can give a percentage)
             Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
     """
-    # all_info is a dict of cell_name => info_dict
-    return [], []
+    # all_info is a dict of cell_name => info_dict as loaded from the info.yml files
+    headings = [ "Experiment Name",
+                 "Sample ID",
+                 "Run ID",
+                 "Flow Cell ID",
+                 "Run Length",
+                 "Reads Generated (M)",
+                 "Estimated Bases (Gb)",
+                 "Passed Bases (Gb)",
+                 "Estimated N50 (kb)" ]
+
+    def _round(n):
+        """Standard rounding for the numbers"""
+        return str(round(n , 2))
+
+    rows = []
+    for cell, ci in sorted(all_info.items()):
+        row = OrderedDict()
+
+        row["Experiment Name"] = ci["UpstreamExpt"]
+        row["Sample ID"] = ci["Library"]
+        row["Run ID"] = ci["_final_summary"]["protocol_run_id"]
+        row["Flow Cell ID"] = ci["CellID"]
+        row["Run Length"] = ci["_final_summary"]["run_time"]
+
+        # We'll get these all from NanoPlot. Extract the 'General summary'
+        # section as a dict of floats.
+        gs = { i[0]: i[2] for i in
+               dict(ci["_nanoplot_data"])["General summary"] }
+        # Could also get these two from ci['_counts']
+        row["Reads Generated (M)"] = _round(gs["Number of reads"] / 1e6)
+        row["Estimated Bases (Gb)"] = _round(gs["Total bases"] / 1e9)
+        # Actually this doesn't seem to correspond to any of the numbers in the NanoPlot summary
+        row["Passed Bases (Gb)"] = _round( sum( c['non_n_bases'] for c in ci['_counts']
+                                               if c['_part'] == 'pass' ) / 1e9 )
+        row["Estimated N50 (kb)"] = _round(gs["Read length N50"] / 1e3)
+
+        # Check I filled everything in
+        assert list(row.keys()) == headings
+
+        rows.append(row.values())
+
+    return headings, rows
 
 def format_report( all_info,
                    pipedata,

@@ -132,13 +132,16 @@ def load_final_summary(filename, yamlfile=None):
     res['is_rna'] = 'RNA' in res['protocol']
 
     # Put the run time into hours
-    td = res['acquisition_stopped'] - res['started']
-    td_hours = round(td / timedelta(hours=1))
-    if td_hours >= 2:
-        res['run_time'] = f"{td_hours} hours"
-    else:
-        td_mins = round(td / timedelta(minutes=1))
-        res['run_time'] = f"{td_minutes} minutes"
+    try:
+        td = res['acquisition_stopped'] - res['started']
+        td_hours = round(td / timedelta(hours=1))
+        if td_hours >= 2:
+            res['run_time'] = f"{td_hours} hours"
+        else:
+            td_minutes = round(td / timedelta(minutes=1))
+            res['run_time'] = f"{td_minutes} minutes"
+    except KeyError:
+        res['run_time'] = "unknown"
 
     return res
 
