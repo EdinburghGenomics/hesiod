@@ -39,7 +39,10 @@ else
         "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
 
-        pip_install --upgrade pip wheel
+        # We need to upgrade pip before --prefer-binary is a valid option
+        pip3 --disable-pip-version-check install 'pip>21' 2>&1
+
+        pip_install wheel
         pip_install pyyaml==6.0
         pip_install yamlloader==1.1.0
         pip_install rt==2.2.2
