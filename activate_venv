@@ -42,7 +42,7 @@ else
         pip_install --upgrade pip wheel
         pip_install pyyaml==6.0
         pip_install yamlloader==1.1.0
-        pip_install Rt==1.0.11
+        pip_install rt==2.2.2
         pip_install python-dateutil==2.8.2
 
         # things needed for Blobtools - we are using
