@@ -22,7 +22,7 @@ activate_venv() {
 
 pip_install() {
     # Send all output to stdout
-    pip3 --disable-pip-version-check install "$@" 2>&1
+    pip3 --disable-pip-version-check install --prefer-binary "$@" 2>&1
 }
 
 if [ -e ./_hesiod_venv/bin/activate ] ; then
@@ -39,7 +39,7 @@ else
         "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
 
-        pip_install 'pip<22'
+        pip_install --upgrade pip wheel
         pip_install pyyaml==6.0
         pip_install yamlloader==1.1.0
         pip_install Rt==1.0.11
@@ -59,7 +59,7 @@ else
 
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8
-        pip_install psycopg2-binary==2.8.3
+        pip_install psycopg2-binary==2.9.3
 
         # For get_fast5_metadata.py
         pip_install h5py==3.1.0
