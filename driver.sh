@@ -308,11 +308,13 @@ action_cell_ready(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       # TODO - document the reason for this list of rules to always run...
-      _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats"
+      _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats convert_final_summary"
       ( cd "$RUN_OUTPUT"
         unset IFS
-        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" ${EXTRA_SNAKE_CONFIG:-} \
-            -R $_force_rerun -- ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
+        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" \
+            ${EXTRA_SNAKE_CONFIG:-} \
+            -R $_force_rerun -- \
+            ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }

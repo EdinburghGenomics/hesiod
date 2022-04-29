@@ -133,7 +133,7 @@ def format_report( all_info,
     # Header
     #########################################################################
 
-    P( f"% Promethion experiment {','.join(expts)}",
+    P( f"% Promethion Experiment {','.join(expts)}",
        f"% Hesiod version {pipedata['version']}",
        f"% {datetime.now().strftime('%A, %d %b %Y %H:%M')}" )
 
@@ -560,7 +560,7 @@ def copy_files(all_info, base_path, minionqc=None):
     """
     # Flush anything that is there already and re-make the image directory
     # Same for the NanoPlot reports
-    for dirname in ["img", "np"]:
+    for dirname in ["img", "np", "minknow"]:
         try:
             shutil.rmtree(os.path.join(base_path, dirname))
         except FileNotFoundError:
