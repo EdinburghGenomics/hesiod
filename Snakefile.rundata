@@ -1,5 +1,8 @@
 # vim: ft=python
 
+from hesiod import ( load_final_summary, find_sequencing_summary, find_summary,
+                     dump_yaml, load_yaml )
+
 # Rules to filter, compress and combine the original files.
 # These rules are designed to be included in Snakefile.main and will not run standalone.
 
@@ -24,14 +27,14 @@ localrules: convert_final_summary, copy_report
 rule convert_final_summary:
     output:
         yaml = "{cell}/cell_final_summary.yaml",
-    input: lambda wc: [find_summary('final_summary.txt', EXPDIR, wc.cell)]
+    input: lambda wc: find_summary('final_summary.txt', EXPDIR, wc.cell)
     run:
         dump_yaml(load_final_summary(str(input)), str(output.yaml))
 
 rule copy_report:
     output:
         pdf = "{cell}/{fullid}_report.pdf"
-    input: lambda wc: find_minknow_report(EXPDIR, wc.cell)
+    input: lambda wc: find_summary('report.pdf', EXPDIR, wc.cell, allow_missing=True) or []
     run:
         if input:
             shell("ln -T {input} {output.pdf}")

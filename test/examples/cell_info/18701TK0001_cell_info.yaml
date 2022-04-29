@@ -1,0 +1,69 @@
+Experiment: 20220315_EGS1_18701TK0001
+Cell: 18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e
+Library: 18701TK0001
+Date: '20220315'
+Number: '1458'
+Slot: 2-E1-H1
+CellID: PAI99791
+Checksum: 06ff254e
+Project: '18701'
+Base: 18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e
+Files in pass: 488
+Files in fast5 pass: 488
+Files in fail: 134
+Files in fast5 fail: 134
+_counts:
+- filename: 20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._pass.fastq
+  total_reads: 1948710
+  read_length: 2-8185
+  total_bases: 2230492697
+  non_n_bases: 2230492697
+  _label: All passed reads
+  _barcode: .
+- filename: 20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._noeno.fastq
+  total_reads: 338155
+  read_length: 2-8185
+  total_bases: 246713403
+  non_n_bases: 246713403
+  _label: Passed and control-filtered reads
+  _barcode: .
+- filename: 20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._fail.fastq
+  total_reads: 532111
+  read_length: 1-268382
+  total_bases: 353708391
+  non_n_bases: 353708391
+  _label: All failed reads
+  _barcode: .
+UpstreamExpt: 18701TK0001
+_final_summary:
+  acquisition_run_id: 45ac6c98f7be619c36d2eece67c37372c5423fbd
+  acquisition_stopped: 2022-03-18 15:02:28.108501+00:00
+  basecalling_enabled: true
+  fast5_files_in_fallback: 0
+  fast5_files_in_final_dest: 622
+  fastq_files_in_fallback: 0
+  fastq_files_in_final_dest: 622
+  flow_cell_id: PAI99791
+  instrument: PCT0112
+  is_rna: true
+  position: 2-E1-H1
+  processing_stopped: 2022-03-18 15:02:30.733369+00:00
+  protocol: sequencing/sequencing_PRO002_RNA:FLO-PRO002:SQK-RNA002
+  protocol_group_id: 18701TK0001
+  protocol_run_id: 06ff254e-c2e1-4b07-a7de-5c240124386c
+  run_time: 72 hours
+  sample_id: 18701TK0001
+  sequencing_summary_file: sequencing_summary_PAI99791_45ac6c98.txt
+  started: 2022-03-15 15:02:09.483092+00:00
+_blobs:
+- ../../blob/18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_._plots.yaml
+_nanoplot: ../../nanoplot/18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/NanoStats.yaml
+_minknow_report: ../../18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e/20220315_EGS1_18701TK0001_18701TK0001_PAI99791_06ff254e_report.pdf
+Fast5Version: '2.3'
+StartTime: Tuesday, 15 Mar 2022 15:02:09
+BaseCaller: unknown
+GuppyVersion: 5.1.13+b292f4d
+RunID: 45ac6c98f7be619c36d2eece67c37372c5423fbd
+ExperimentType: rna
+SequencingKit: sqk-rna002
+FlowcellType: unknown

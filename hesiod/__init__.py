@@ -6,6 +6,7 @@ import yaml, yamlloader
 # For parsing of ISO/RFC format dates (note that newer Python has datetime.datetime.fromisoformat
 # but we're using dateutil.parser.isoparse from python-dateutil 2.8)
 from dateutil.parser import isoparse
+from datetime import timedelta
 
 def glob():
     """Regular glob() is useful but we want consistent sort order, including
@@ -101,8 +102,7 @@ def load_final_summary(filename, yamlfile=None):
     """
     # If yaml is supplied and exists, read this in preference to the text file
     if yamlfile and os.path.exists(yamlfile):
-        with open(yamlfile) as yfh:
-            return yaml.safe_load(yfh)
+        return load_yaml(yamlfile)
 
     def make_bool(x):
         return x[0] in "1TtYy"
@@ -131,6 +131,15 @@ def load_final_summary(filename, yamlfile=None):
     # See if we think this is RNA
     res['is_rna'] = 'RNA' in res['protocol']
 
+    # Put the run time into hours
+    td = res['acquisition_stopped'] - res['started']
+    td_hours = round(td / timedelta(hours=1))
+    if td_hours >= 2:
+        res['run_time'] = f"{td_hours} hours"
+    else:
+        td_mins = round(td / timedelta(minutes=1))
+        res['run_time'] = f"{td_minutes} minutes"
+
     return res
 
 def find_sequencing_summary(rundir, cell):
@@ -148,25 +157,15 @@ def find_sequencing_summary(rundir, cell):
 
     return found[0]
 
-def find_minknow_report(rundir, cell):
-    """Simpler than find_sequencing_summary() cos we only need to worry about one naming
-       convention (for now).
-    """
-    found = glob(f"{rundir}/{cell}/report_*.pdf")
-
-    assert len(found) <=1, ( "There should be exactly one PDF report per cell"
-                             f" - found {len(found)}." )
-
-    # Note we're returning a list here. If the report is not found we return an empty list,
-    # and the pipeline will create an empty file.
-    return found
-
-def find_summary(pattern, rundir, cell):
+def find_summary(pattern, rundir, cell, allow_missing=False):
     """Find other summary files. For the newer runs, this could replace find_sequencing_summary()
     """
     prefix, suffix = pattern.split('.')
 
     found = glob(f"{rundir}/{cell}/{prefix}_*_*.{suffix}")
+
+    if allow_missing and not found:
+        return None
 
     assert len(found) == 1, f"Found {len(found)} {pattern} for cell {cell}"
     return found[0]

@@ -50,6 +50,20 @@ def format_counts_per_cells(cells, heading="Read summary"):
                           rows,
                           title = heading ) )
 
+def get_cell_summary( all_info ):
+    """ Make a table of this stuff, one row per cell...
+            Experiment Name - upstream name
+            Sample ID - easy. first part of cell ID
+            Run ID - the uuid
+            Flow Cell ID - PAMXXXX
+            Run Length - get from the final summary
+            Reads Generated (M) - we have this in cell_info.yaml (pass and fail)
+            Estimated Bases (Gb) - ditto
+            Passed Bases (Gb) - ditto (and we can give a percentage)
+            Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
+    """
+    # all_info is a dict of cell_name => info_dict
+    return [], []
 
 def format_report( all_info,
                    pipedata,
@@ -98,6 +112,11 @@ def format_report( all_info,
                    ( 'Last Run Time',       (pipedata['start_times'] or ['unknown'])[-1], )],
                   title="Metadata") )
 
+    # Table of stuff used that was being for sign-off so I'm auto-adding it
+    cs_headings, cs_rows = get_cell_summary(all_info)
+    P( format_table( cs_headings,
+                     cs_rows,
+                     title = "Cell summary" ) )
 
     # Overview plots from minionqc/combinedQC
     if minionqc:
@@ -264,12 +283,15 @@ def format_report( all_info,
 
         # Nanoplot plots
         if '_nanoplot' in ci:
-            nplot_header = "NanoPlot: Length Histo ; Length vs Qual ; Yield over Time"
+            nplot_header = "NanoPlot: Length Histo ; Length vs Qual ; Yield over Time ; Active Pores over Time"
             P(f"\n### {nplot_header}\n")
             P("<div class='flex'>")
             P(" ".join(
                 f"[plot](img/nanoplot_{cell_uid}_{x}.png){{.thumbnail}}"
-                for x in ['HistogramReadlength', 'LengthvsQualityScatterPlot_dot', 'NumberOfReads_Over_Time']
+                for x in [ 'HistogramReadlength',
+                           'LengthvsQualityScatterPlot_dot',
+                           'NumberOfReads_Over_Time',
+                           'ActivePores_Over_Time' ]
              ))
             P("</div>")
 

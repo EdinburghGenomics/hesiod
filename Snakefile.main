@@ -294,7 +294,7 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
             logger.warning(repr(e))
             ci['Files in '+pf] = "unknown"
 
-    # Add info from the .count files - add in '_label' and '_barcode' but I'm not sure
+    # Add info from the .count files - add in '_label' and '_barcode' too but I'm not sure
     # if we will split them out by barcode in the report or just add them up.
     ci['_counts'] = []
 
@@ -311,6 +311,10 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     # rundata/pipeline/upstream but this seems more robust.
     if fin_summary.get('protocol_group_id'):
         ci['UpstreamExpt'] = fin_summary['protocol_group_id']
+
+    # And in fact just save the entire fin_summary into the info.yml, so that make_report.py
+    # can get at it.
+    ci['_final_summary'] = fin_summary
 
     # Link to other reports. I'm now using paths relative to the file rather than the
     # root of the run dir.
@@ -360,10 +364,10 @@ wildcard_constraints:
 localrules: main, one_cell, pack_fast5
 rule main:
     output:
-        plist     = "projects_ready.txt",
+        plist     = f"projects_ready.txt",
         panrep    = f"all_reports/report.{len(SC)}cells.pan",
         rep       = f"all_reports/report.{len(SC)}cells.pan.html",
-        replink   = "all_reports/report.html",
+        replink   = f"all_reports/report.html",
     input:
         yaml      = expand("{cell}/cell_info.yaml", cell=SC),
         blobstats = "blob/blobstats_by_project.yaml",
@@ -435,7 +439,7 @@ def one_cell_inputs(wc):
     return dict(
         fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
         seq_summary  = xxpand("{base}_sequencing_summary.txt.gz"),
-        report       = xxpand("{base}_report.pdf"),
+        pdfreport    = xxpand("{base}_report.pdf"),
         counts       = xxpand("counts/{base}_{bc}_{pf}.fastq.count"),
         calref_bam   = xxpand("{base}_{bc}_{calref}.bam"),
         calref_stats = xxpand("{calref}qc/{base}_{bc}_{calref}.bam.stats"),
@@ -470,7 +474,7 @@ rule one_cell:
             bc, pf = c[len(f"counts/{params.base}_"):-len(".fastq.count")].split("_")
             cdata[(bc, pf)] = load_yaml(c)
         # The PDF report from MinKnow may be an empty file, in which case ignore it
-        minknow_report = str(input.report)
+        minknow_report = str(input.pdfreport)
         if not os.path.getsize(minknow_report):
             minknow_report = None
 

@@ -75,7 +75,8 @@ class T(unittest.TestCase):
                                 fast5_files_in_fallback   = 0,
                                 fastq_files_in_final_dest = 3125,
                                 fastq_files_in_fallback   = 0,
-                                is_rna                    = False ) )
+                                is_rna              = False,
+                                run_time            = "26 hours" ) )
 
     def test_load_final_summary_rna(self):
         # Just to make sure I can spot and RNA cell

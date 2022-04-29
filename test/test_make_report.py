@@ -182,6 +182,34 @@ class T(unittest.TestCase):
 
         # Yeah that's it! I can add any keys I like to the list.
 
+    def test_get_cell_summary(self):
+
+        all_info = { "18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e":
+                     load_cell_yaml(DATA_DIR + "/cell_info/18701TK0001_cell_info.yaml") }
+
+        # Fixme - need to add in the nanoplot data and re-dump
+
+        cs_headings, cs_rows = get_cell_summary(all_info)
+
+        self.assertEqual(cs_headings, [ "Experiment Name",
+                                        "Sample ID",
+                                        "Run ID",
+                                        "Flow Cell ID",
+                                        "Run Length",
+                                        "Reads Generated (M)",
+                                        "Estimated Bases (Gb)",
+                                        "Passed Bases (Gb)",
+                                        "Estimated N50 (kb)" ])
+        self.assertEqual(cs_rows, [ "18701TK0001",
+                                    "18701TK0001",
+                                    "06ff254e-c2e1-4b07-a7de-5c240124386c",
+                                    "PAI99791",
+                                    "72 hours",
+                                    "x",
+                                    "x",
+                                    "x",
+                                    "x" ]
+
     def test_escape_md(self):
         # Double backslash is the most confusing.
         self.assertEqual( escape_md(r'\ '), r'\\ ')
