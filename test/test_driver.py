@@ -31,6 +31,11 @@ PROGS_TO_MOCK = {
     "del_remote_cells.sh" : "echo STDERR del_remote_cells.sh >&2"
 }
 
+# Snakemake targets are always the same, unless $MAIN_SNAKE_TARGETS is set
+SNAKE_TARGETS = ("-R per_cell_blob_plots per_project_blob_tables one_cell"
+                  " nanostats convert_final_summary -- pack_fast5 main".split())
+
+
 class T(unittest.TestCase):
 
     def setUp(self):
@@ -533,13 +538,12 @@ class T(unittest.TestCase):
             self.bm.last_calls['rt_runticket_manager.py'][i][-1] = re.sub( r'@\S+$', '@???', c[-1] )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+        expected_calls['Snakefile.main'] = [ ["-f", "--config",
                                               "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
                                               "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
-                                              "--", "pack_fast5", "main" ]]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"] +
+                                             SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
                                                        "--subject", "processing", "--reply",
@@ -570,12 +574,11 @@ class T(unittest.TestCase):
             self.bm.last_calls['rt_runticket_manager.py'][i][-1] = re.sub( r'@\S+$', '@???', c[-1] )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+        expected_calls['Snakefile.main'] = [ ["-f", "--config",
                                               "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                               "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
-                                              "--", "pack_fast5", "main" ]]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"] +
+                                             SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
                                                      "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split()]
@@ -613,13 +616,12 @@ class T(unittest.TestCase):
             rtcalls[i][-1] = re.sub( r'@\S+$', '@???', rtcalls[i][-1] )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+        expected_calls['Snakefile.main'] = [ ["-f", "--config",
                                               "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
                                               "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
-                                              "--", "pack_fast5", "main" ]]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                             SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
         # report the error to STDERR. I gues it's OK.
@@ -668,13 +670,12 @@ class T(unittest.TestCase):
             rtcalls[i][-1] = re.sub( r'@\S+$', '@???', rtcalls[i][-1] )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+        expected_calls['Snakefile.main'] = [ ["-f", "--config",
                                               "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
                                               "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
-                                              "--", "pack_fast5", "main" ]]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                             SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
                                                        "--subject", "processing", "--reply",
@@ -723,12 +724,11 @@ class T(unittest.TestCase):
             rtcalls[i][-1] = re.sub( r'@\S+$', '@???', rtcalls[i][-1] )
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['Snakefile.main'] = [[ "-f", "--config",
+        expected_calls['Snakefile.main'] = [ ["-f", "--config",
                                               "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                               "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "-R", "per_cell_blob_plots", "per_project_blob_tables", "one_cell", "nanostats",
-                                              "--", "pack_fast5", "main" ]]
+                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                             SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
                                                       "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split(),
