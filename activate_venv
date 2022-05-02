@@ -68,16 +68,18 @@ else
         pip_install h5py==3.1.0
 
         # Here’s the big one
-        pip_install pauvre==0.2.3
+        pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0
         pip_install pyarrow==6.0.1
-        pip_install seaborn==0.11.2
+        pip_install seaborn==0.10.1   # upgrade with NanoPlot
         pip_install kaleido==0.2.1
         pip_install threadpoolctl==3.1.0
         pip_install biopython==1.79       # was 1.76
         pip_install tenacity==8.0.1
         pip_install plotly==5.7.0
-        pip_install NanoPlot==1.40.0
+
+        # Newer NanoPlot has some significant changes and needs testing.
+        pip_install NanoPlot==1.33.1
 
         # Helpful for running the unit tests
         pip_install pyflakes

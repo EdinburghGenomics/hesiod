@@ -4,9 +4,7 @@
 # These rules are designed to be included in Snakefile.main and will not run standalone.
 from hesiod import slurp_file
 
-# Blob plotting is copied from SMRTino but I've now updated the version of NT and also fixed the funny
-# Y-axis scale. This change needs to be ported back to SMRTino. Also note I'm running the plots on the
-# nolambda files so we'll never see lambda in the blobs. Maybe we should reconsider this??
+# Blob plotting is originally copied from SMRTino
 # BLAST S sequences in C chunks
 BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
 BLOB_CHUNKS    = int(config.get('blob_chunks', 20))
