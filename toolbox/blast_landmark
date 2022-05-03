@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# BLAST on the Landmark database. Useful for testing cos it's small and fast,
+# but still produces meaningful results.
+
+# Note we should look at SmartBLAST, probably.
+
+exec /lustre-gseg/software/blast+/ncbi-blast-2.12.0+/bin/blastx \
+    -db /lustre-gseg/references/blastdb/landmark-2021-10-05/landmark "$@"

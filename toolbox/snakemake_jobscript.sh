@@ -24,5 +24,8 @@ if [ -r "$SNAKE_PRERUN" ] ; then
     source "$SNAKE_PRERUN"
 fi
 
+# Attempt to mitigate clock skew issues
+sleep 2
+
 # properties = {properties}
 {exec_job}

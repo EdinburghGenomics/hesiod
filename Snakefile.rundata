@@ -37,23 +37,27 @@ rule copy_report:
     input: lambda wc: find_summary('report.pdf', EXPDIR, wc.cell, allow_missing=True) or []
     run:
         if input:
-            shell("ln -T {input} {output.pdf}")
+            shell("cp -T {input} {output.pdf}")
         else:
             shell("touch {output}")
 
-# Link and checksum the fast5 file
+# Link (or copy) and checksum the fast5 file
 # md5summer that keeps the file path out of the .md5 file
 # Note that the fast5_out() utility function determines outputs for this rule.
 # Note2 that barcode=. should work with this even though it's a bit sus.
-rule gzip_md5sum_fast5:
+rule copy_md5sum_fast5:
     output:
         f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
         md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
     input:
-        EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
+        f5 = EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
     threads: 2
     shell:
-       r"""ln -T {input} {output.f5}
+       r"""if [ "$(stat -c %u/%D {input.f5})" = "$(id -u)/$(stat -c %D $(dirname {output.f5}))"  ] ; then
+              ln -T {input.f5} {output.f5}
+           else
+              cp -T {input.f5} {output.f5}
+           fi
            ( cd `dirname {output.f5}` && md5sum `basename {output.f5}` ) > {output.md5}
         """
 
@@ -198,7 +202,7 @@ rule map_calref:
         counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.count"),
     input:
         fq     = lambda wc: f"{EXPDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.'),
-        ref    = ancient(lambda wc: calibration_refs[wc.calref]),
+        ref    = lambda wc: ancient(calibration_refs[wc.calref]),
     params:
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '

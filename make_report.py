@@ -106,6 +106,20 @@ def get_cell_summary( all_info ):
 
     return headings, rows
 
+def strftime(dt_obj=datetime.now(), fmt='%A, %d %b %Y %H:%M:%S'):
+    """Standard format for dates with times
+    """
+    if not dt_obj:
+        return "Unknown"
+    return dt_obj.strftime(fmt)
+
+def strfdate(dt_obj=datetime.now(), fmt='%d %b %Y'):
+    """Standard format for simple dates
+    """
+    if not dt_obj:
+        return "Unknown"
+    return dt_obj.strftime(fmt)
+
 def format_report( all_info,
                    pipedata,
                    aborted_list = (),
@@ -129,13 +143,28 @@ def format_report( all_info,
     #instr = sorted(set([ i['Run'].split('_')[1] for i in all_info.values() ]))
     libs = sorted(set([ i['Cell'].split('/')[0] for i in all_info.values() ]))
 
+    # Get the Start and End times from the _final_summary infos.
+    try:
+        end_time = max([ ci['_final_summary']['acquisition_stopped']
+                         for ci in all_info.values()
+                         if '_final_summary' in ci ])
+    except ValueError:
+        end_time = None
+
+    try:
+        start_time = min([ ci['_final_summary']['started']
+                           for ci in all_info.values()
+                           if '_final_summary' in ci ])
+    except ValueError:
+        end_time = None
+
     #########################################################################
     # Header
     #########################################################################
 
     P( f"% Promethion Experiment {','.join(expts)}",
        f"% Hesiod version {pipedata['version']}",
-       f"% {datetime.now().strftime('%A, %d %b %Y %H:%M')}" )
+       f"% {strftime()}" )
 
     #########################################################################
     # Run metadata
@@ -149,8 +178,8 @@ def format_report( all_info,
                    #( 'Instrument',         ",".join(instr) ),
                    ( 'Cell Count',          len(all_info) if totalcells is None else totalcells ),
                    ( 'Library Count',       len(libs) ),
-                   ( 'Start Time',          (pipedata['start_times'] or ['unknown'])[0] ),
-                   ( 'Last Run Time',       (pipedata['start_times'] or ['unknown'])[-1], )],
+                   ( 'Start Time',          strftime(start_time) ),
+                   ( 'Last Run End',        strftime(end_time) )],
                   title="Metadata") )
 
     # Table of stuff used that was being for sign-off so I'm auto-adding it
@@ -233,7 +262,7 @@ def format_report( all_info,
         def _format(_k, _v):
             """Handle special case for dates"""
             if _k == "Date" and re.match(r'[0-9]{8}', _v):
-                _v = datetime.strptime(_v, '%Y%m%d').strftime('%d %b %Y')
+                _v = strfdate(datetime.strptime(_v, '%Y%m%d'))
             return (_k, _v)
 
         # Now the metadata section

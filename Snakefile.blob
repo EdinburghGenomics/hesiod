@@ -9,6 +9,7 @@ from hesiod import slurp_file
 BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
 BLOB_CHUNKS    = int(config.get('blob_chunks', 20))
 BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
+BLAST_SCRIPT   = config.get('blast_script', "blast_nt")
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
 # final version. See also label_for_part() in the main Snakefile.
@@ -179,7 +180,9 @@ rule merge_blast_reports:
     shell:
         'LC_ALL=C ; ( for i in {input} ; do sort -u -k1,2 "$i" ; done ) > {output}'
 
-# BLAST a chunk. Note the 'blast_nt' wrapper determines the database to search.
+# BLAST a chunk. Note the 'blast_nt' wrapper determines the actual database to search,
+# but you can specify an alternate wrapper, which need not be in the TOOLBOX,
+# in config['blast_script']
 rule blast_chunk:
     output: temp("{foo}.blast_part_{chunk}")
     input: "{foo}.fasta_part_{chunk}"
@@ -188,7 +191,7 @@ rule blast_chunk:
         evalue = '1e-50',
         outfmt = '6 qseqid staxid bitscore'
     shell:
-        """{TOOLBOX} blast_nt -query {input} -outfmt {params.outfmt:q} \
+        """{TOOLBOX} {BLAST_SCRIPT} -query {input} -outfmt {params.outfmt:q} \
            -evalue {params.evalue:q} -max_target_seqs 1 -out {output}.tmp -num_threads {threads}
            mv {output}.tmp {output}
         """

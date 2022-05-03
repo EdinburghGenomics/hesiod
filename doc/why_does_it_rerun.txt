@@ -1,0 +1,95 @@
+So I released Hesiod 1.0 and went to re-run it on some recent runs, for example:
+
+20220427_EGS1_14211AT0010-0021-0023-0057-0078
+
+And I expected just a new report because everything else is the same (aside from some internals
+in how the calibration strand mapping is done) but actually it did this:
+
+Job counts:
+        count   jobs
+        6       concat_md5sum_calref_bam
+        6       concat_md5sum_nocalref_fastq
+        6       convert_final_summary
+        1       main
+        3607    map_calref
+        1       nanoplot
+        6       nanostats
+        6       one_cell
+        1       pack_fast5
+        6       per_cell_blob_plots
+        1       per_project_blob_tables
+        6       qualimap
+        6       samstats
+        3659
+
+Actually it re-blast-ed 20 chunks, and then the nanoplot job failed, and then when I restarted it all the
+map_calref jobs re-ran. But no BLAST jobs. What triggered that?
+
+Changing the config (I made EXTRA_SNAKE_CONFIG="blob_chunks=50")?
+The nanoplot job failing, somehow?
+Bad deps in my code?
+
+The map_calref rule depends on:
+
+1) The .fastq files but the oldest file is April 30th
+2) The calref file, but this is tagged as "ancient". But I should try touching that and see if it triggers a re-run.
+
+The map_calref rule also makes inputs needed by concat_md5sum_calref_bam so it's possible that this rule re-triggered
+and the inputs had to be re-made.
+
+The concat_md5sum_calref_bam rule makes:
+
+The .bam and the .bam.md5
+
+Ok, hang on. If a new FASTQ file is added to ANY cell, this causes concat_md5sum_calref_bam rule to have to re-run for that cell.
+But this shoudn't trigger a re-run for all the cells? Surely? This is going to need some real prodding.
+
+To investigate, I stripped the run right down - see
+
+~/test_promethion/runs/2022/20220427_EGS1_14211AT0010-0021-0023-0057-0078/
+
+This is still taking ages cos of the BLASTS. I think I need a way to short-circuit the BLAST. I'm going
+to make a small BLAST database (or find one in references) and have a way to BLAST against that.
+
+Then I will re-run the pipeline, and prod it, and make nanoplot fail on purpose, and work out what is
+the problem.
+
+Maybe related, I notice that nanoplot is being re-run on existing cells when an old cell is added. This
+suggests a clock skew problem. How can I work out the max clock skew on the nodes? And if there is a
+skew can I add some extra delay to the job script to compensate? Oh, there is no delay. This may be an
+issue, but why would it cause re-run of the NanoPlot rule which takes normally several minutes?
+
+Oh - prime suspect for clock skew is the sequencer workstation. It's writing the input files. But this
+doesn't explain the re-run. Oh, and the clock is slightly slow, apparently.
+
+Hard-linking the report may be a silly idea. As both links share a timestamp, this causes the timestamp
+of the report file to be updated. Which is confusing. So I think we need to make our lives easy and copy it.
+
+Oh, but hard-linking the FAST5 files isn't (or doesn't seem to be) causing issues. Hmmm.
+
+OK, I now have a test run that has run. So let's try these:
+
+1) Just re-run. What re-runs?
+
+Just the high level jobs, as expected.
+
+2) Change the BLOB config. What re-runs now?
+
+Still just the high level stuff
+
+3) Delete the nanoplot output?
+
+Still OK.
+
+So this doesn't seem to show up in testing. Meh. I need to do some dry_run tests on real runs.
+Dry-run tested on this last run and it seems fine.
+
+I think something that causes these type of problems might be, if we have a chain:
+
+A -> B -> C -> D
+
+Then if A appears newer than B it triggers a re-run of the entire thing. Oh, and I need to see about
+the alignment reference... yes that was a problem. Fixed.
+
+Hopefully between the clock skew and the ancient() input we have made this reasonable reliable. I'll
+run it and try again.

@@ -332,8 +332,12 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
 
     return ci
 
-# NanoPlot makes many plots, but here are the ones we care about:
-NANOPLOT_PLOT_LIST = [ "HistogramReadlength", "LengthvsQualityScatterPlot_dot", "NumberOfReads_Over_Time" ]
+# NanoPlot makes many plots, but here are the ones we care about.
+# Note that newer NanoPlot makes more plots and uses different names.
+NANOPLOT_PLOT_LIST = [ "HistogramReadlength",
+                       "LengthvsQualityScatterPlot_dot",
+                       "NumberOfReads_Over_Time",
+                       "ActivePores_Over_Time" ]
 
 ## End of functions ## Leave this comment in place to help the unit tests.
 
