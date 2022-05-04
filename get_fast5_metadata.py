@@ -80,8 +80,7 @@ def read_fast5(fobj):
        as a starting point.
     """
     res = OrderedDict()
-    for x in ['Fast5Version', 'StartTime', 'BaseCaller', 'BaseCallerTime',
-              'BaseCallerVersion', 'GuppyVersion']:
+    for x in ['Fast5Version', 'StartTime', 'GuppyVersion']:
         res[x] = 'unknown'
 
     with h5py.File(fobj, 'r') as handle:
@@ -98,7 +97,7 @@ def read_fast5(fobj):
         res['RunID'] = read0.attrs['run_id']
 
         # Stuff from 'context_tags'
-        for x in ['ExperimentType', 'SequencingKit', 'FlowcellType']:
+        for x in ['ExperimentType', 'SequencingKit', 'BasecallConfig']:
             res[x] = 'unknown'
         # Sometimes keys are missing, I guess.
         with suppress(KeyError):
@@ -106,7 +105,7 @@ def read_fast5(fobj):
         with suppress(KeyError):
             res['SequencingKit']  = read0['context_tags'].attrs['sequencing_kit']
         with suppress(KeyError):
-            res['FlowcellType']   = read0['context_tags'].attrs['flowcell_type']
+            res['BasecallConfig']   = read0['context_tags'].attrs['basecall_config_filename']
 
         # Stuff from 'tracking_id'
         res['StartTime']    = read0['tracking_id'].attrs['exp_start_time']
@@ -117,22 +116,8 @@ def read_fast5(fobj):
             # entirely.
             del res['GuppyVersion']
 
-        # Now look for basecalling metadata - there is some possible ambiguity
-        # in the names here.
-        bks = [k for k in read0.get('Analyses', []) if k.startswith("Basecall_")]
-        if len(bks) == 1:
-            # OK we can get some info from it
-            logging.debug("Basecall section is {}".format(bks[0]))
-            bk = read0['Analyses'][bks[0]]
-            res['BaseCaller'] = bk.attrs['name']
-            res['BaseCallerTime'] = bk.attrs['time_stamp']
-            res['BaseCallerVersion'] = bk.attrs['version']
-        else:
-            logging.debug("Found {} basecall sections".format(len(bks)))
-
-            # Delete the 'BaseCallerTime' and 'BaseCallerVersion' then
-            del res['BaseCallerTime']
-            del res['BaseCallerVersion']
+        # Now look for basecalling metadata - actually I removed this as it's not in the
+        # newer fast5 files and not very useful anyway.
 
     # Decode all byte strings in res, and re-format dates.
     for k in list(res):
