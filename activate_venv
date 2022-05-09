@@ -25,6 +25,12 @@ pip_install() {
     pip3 --disable-pip-version-check install --prefer-binary "$@" 2>&1
 }
 
+check_setuptools() {
+    # I compiled python and _ctypes was broken but pip masks the real error,
+    # so run this check explicitly.
+    python3 -c 'import setuptools'
+}
+
 if [ -e ./_hesiod_venv/bin/activate ] ; then
 
     # We already got one!
@@ -42,6 +48,9 @@ else
         # We need to upgrade pip before --prefer-binary is a valid option
         pip3 --disable-pip-version-check install 'pip>21' 2>&1
 
+        # A check that the Python is not broken
+        check_setuptools
+
         pip_install wheel
         pip_install pyyaml==6.0
         pip_install yamlloader==1.1.0
@@ -52,12 +61,12 @@ else
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
         pip_install docopt==0.6.2
         pip_install matplotlib==3.3.3
-        pip_install pysam==0.15.2
-        pip_install tqdm==4.32.2
-        pip_install ujson==4.3.0
+        pip_install pysam==0.19.0
+        pip_install tqdm==4.64.0
+        pip_install ujson==5.2.0
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
-        pip_install snakemake==5.5.3
+        pip_install snakemake==7.6.1
         pip_install drmaa==0.7.9
 
         # For access the Clarity
@@ -65,7 +74,7 @@ else
         pip_install psycopg2-binary==2.9.3
 
         # For get_fast5_metadata.py
-        pip_install h5py==3.1.0
+        pip_install h5py==3.6.0
 
         # Here’s the big one
         pip_install pauvre==0.2       # upgrade with NanoPlot
