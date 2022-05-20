@@ -39,19 +39,18 @@ class T(unittest.TestCase):
         # Once we upgrade to Python 3.8 we can purge all OrderedDicts.
         self.assertEqual(type(md), OrderedDict)
 
-        # Note this test will pass if md is a regular dict, even in Python 3.5 where
-        # dict order is arbitrary.
-        self.assertEqual(md, OrderedDict([
+        expected = OrderedDict([
                     ('Fast5Version',      '1.0'),
                     ('StartTime',         'Monday, 18 Feb 2019 12:09:52'),
-                    ('BaseCaller',        'MinKNOW-Live-Basecalling'),
-                    ('BaseCallerTime',    'Monday, 18 Feb 2019 12:10:12'),
-                    ('BaseCallerVersion', '3.1.18'),
                     ('RunID',             '94ab673ad12e5cc35f7110d9d285723b4aafdb68'),
                     ('ExperimentType',    'genomic_dna'),
                     ('SequencingKit',     'sqk-lsk109'),
-                    ('FlowcellType',      'flo-pro002'),
-        ]) )
+                    ('BasecallConfig',    'dna_r9.4.1_450bps_prom.cfg'), ])
+
+        # Note a standard equality test will pass if md is a regular dict, even in Python 3.5 where
+        # dict order is arbitrary. So check the keys explicitly.
+        self.assertEqual(list(md), list(expected))
+        self.assertEqual(md, expected)
 
 if __name__ == '__main__':
     unittest.main()
