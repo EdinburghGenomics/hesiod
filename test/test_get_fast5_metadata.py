@@ -52,5 +52,21 @@ class T(unittest.TestCase):
         self.assertEqual(list(md), list(expected))
         self.assertEqual(md, expected)
 
+    def test_v2_3(self):
+        """Try a newer FAST5 file
+        """
+
+        md = md_from_fast5_file(DATA_DIR + '/PAK00002_fail_barcode07_b7f7032d_0.fast5.gz')
+
+        expected = dict( Fast5Version   = '2.3',
+                         StartTime      = 'Tuesday, 01 Mar 2022 15:38:47',
+                         GuppyVersion   = '5.1.13+b292f4d',
+                         RunID          = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
+                         ExperimentType = 'genomic_dna',
+                         SequencingKit  = 'sqk-lsk109',
+                         BasecallConfig = 'dna_r9.4.1_450bps_hac_prom.cfg' )
+
+        self.assertEqual(md, expected)
+
 if __name__ == '__main__':
     unittest.main()

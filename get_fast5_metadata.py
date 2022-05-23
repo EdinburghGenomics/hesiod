@@ -51,7 +51,7 @@ def md_from_fast5_dir(f5_dir):
         logging.debug("No .fast5 files, maybe .fast5.gz?")
         f5_files = glob(os.path.join(f5_dir, '*.fast5.gz'))
 
-    logging.debug("Found {} files".format(len('f5_files')))
+    logging.debug("Found {} files".format(len(f5_files)))
     assert f5_files, "No fast5[.gz] files found."
 
     # Use the first one

@@ -76,6 +76,9 @@ else
         # For get_fast5_metadata.py
         pip_install h5py==3.6.0
 
+        # For get_pod5_metadata.py
+        pip_install pod5_format pod5_format_tools
+
         # Here’s the big one
         pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0

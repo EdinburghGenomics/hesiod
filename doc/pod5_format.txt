@@ -1,0 +1,87 @@
+The POD5 format is coming:
+
+https://github.com/nanoporetech/pod5-file-format
+
+And I may as well be ready for it. The aim here is:
+
+1) Convert test/examples/small2.fast5.gz to .pod5 using the standard tool
+
+$ pip install pod5_format pod5_format_tools
+
+We'll add this to the VEnv and requirements so the tests pass.
+
+OK, the small FAST5 will not convert, which is annoying. I think it's too small. Let's find a newer one.
+
+$ pod5-convert-fast5 PAK00002_fail_barcode07_b7f7032d_0.fast5 PAK00002_fail_barcode07_b7f7032d_0.pod5
+
+Does not work. Seems we need to install this to read the data:
+https://github.com/nanoporetech/vbz_compression/releases/
+
+OK that sorted it. I don't think I need this as part of Hesiod.
+
+I compressed the result since it halves the size.
+
+2) Extract identical metadata to what I get from get_fast5_metadata.py using
+   a new script get_pod5_metadata.py.
+
+Use the example at https://github.com/nanoporetech/pod5-file-format/tree/master/python/pod5_format/pod5_format/examples
+but they are not super useful.
+
+3) Add a unit test to integrate my work into the codebase, in anticipation we
+   will need it one day soon.
+
+DONE
+
+4) Validate on some of our latest FAST5 files and/or the official test data
+
+Looks good. Here is the script I tried:
+
+## open_pod.py
+~~~
+
+# Quick check that I can open a file and read the metadata.
+
+import pod5_format
+from pprint import pprint
+
+pfh = pod5_format.open_combined_file('mypod.pod5')
+
+pprint(pfh)
+r0 = next(pfh.reads())
+
+pprint(r0.run_info._asdict())
+
+import pdb ; pdb.set_trace()
+exit(0)
+# Cool. How about if the file is gzipped? Well it seems I need to give a file name.
+# What if I try to open the file using just Apache Arrow?
+
+import pyarrow as pa
+
+with open('mypod.pod5', 'rb') as buf:
+
+    # The first 24 bytes are the signature and section marker
+    # https://github.com/nanoporetech/pod5-file-format/blob/master/docs/SPECIFICATION.md#user-content-combined-file-layout
+    sig = buf.read(8)
+    assert sig == b"\213POD\r\n\032\n"
+
+    # The marker is a random 16 bytes
+    marker = buf.read(16)
+
+    # Then we get a sig for the Arrow table (undocumented?)
+    sig2 = buf.read(8)
+    assert sig2 ==  b"ARROW1\000\000"
+
+    with pa.ipc.open_stream(buf) as reader:
+        pprint(reader)
+
+        # Now can I has metadata?
+        import pdb ; pdb.set_trace()
+
+        print()
+
+# OK, fundamentally I need a seek-able file because the index into the arrow tables is on the end (a-la zip files)
+# and trying to open the thing in raw Arrow is possible, but silly. So let's do it using a named temporary file.
+# Python makes this easy :-)
+
+~~~
