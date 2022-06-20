@@ -2,6 +2,9 @@
 set -euo pipefail
 shopt -s nullglob
 
+# Allow VERBOSE to override the environ.sh setting
+_verbose="${VERBOSE:-}"
+
 # Load the settings for this pipeline.
 HESIOD_HOME="$(readlink -f $(dirname $BASH_SOURCE)/..)"
 ENVIRON_SH="${ENVIRON_SH:-$HESIOD_HOME/environ.sh}"
@@ -16,7 +19,7 @@ fi
 
 # Add the PATH
 export PATH="$HESIOD_HOME:$PATH"
-export VERBOSE="${VERBOSE:-0}"
+export VERBOSE="${_verbose:-${VERBOSE:-0}}"
 
 # Optional echo
 debug(){ if [ "${VERBOSE}" != 0 ] ; then echo "$@" ; fi ; }
@@ -24,7 +27,7 @@ debug(){ if [ "${VERBOSE}" != 0 ] ; then echo "$@" ; fi ; }
 # The config file must provide FASTQDATA and BACKUP_LOCATION, assuming they
 # were not already set in the environment. To explicitly ignore the environ.sh
 # do something like:
-# $ env ENVIRON_SH=/dev/null FASTQDATA=foo BACKUP_LOCATION=bar sync_to_fluidfs.sh
+# $ env ENVIRON_SH=/dev/null FASTQDATA=foo BACKUP_LOCATION=bar sync_to_backup_location.sh
 
 # Where are runs coming from?
 # Where are runs going to (can be a local directory or host:/path)?
@@ -61,7 +64,7 @@ for run in "$FASTQDATA"/*/ ; do
   # Maybe I should RSYNC anyway here and not wait for final QC? But that gets messy.
   # If the pipeline dir is missing this check will be skipped, but we do need the log - see the next check.
   if [ "$run_status" != "complete" ] ; then
-    echo "Ignoring $run_status $run_name"
+    debug "Ignoring $run_status $run_name"
     continue
   fi
 
@@ -74,7 +77,7 @@ for run in "$FASTQDATA"/*/ ; do
   # Comparing times on pipeline.log is probably the simplest way to see if the copy
   # is up-to-date and saves my sync-ing everything again and again
   # Note this will also trigger if the run directory itself has changed (perms or mtime)
-  if rsync -ns -rlptgD --itemize-changes --include='pipeline.log' --exclude='*' "$run" "$BACKUP_LOCATION/$run_name" | grep -q . ; then
+  if rsync -ns -rlptD --itemize-changes --include='pipeline.log' --exclude='*' "$run" "$BACKUP_LOCATION/$run_name" | grep -q . ; then
     log_size=`stat -c %s "$run/pipeline.log"`
     echo "Detected activity for $run_name with log size $log_size"
   else
