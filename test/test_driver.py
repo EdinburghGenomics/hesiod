@@ -539,10 +539,10 @@ class T(unittest.TestCase):
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ ["-f", "--config",
-                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"] +
+                                              "cellsready=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]",
+                                              "cells=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]"] +
                                              SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
@@ -575,9 +575,9 @@ class T(unittest.TestCase):
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ ["-f", "--config",
-                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
-                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"] +
+                                              "cellsready=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa]",
+                                              "cells=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]"] +
                                              SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
@@ -617,10 +617,10 @@ class T(unittest.TestCase):
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ ["-f", "--config",
-                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                              "cellsready=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]",
+                                              "cells=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]" ] +
                                              SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
@@ -671,10 +671,10 @@ class T(unittest.TestCase):
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ ["-f", "--config",
-                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                         "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb",
-                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                              "cellsready=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                          "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]",
+                                              "cells=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]" ] +
                                              SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
@@ -725,9 +725,9 @@ class T(unittest.TestCase):
 
         expected_calls = self.bm.empty_calls()
         expected_calls['Snakefile.main'] = [ ["-f", "--config",
-                                              "cellsready=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
-                                              "cells=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\t"
-                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ] +
+                                              "cellsready=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa]",
+                                              "cells=[a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,"
+                                                     "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb]" ] +
                                              SNAKE_TARGETS ]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
