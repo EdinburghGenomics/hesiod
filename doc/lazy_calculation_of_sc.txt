@@ -1,0 +1,35 @@
+Every time a cluster job is run from Snakefile.main, the value of SC is calculated by scanning the
+input files. This applies even for little single jobs that have no need of the full SC structure.
+
+It happens because I explicitly run this at the top level:
+
+SC, COUNTS = scan_cells(EXPDIR, config)
+
+I could easily make this a cached property. What I'm not sure of, is will this be evaluated
+anyway as Snakemake resolves the inputs and outputs (particularly the outputs) for rules like
+'main' or will the directives passed to Snakemake as it runs on the cluster node short-circuit
+this calculation?
+
+I'll want to test this out before I make any edits to the Snakefile. Something like:
+
+def some_func():
+    print("some_func() got run")
+    return "test1.out"
+
+rule test1:
+    output: some_func()
+    input: "test2.out"
+    shell:
+        "touch {output}"
+
+rule test2:
+    output: "test2.out"
+    shell:
+        "touch {output}"
+
+If I run it on the cluster, do we see a message in the cluster log indicating that some_func() was run?
+Yes, with Snakemake 5.14. I don't suppose this changed in the newer Snakemake? Nope.
+
+So in order to get lazy evaluation of SC I need to either explicity mask rules with cludgy 'if:' statements
+or try patching Snakemake so that the '--allowed-rules' directive actually stops the inputs and outputs from
+being evaluated, rather than just blocking the rules from being used in the DAG.

@@ -46,7 +46,7 @@ else
         activate_venv
 
         # We need to upgrade pip before --prefer-binary is a valid option
-        pip3 --disable-pip-version-check install 'pip>21' 2>&1
+        pip3 --disable-pip-version-check install --upgrade 'pip>22' 2>&1
 
         # A check that the Python is not broken
         check_setuptools
@@ -66,6 +66,7 @@ else
         pip_install ujson==5.2.0
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
+        pip_install yte==1.5.1
         pip_install snakemake==7.8.5
         pip_install drmaa==0.7.9
 
@@ -82,7 +83,7 @@ else
         # Here’s the big one
         pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0
-        pip_install pyarrow==6.0.1
+        pip_install pyarrow==7.0.0
         pip_install seaborn==0.10.1   # upgrade with NanoPlot
         pip_install kaleido==0.2.1
         pip_install threadpoolctl==3.1.0

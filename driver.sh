@@ -272,10 +272,7 @@ action_cell_ready(){
 
     BREAK=1
     # Printable version of CELLSREADY
-    _cellsready=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
-
-    # Combined list of cells ready and done
-    _cells_ready_or_done="$(tjoin $'\t' "$CELLSREADY" "$CELLSDONE")"
+    _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
 
     # This will be a no-op if the experiment isn't really complete, and will return 3
     # If contacting RT fails it will return 1
@@ -295,10 +292,10 @@ action_cell_ready(){
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment \
                          processing \
-                         "Cell(s) ready: $_cellsready. Report is at" ) |& plog || true
+                         "Cell(s) ready: $_cellsready_p. Report is at" ) |& plog || true
 
     # As usual, the Snakefile controls the processing
-    plog "Preparing to process cell(s) $_cellsready into $RUN_OUTPUT"
+    plog "Preparing to process cell(s) $_cellsready_p into $RUN_OUTPUT"
     set +e ; ( set -e
       log "  Starting Snakefile.main on $EXPERIMENT."
 
@@ -311,13 +308,14 @@ action_cell_ready(){
       _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats convert_final_summary"
       ( cd "$RUN_OUTPUT"
         unset IFS
-        Snakefile.main -f --config cellsready="$_cells_ready_or_done" cells="$CELLS" \
+        Snakefile.main -f --config cellsready="$(list_for_config "$CELLSREADY" "$CELLSDONE")" \
+                                   cells="$(list_for_config "$CELLS")" \
             ${EXTRA_SNAKE_CONFIG:-} \
             -R $_force_rerun -- \
             ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
       ) |& plog
 
-    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready" ; return ; }
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready_p" ; return ; }
 
 
     set +e ; ( set -e
@@ -333,7 +331,7 @@ action_cell_ready(){
       # requires complex changes to the state machine.
       if ! send_summary_to_rt "$_report_level" \
                               "$_report_status" \
-                              "Processing completed for cells $_cellsready. Run report is at" \
+                              "Processing completed for cells $_cellsready_p. Run report is at" \
                               FUDGE ;
       then
         log "Failed to send summary to RT. See $per_expt_log"
@@ -344,16 +342,16 @@ action_cell_ready(){
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
       done
 
-    ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready" ; return ; }
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready_p" ; return ; }
 
     # Attempt deletion but don't fret if it fails
     set +e ; ( set -e
         _upstream="$(cat pipeline/upstream)"
-        _cellsready=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+        _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
         if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
             if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
                 log "Marking deletable cells on $_upstream."
-                echo "Marking cells as deletable on $_upstream: $_cellsready"
+                echo "Marking cells as deletable on $_upstream: $_cellsready_p"
                 del_remote_cells.sh "$_upstream" $CELLSREADY || log FAILED
             fi
         fi
@@ -533,16 +531,24 @@ twc(){
     printf "%s" $#
 }
 
-tjoin(){
-    # Join all args with a given char. Empty arguments are excluded
-    _tjoin_char="$1" ; shift
-    _tjoin_res=""
-    for _tjoin_arg in "$@" ; do
-        _tjoin_res+="${_tjoin_char}${_tjoin_arg}"
-        _tjoin_res="${_tjoin_res#${_tjoin_char}}"
-        _tjoin_res="${_tjoin_res%${_tjoin_char}}"
+list_for_config(){
+    # Take zero or more args that may contain embedded tabs, and
+    # return a single list as expected by Snakemake --config parser.
+    local joined arg argpart
+    local IFS
+
+    IFS=$'\t'
+    joined=""
+
+    for arg in "$@" ; do
+        for argpart in $arg ; do
+            joined+=,"${argpart}"
+            joined="${joined#,}"
+            joined="${joined%,}"
+        done
     done
-    printf "%s" "$_tjoin_res"
+
+    printf "%s" "[$joined]"
 }
 
 qglob(){

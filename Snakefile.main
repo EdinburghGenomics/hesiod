@@ -51,6 +51,12 @@ logger = snakemake.logging.logger
 TOOLBOX = f'env PATH="{os.environ["TOOLBOX"]}:$PATH"'
 PIGZ    = 'pigz -nT -9 -b512'
 
+# Convert name of CWD to EXPERIMENT
+EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
+
+logger.info( f"EXPERIMENT = {EXPERIMENT}" )
+logger.info( f"config =\n{pformat(config)}" )
+
 # And $REFS
 if os.environ["REFS"] in [ '', '.', './' ]:
     REFS = ''
@@ -75,7 +81,7 @@ def cellname_to_base(c):
     """
     return parse_cell_name(EXPERIMENT, c)['Base']
 
-def scan_cells(expdir, config):
+def scan_cells(expdir, config=config):
     """ Work out all the cells to process. Normally simple since the list is just passed in
         by driver.sh in config['cellsready'] but I do want to be able to process all by default so
         there is some scanning capability too.
@@ -87,7 +93,7 @@ def scan_cells(expdir, config):
     """
     if 'cells' in config:
         # Believe what we are told
-        cells = config['cells'].split('\t')
+        cells = config['cells']
     elif expdir:
         # Look for valid cells.
         cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{expdir}/*/*/fastq_????/") ))
@@ -97,7 +103,7 @@ def scan_cells(expdir, config):
 
     if 'cellsready' in config:
         # This should include the cells to be processed now AND those already processed.
-        cellsready = config['cellsready'].split('\t')
+        cellsready = config['cellsready']
 
         for c in cellsready:
             assert c in cells, f'Invalid cell (no fastq_pass or not listed in config["cells"]): {c}'
@@ -342,15 +348,14 @@ NANOPLOT_PLOT_LIST = [ "HistogramReadlength",
 ## End of functions ## Leave this comment in place to help the unit tests.
 
 # Cells are in the form {lib}/{cell}. The first 5 chars of the lib name are taken to be the project number.
-# Some outputs are aggregated by {lib}, some by {project} and other are per-cell.
-# Note - nothing is aggregated per-lib just yet?!
-SC, COUNTS = scan_cells(EXPDIR, config)
-EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
-CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(EXPERIMENT, c)['Library'], True)
+# Some outputs are aggregated {project} and other are per-cell.
+# FIXME - nothing is aggregated per-{lib} just yet, and CELLS_PER_PROJECT is only used in Snakefile.blob
+# so it should probably move there.
+SC, COUNTS = scan_cells(EXPDIR)
 CELLS_PER_PROJECT = groupby( SC, lambda c: parse_cell_name(EXPERIMENT, c)['Project'], True)
+CELLS_PER_LIB     = groupby( SC, lambda c: parse_cell_name(EXPERIMENT, c)['Library'], True)
 
-logger.info( f"config =\n{pformat(config)}" )
-logger.info( f"EXPERIMENT {EXPERIMENT}, SC =\n{sc_counts(SC)}" )
+logger.info( f"SC =\n{sc_counts(SC)}" )
 
 # Global wildcard patterns
 wildcard_constraints:

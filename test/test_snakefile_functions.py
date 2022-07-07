@@ -94,7 +94,7 @@ class T(unittest.TestCase):
         """
         with self.assertRaises(RuntimeError):
             sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_missingfile"),
-                                     dict( cellsready='testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' ) )
+                                     dict( cellsready=['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'] ) )
 
     def test_scan_cells_bc(self):
         """ Scan the cells when there are barcodes. The pattern should be:
@@ -102,7 +102,7 @@ class T(unittest.TestCase):
         """
         # 20210520_EGS1_16031BA/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f
         sc1, counts1 = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA"),
-                                   dict( cellsready='16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f' ) )
+                                   dict( cellsready=['16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'] ) )
 
         self.assertCountEqual(sc1, ['16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'])
         self.assertCountEqual( sc1['16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'],
@@ -121,7 +121,7 @@ class T(unittest.TestCase):
         """
         cell_name = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'
         sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA"),
-                                 dict( cellsready=cell_name ) )
+                                 dict( cellsready=[cell_name] ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
                           cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5" )
@@ -131,7 +131,7 @@ class T(unittest.TestCase):
         """
         cell_name = 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'
         sc, counts = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
-                                 dict( cellsready=cell_name ) )
+                                 dict( cellsready=[cell_name] ) )
 
         self.assertEqual( find_representative_fast5(cell_name, sc, try_glob=False),
                           cell_name + "/fast5_._pass/PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5" )

@@ -1,0 +1,14 @@
+In this run we have a puzzling error. The call:
+
+SC, COUNTS = scan_cells(EXPDIR, config)
+
+is failing because load_final_summary() is getting called with a junk input value:
+
+rundata/14211ATpool01_79_87_94/20220627_1339_2-E11-H11_PAK11505_525faab8\t14211ATpool02_86_88_95/20220627_1339_2-E5-H5_PAK11504_fa381a04/
+
+I think what's happening is that the tab character in --config cells='...' is being replaced by r'\t' - ie. a backlash and a letter 't'.
+
+One though is that the Snakefile should not need to calculate all of these for every cluster job, but there is no elegant way to prevent
+this. (Actually there may be, using a checkpoint rule or a pre-run script to build SC, but I'll leave that for now).
+
+I think I should be able to fix the config to get rid of the tab char. Let me see..

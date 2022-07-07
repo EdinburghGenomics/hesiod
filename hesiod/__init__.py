@@ -121,7 +121,7 @@ def load_final_summary(filename, yamlfile=None):
         if filename.endswith('/'):
             filename, = glob(filename + "final_summary_*_*.txt")
     except ValueError:
-        raise RuntimeError("Bad glob match for " + filename + "final_summary_*_*.txt")
+        raise RuntimeError("Bad glob match for {!r}".format(filename + "final_summary_*_*.txt"))
 
     # Easy txt-to-dict loader
     with open(filename) as fh:
