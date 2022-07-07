@@ -117,8 +117,11 @@ def load_final_summary(filename, yamlfile=None):
                        processing_stopped        = isoparse, )
 
     # Normally we can't predict the exact filename, so allow just specifying the directory.
-    if filename.endswith('/'):
-        filename, = glob(filename + 'final_summary_*_*.txt')
+    try:
+        if filename.endswith('/'):
+            filename, = glob(filename + "final_summary_*_*.txt")
+    except ValueError:
+        raise RuntimeError("Bad glob match for " + filename + "final_summary_*_*.txt")
 
     # Easy txt-to-dict loader
     with open(filename) as fh:
