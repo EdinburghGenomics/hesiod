@@ -191,7 +191,7 @@ class T(unittest.TestCase):
         yaml_info['_nanoplot_data'] = load_yaml(abspath( yaml_info['_nanoplot'],
                                                          relative_to = yaml_file ))
 
-        # We'll just use thissingle cell to test with
+        # We'll just use this single cell to test with
         all_info = { "18701TK0001/20220315_1458_2-E1-H1_PAI99791_06ff254e":
                      yaml_info }
 

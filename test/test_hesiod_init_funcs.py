@@ -7,7 +7,7 @@
 import sys, os, re
 import unittest
 import logging
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from datetime import datetime, timezone
 from dateutil.tz.tz import tzutc
 from pprint import pprint
@@ -16,7 +16,7 @@ DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
-                     find_sequencing_summary, find_summary )
+                     find_sequencing_summary, find_summary, load_yaml )
 
 class T(unittest.TestCase):
 
@@ -188,6 +188,22 @@ class T(unittest.TestCase):
         # find_summary() should do the same thing (without backwards compatibility)
         self.assertEqual( find_summary("sequencing_summary.txt", run_dir, cell ),
                           run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
+
+    def test_load_yaml(self):
+        """Not much romm for error here but still, always test.
+        """
+        # Relative load
+        res1 = load_yaml("fs/final_summary.yaml", relative_to = DATA_DIR + "/fs")
+
+        self.assertEqual(type(res1), OrderedDict)
+        self.assertEqual(len(res1), 18)
+
+        # Convert the result to a namedtuple (only the top level is converted)
+        res2 = load_yaml(DATA_DIR + "/fs/final_summary.yaml", as_tuple="FinalSummary")
+
+        self.assertTrue(isinstance(res2, tuple))
+        self.assertEqual(type(res2).__name__, "FinalSummary")
+        self.assertEqual(res2._asdict(), res1)
 
 if __name__ == '__main__':
     unittest.main()

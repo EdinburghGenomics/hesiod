@@ -7,6 +7,7 @@ import yaml, yamlloader
 # but we're using dateutil.parser.isoparse from python-dateutil 2.8)
 from dateutil.parser import isoparse
 from datetime import timedelta
+from collections import namedtuple
 
 def glob():
     """Regular glob() is useful but we want consistent sort order, including
@@ -178,12 +179,19 @@ def find_summary(pattern, rundir, cell, allow_missing=False):
 
 # YAML convenience functions that use the ordered loader/saver
 # yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
-def load_yaml(filename, relative_to=None):
+def load_yaml(filename, relative_to=None, as_tuple=None):
     """Load YAML from a file (not a file handle).
        If specified, relative paths are resolved relative to os.path.dirname(relative_to)
     """
     with open(abspath(filename, relative_to)) as yfh:
-        return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+        res = yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
+
+    if not as_tuple:
+        return res
+
+    else:
+        # This is just to make the syntax a little cleaner in the Snakefile
+        return namedtuple(as_tuple, res.keys())(**res)
 
 def abspath(filename, relative_to=None):
     """Version of abspath which can optionally be resolved relative to another file.

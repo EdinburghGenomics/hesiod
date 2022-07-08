@@ -33,3 +33,10 @@ Yes, with Snakemake 5.14. I don't suppose this changed in the newer Snakemake? N
 So in order to get lazy evaluation of SC I need to either explicity mask rules with cludgy 'if:' statements
 or try patching Snakemake so that the '--allowed-rules' directive actually stops the inputs and outputs from
 being evaluated, rather than just blocking the rules from being used in the DAG.
+
+Hmmm. Better idea - break out scan_cells() into a separate script and have it emit a YAML/JSON data structure,
+then load that each time. Much better than re-scanning all the files. I can then run this in the bootstrap
+section at the top, and read it back in. Also removes a lot of code from the Snakefile and improves
+test-ability. Yep.
+
+Let's amend load_yaml() to optionally return a NamedTuple because why not.
