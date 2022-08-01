@@ -190,7 +190,7 @@ class T(unittest.TestCase):
                           run_dir + "/" + cell + "/sequencing_summary_PAG23119_0eaeb70c.txt" )
 
     def test_load_yaml(self):
-        """Not much romm for error here but still, always test.
+        """Not much room for error here but still, always test.
         """
         # Relative load
         res1 = load_yaml("fs/final_summary.yaml", relative_to = DATA_DIR + "/fs")

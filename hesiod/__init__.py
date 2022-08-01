@@ -164,6 +164,18 @@ def find_sequencing_summary(rundir, cell):
 
     return found[0]
 
+def fast5_out(f5_in):
+    """Given an input .fast5 file in the expdir, say what the output .fast5 will be
+    """
+    f5_split = f5_in.split('/')
+    pf = f5_split[2].split('_')[1]
+
+    if len(f5_split) == 5:
+        # has barcode
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}"
+    else:
+        return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}"
+
 def find_summary(pattern, rundir, cell, allow_missing=False):
     """Find other summary files. For the newer runs, this could replace find_sequencing_summary()
     """
