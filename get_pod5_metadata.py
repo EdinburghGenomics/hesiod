@@ -11,7 +11,7 @@
 """
 
 import os, sys, re
-import logging
+import logging as L
 import gzip
 from tempfile import NamedTemporaryFile
 import shutil
@@ -31,15 +31,15 @@ from hesiod import dump_yaml, glob
 
 def main(args):
 
-    logging.basicConfig( level = logging.DEBUG if args.verbose else logging.INFO,
+    L.basicConfig( level = L.DEBUG if args.verbose else L.INFO,
                          format = "{levelname}:{message}",
                          style = '{')
 
     if os.path.isdir(args.pod5):
-        logging.debug("Scanning .pod5[.gz] files in '{}'".format(args.pod5) )
+        L.debug("Scanning .pod5[.gz] files in '{}'".format(args.pod5) )
         md = md_from_pod5_dir(args.pod5)
     else:
-        logging.debug("Reading from single file '{}'".format(args.pod5) )
+        L.debug("Reading from single file '{}'".format(args.pod5) )
         md = md_from_pod5_file(args.pod5)
 
     print(dump_yaml(md), end='')
@@ -50,10 +50,10 @@ def md_from_pod5_dir(p5_dir):
     p5_files = glob(os.path.join(p5_dir, '*.pod5'))
     if not p5_files:
         # Try zipped...
-        logging.debug("No .pod5 files, maybe .pod5.gz?")
+        L.debug("No .pod5 files, maybe .pod5.gz?")
         p5_files = glob(os.path.join(p5_dir, '*.pod5.gz'))
 
-    logging.debug("Found {} files".format(len(p5_files)))
+    L.debug("Found {} files".format(len(p5_files)))
     assert p5_files, "No pod5[.gz] files found."
 
     # Use the first one
