@@ -251,7 +251,11 @@ def format_report( all_info,
         # If there is a MinKNOW report then add it here
         if ci.get('_minknow_report'):
             rep_filename = os.path.basename(ci['_minknow_report'])
-            P( f"[MinKNOW PDF Report](minknow/{rep_filename})" )
+            # This was PDF, then HTML
+            if rep_filename.endswith('.pdf'):
+                P( f"[MinKNOW PDF Report](minknow/{rep_filename})" )
+            else:
+                P( f"[MinKNOW HTML Report](minknow/{rep_filename})" )
             P()
 
         P( ":::::: {.bs-callout}" )
