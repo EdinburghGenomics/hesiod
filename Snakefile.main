@@ -60,7 +60,7 @@ PIGZ    = 'pigz -nT -9 -b512'
 EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
 
 logger.info( f"EXPERIMENT = {EXPERIMENT}" )
-logger.info( f"config =\n{pformat(config)}" )
+logger.info( f"config = {pformat(config)}" )
 
 # Reference for when we come to remove lambda reads from the FASTQ.
 # There is a different calibration reference for RNA. See doc/rna_support.txt
@@ -325,14 +325,14 @@ def one_cell_inputs(wc):
     xxpand = partial(expand, cell=cell, base=base, bc=barcodes, pf=fastq_parts, calref=calref)
 
     # The minknow report used to be a PDF but is now HTML
-    htmlreport   = xxpand("{base}_report.pdf")
-    if not os.path.exists(htmlreport):
-        htmlreport   = xxpand("{base}_report.html")
+    minknow_report   = f"{base}_report.pdf"
+    if not os.path.exists(minknow_report):
+        minknow_report   = f"{base}_report.html"
 
     return dict(
         fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
         seq_summary  = xxpand("{base}_sequencing_summary.txt.gz"),
-        htmlreport   = htmlreport,
+        minknow_rept = minknow_report,
         counts       = xxpand("counts/{base}_{bc}_{pf}.fastq.count"),
         calref_bam   = xxpand("{base}_{bc}_{calref}.bam"),
         calref_stats = xxpand("{calref}qc/{base}_{bc}_{calref}.bam.stats"),
@@ -367,7 +367,7 @@ rule one_cell:
             bc, pf = c[len(f"counts/{params.base}_"):-len(".fastq.count")].split("_")
             cdata[(bc, pf)] = load_yaml(c)
         # The HTML report from MinKnow may be an empty file, in which case ignore it
-        minknow_report = str(input.htmlreport)
+        minknow_report = str(input.minknow_rept)
         if not os.path.getsize(minknow_report):
             minknow_report = None
 

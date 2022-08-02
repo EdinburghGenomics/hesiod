@@ -34,7 +34,8 @@ PROGS_TO_MOCK = {
 
 # Snakemake targets are always the same, unless $MAIN_SNAKE_TARGETS is set
 SNAKE_TARGETS = ("-f -R per_cell_blob_plots per_project_blob_tables one_cell"
-                 "      nanostats convert_final_summary -- pack_fast5 main".split())
+                 "      nanostats convert_final_summary"
+                 "      --config -- pack_fast5 main".split())
 
 
 class T(unittest.TestCase):

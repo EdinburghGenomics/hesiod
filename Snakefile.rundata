@@ -31,10 +31,11 @@ rule convert_final_summary:
     run:
         dump_yaml(load_final_summary(str(input)), str(output.yaml))
 
+# This needs to work for the HTML or the PDF reports
 rule copy_report:
     output:
-        pdf = "{cell}/{fullid}_report.pdf"
-    input: lambda wc: find_summary('report.pdf', EXPDIR, wc.cell, allow_missing=True) or []
+        pdf = "{cell}/{fullid}_report.{extn,pdf|html}"
+    input: lambda wc: find_summary(f"report.{wc.extn}", EXPDIR, wc.cell, allow_missing=True) or []
     run:
         if input:
             shell("cp -T {input} {output.pdf}")

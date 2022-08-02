@@ -311,8 +311,8 @@ action_cell_ready(){
         scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml
 
         unset IFS
-        Snakefile.main -f -R $_force_rerun -- \
-            ${EXTRA_SNAKE_CONFIG:-} \
+        Snakefile.main -f -R $_force_rerun \
+            --config ${EXTRA_SNAKE_CONFIG:-} -- \
             ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
       ) |& plog
 
