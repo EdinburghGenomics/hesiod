@@ -16,7 +16,7 @@ DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
-                     find_sequencing_summary, find_summary, load_yaml )
+                     find_sequencing_summary, find_summary, load_yaml, empty_sc_data)
 
 class T(unittest.TestCase):
 
@@ -204,6 +204,12 @@ class T(unittest.TestCase):
         self.assertTrue(isinstance(res2, tuple))
         self.assertEqual(type(res2).__name__, "FinalSummary")
         self.assertEqual(res2._asdict(), res1)
+
+    def test_empty_sc_data(self):
+        """This just returns the same structure each time
+        """
+
+        self.assertEqual( len(empty_sc_data()), 6 )
 
 if __name__ == '__main__':
     unittest.main()

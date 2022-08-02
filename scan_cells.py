@@ -52,8 +52,10 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
             cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{expdir}/*/*/fastq_????/") ))
         else:
             # No cells in input, but maybe we can look at the output
+            L.debug("No cells in expdir")
             cells = []
         if not cells and look_in_output:
+            L.debug("Looking for output files instead")
             # Look for cells here in the output (presumably the experiment already processed and the rundata was removed)
             cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"*/*/cell_info.yaml") ]
 

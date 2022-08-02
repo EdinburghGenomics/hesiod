@@ -203,7 +203,21 @@ def load_yaml(filename, relative_to=None, as_tuple=None):
 
     else:
         # This is just to make the syntax a little cleaner in the Snakefile
-        return namedtuple(as_tuple, res.keys())(**res)
+        return namedtuple(as_tuple, res)(**res)
+
+def empty_sc_data():
+    """Return an empty data structure in the same format as scan_cells.py
+    """
+    res = dict( cells_per_lib = {},
+                cells_per_project = {},
+                counts = dict( cells = 0,
+                               cellsaborted = 0,
+                               cellsready = 0 ),
+                printable_counts = "[EMPTY_SC_DATA]",
+                representative_fast5 = None,
+                scanned_cells = {} )
+
+    return namedtuple("empty_sc_data", res)(**res)
 
 def abspath(filename, relative_to=None):
     """Version of abspath which can optionally be resolved relative to another file.

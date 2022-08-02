@@ -307,11 +307,12 @@ action_cell_ready(){
       # TODO - document the reason for this list of rules to always run...
       _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats convert_final_summary"
       ( cd "$RUN_OUTPUT"
+
+        scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml
+
         unset IFS
-        Snakefile.main -f --config cellsready="$(list_for_config "$CELLSREADY" "$CELLSDONE")" \
-                                   cells="$(list_for_config "$CELLS")" \
+        Snakefile.main -f -R $_force_rerun -- \
             ${EXTRA_SNAKE_CONFIG:-} \
-            -R $_force_rerun -- \
             ${MAIN_SNAKE_TARGETS:-pack_fast5 main}
       ) |& plog
 
@@ -529,26 +530,6 @@ twc(){
     # Count the number of words in a tab-separated string. This is
     # simple when IFS=$'\t'
     printf "%s" $#
-}
-
-list_for_config(){
-    # Take zero or more args that may contain embedded tabs, and
-    # return a single list as expected by Snakemake --config parser.
-    local joined arg argpart
-    local IFS
-
-    IFS=$'\t'
-    joined=""
-
-    for arg in "$@" ; do
-        for argpart in $arg ; do
-            joined+=,"${argpart}"
-            joined="${joined#,}"
-            joined="${joined%,}"
-        done
-    done
-
-    printf "%s" "[$joined]"
 }
 
 qglob(){
