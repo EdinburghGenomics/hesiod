@@ -324,10 +324,16 @@ def one_cell_inputs(wc):
 
     xxpand = partial(expand, cell=cell, base=base, bc=barcodes, pf=fastq_parts, calref=calref)
 
-    # The minknow report used to be a PDF but is now HTML
-    minknow_report   = f"{base}_report.pdf"
-    if not os.path.exists(minknow_report):
-        minknow_report   = f"{base}_report.html"
+    # The MinKNOW report used to be a PDF but is now HTML. We need to peek at which is there,
+    # but as usual remember the input may not be available.
+    minknow_report = f"{base}_report.pdf"
+    if find_summary("report.pdf", EXPDIR, cell, allow_missing=True):
+        logger.debug("PDF report in the input")
+    elif os.path.exists(minknow_report) and os.path.getsize(minknow_report):
+        logger.debug("PDF report already in the output")
+    else:
+        logger.debug("Defaulting to looking for HTML report")
+        minknow_report = f"{base}_report.html"
 
     return dict(
         fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
