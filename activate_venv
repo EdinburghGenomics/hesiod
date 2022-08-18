@@ -91,8 +91,11 @@ else
         pip_install tenacity==8.0.1
         pip_install plotly==5.7.0
 
-        # Newer NanoPlot has some significant changes and needs testing.
+        # Newer NanoPlot has some significant changes
         pip_install NanoPlot==1.33.1
+
+        # For counting likely duplex reads
+        pip_install duplex_tools==0.2.11
 
         # Helpful for running the unit tests
         pip_install pyflakes

@@ -1,0 +1,28 @@
+Duplex basecalling.
+
+Is new and slightly janky.
+
+There are scripts at:
+
+https://github.com/nanoporetech/duplex-tools
+
+These seem to run reasonably fast. I can use them to get an estimate of the number of duplex reads and
+add this number to the report. Also the two pair lists (filtered and unfiltered) will be available if
+we then decide to do duplex basecalling. It seems there are a very few fasle positives but the estimate
+should be pretty close - remember to be clear when reporting the number if you are giving the number of
+raw reads or the number of pairs.
+
+Duplex basecalling is another matter. It seems we can do it on Cirrus GPU nodes if we were to negotiate
+access, but I need to do some tuning to make it reasonably fast.
+
+Anyway, let's add duplex-tools to Hesiod...
+
+duplex_tools==0.2.11
+
+Installs fine in the VEnv - adds a couple of extra deps which is fine
+
+There are two steps to run. The first makes pair_ids.txt and the next makes pair_ids_filtered.txt
+The first step depends on sequencing_summary.txt
+The second depends on the result of the first plus the FASTQ directory
+
+Should be easy enough to Snakemake this, and add something to the report.
