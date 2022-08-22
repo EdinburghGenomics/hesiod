@@ -245,20 +245,19 @@ def format_report( all_info,
     P('\n# Stats per cell\n')
     for cell, ci in sorted(all_info.items()):
         P()
-        P( f"## Cell {cell}" )
-        P()
+        P( f"## Cell {cell}", "" )
+        P( ":::::: {.bs-callout}", "" )
 
         # If there is a MinKNOW report then add it here
         if ci.get('_minknow_report'):
             rep_filename = os.path.basename(ci['_minknow_report'])
             # This was PDF, then HTML
+            # \U0001F5BA is a document emoji
             if rep_filename.endswith('.pdf'):
-                P( f"[MinKNOW PDF Report](minknow/{rep_filename})" )
+                P( f"[\U0001F5BA MinKNOW PDF Report](minknow/{rep_filename})" )
             else:
-                P( f"[MinKNOW HTML Report](minknow/{rep_filename})" )
+                P( f"[\U0001F5BA MinKNOW HTML Report](minknow/{rep_filename})" )
             P()
-
-        P( ":::::: {.bs-callout}" )
 
         # We'll need this shortly. See copy_files
         cell_uid = ci['Base'].split('/')[-1]
@@ -273,7 +272,7 @@ def format_report( all_info,
         P( format_dl( [ _format( k, v ) for k, v in ci.items()
                         if not ( k.startswith("_")
                                  or k in METADATA_HIDE ) ],
-                      title="Metadata") )
+                      title = "Metadata") )
 
         # Stuff from the .count files that's been embedded in the YAML.
         # Make a single table
@@ -293,6 +292,15 @@ def format_report( all_info,
                              title = "Read counts" ) )
             P()
 
+
+        # Estimated number of duplex reads
+        # Format in the YAML file should be [ ( 'Duplex pairs', 123 ),
+        #                                     ( 'from total passing reads', 4566 ),
+        #                                     ( '% of passing reads', '4.56%' ) ]
+        if ci.get('_duplex'):
+            P( format_dl( ci['_duplex'],
+                          title = "Duplex reads" ) )
+        P("*Note: counts are estimated by [duplex-tools](https://github.com/nanoporetech/duplex-tools).*")
 
         # Nanoplot stats
         if '_nanoplot_data' in ci:

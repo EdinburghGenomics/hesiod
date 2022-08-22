@@ -38,6 +38,7 @@ def _determine_version():
         return 'unknown'
 
     # Inspired by MultiQC, if there is a .git dir then dig into it
+    # FIXME - there are PyPi modules that do this.
     try:
         with open(os.path.dirname(__file__) + '/../.git/HEAD') as fh:
             git_head = fh.read().strip()
@@ -70,6 +71,10 @@ def _determine_version():
 def parse_cell_name(experiment, cell):
     """Things we get from parsing wildcards.cell
     """
+    # Some sanity checks
+    if experiment.count('/') != 0 or cell.count('/') != 1:
+        raise ValueError(f"Unexpected number of '/' in parse_cell_name({experiment!r}, {cell!r})")
+
     res = OrderedDict()
     res['Experiment'] = experiment
     res['Cell'] = cell

@@ -8,7 +8,7 @@ https://github.com/nanoporetech/duplex-tools
 
 These seem to run reasonably fast. I can use them to get an estimate of the number of duplex reads and
 add this number to the report. Also the two pair lists (filtered and unfiltered) will be available if
-we then decide to do duplex basecalling. It seems there are a very few fasle positives but the estimate
+we then decide to do duplex basecalling. It seems there are a very few false positives but the estimate
 should be pretty close - remember to be clear when reporting the number if you are giving the number of
 raw reads or the number of pairs.
 
@@ -26,3 +26,28 @@ The first step depends on sequencing_summary.txt
 The second depends on the result of the first plus the FASTQ directory
 
 Should be easy enough to Snakemake this, and add something to the report.
+How does this work with barcoded runs? Since there is just one sequencing summary I guess
+we just run duplex-tools once, but I should check that.
+
+And also can I make filter_pairs run from the combined output FASTQ or does it need to see the
+original input directory? We shall see.
+It does work but I had to do some symlink silliness.
+
+I will now test on ~/test_promethion/fastqdata/20220525_EGS2_22960TA
+
+OK good, but what number do I report?
+
+If I count the lines in pair_ids_filtered.txt, multiply by 2, then divide by the
+total number of reads then this gives me the fraction of reads that are part of a pair.
+
+At this point I'm not sure if fail reads can be flagged as pairs (or can a passed plus a
+failed read form a pair??). But for now I'll assume it's only passing reads (we'll soon
+find out if not) and divide by the total passing reads to get my number.
+
+Where shall this go on the report? After "Read counts".
+OK, I made make_report look for this:
+# cell_info['_duplex']
+# Format in the YAML file should be [ ( 'Duplex pairs', 123 ),
+#                                     ( 'from total passing reads', 4566 ),
+#                                     ( '% of passing reads', '4.56%' ) ]
+

@@ -105,10 +105,13 @@ class T(unittest.TestCase):
                      'Files in fail': 1,
                      'Files in fast5 fail': 1,
                      '_counts': [
-                        {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass'},
+                        {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass', 'total_reads': 200},
                         {'_barcode': '.', '_label': 'Passed and lambda-filtered reads', '_part': 'nolambda'},
                         {'_barcode': '.', '_label': 'All failed reads', '_part': 'fail'} ],
                      '_blobs': ['../../__blob__'],
+                     '_duplex' : [ ['Duplex pairs',             1],
+                                   ['from total passing reads', 200],
+                                   ['% of passing reads',       '1.00%'] ],
                      '_final_summary': {'is_rna': False},
                      '_nanoplot': '../../__nanoplot__',
                    }
@@ -119,12 +122,13 @@ class T(unittest.TestCase):
                              cell_content = { '.': dict( fast5_pass = ['x.fast5'],
                                                          fastq_fail = ['y.fastq'],
                                                          fast5_fail = ['y.fast5'] ) },
-                             counts = { ('.','pass'): dict(),
+                             counts = { ('.','pass'): dict(total_reads = 200),
                                         ('.','fail'): dict(),
                                         ('.','nolambda'): dict() },
                              fin_summary = dict(is_rna = False),
                              blobs = ['__blob__'],
                              nanoplot = '__nanoplot__',
+                             duplex = 1,
                              fast5_meta = dict() )
 
         if VERBOSE:

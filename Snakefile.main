@@ -76,15 +76,13 @@ def get_calibration_refs():
                                    }.items() }
 calibration_refs = get_calibration_refs()
 
-# Check the PATH includes the directory containing this workflow
-for p in os.environ['PATH'].split(':'):
-    if os.path.abspath(p) == os.path.dirname(os.path.abspath(workflow.snakefile)):
-        break
-else:
-    # The directory containing this file should be in the PATH
+# Check the PATH includes the directory containing this Snakefile
+location_of_snakefile = os.path.dirname(os.path.abspath(workflow.snakefile))
+if not any([ os.path.abspath(p) == location_of_snakefile
+             for p in os.environ['PATH'].split(':') ]):
     os.environ['PATH'] += ':' + os.path.dirname(workflow.snakefile)
 
-# If not supplied, just assume the usual symlink will work...
+# If no explicit input dir supplied, just assume the usual symlink will work...
 EXPDIR = config.get('rundata', 'rundata')
 if not os.path.exists(EXPDIR):
     logger.warning(f"WARNING: {EXPDIR} is not a directory. Suppressing rules that reference EXPDIR.")
@@ -164,9 +162,11 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
                    blobs = None,
                    nanoplot = None,
                    fast5_meta = None,
+                   duplex = None,
                    minknow_report = None ):
     """Compiles the content of cell_info.yaml from various bits and pieces.
-       Only really for use by the 'one_cell' rule.
+       Only really for use by the 'one_cell' rule. I guess I could make this a
+       separate script.
     """
     ci = parse_cell_name(experiment, cell)
 
@@ -192,7 +192,7 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     # if we will split them out by barcode in the report or just add them up.
     ci['_counts'] = []
 
-    for pf in get_fastq_parts(fin_summary['is_rna']):
+    for pf in get_fastq_parts(is_rna=fin_summary['is_rna']):
         for bc in cell_content:
             # The items in counts come from input.counts. Assume each YAML
             # file yields a dict
@@ -202,7 +202,7 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
             cdata['_barcode'] = bc
             ci['_counts'].append(cdata)
 
-    # The fin_summary also contains the original experimiment name, which I could get from
+    # The fin_summary also contains the original experiment name, which I could get from
     # rundata/pipeline/upstream but this seems more robust.
     if fin_summary.get('protocol_group_id'):
         ci['UpstreamExpt'] = fin_summary['protocol_group_id']
@@ -210,6 +210,18 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     # And in fact just save the entire fin_summary into the info.yaml, so that make_report.py
     # can get at it.
     ci['_final_summary'] = fin_summary
+
+    # Do we have an estimated count of the duplex reads?
+    if duplex is not None:
+        # total_passing = sum(c['total_reads'] for c in ci['_counts'] if c['_part'] == 'pass')
+        total_passing = sum( v['total_reads'] for k, v in counts.items() if k[1] == 'pass' )
+        # Avoid div by zero if there are no passing reads
+        perc_duplex = 0
+        if duplex:
+            perc_duplex = (100 * 2 * duplex) / total_passing
+        ci['_duplex'] = [ [ 'Duplex pairs',             duplex ],
+                          [ 'from total passing reads', total_passing ],
+                          [ '% of passing reads',       f"{perc_duplex:.2f}%" ] ]
 
     # Link to other reports. I'm now using paths relative to the file rather than the
     # root of the run dir.
@@ -320,7 +332,7 @@ def one_cell_inputs(wc):
     # YAML is already in the output this bypasses needing EXPDIR.
     fs = load_final_summary(f"{EXPDIR}/{cell}/",
                             yamlfile = f"{cell}/cell_final_summary.yaml")
-    fastq_parts = get_fastq_parts(fs['is_rna'])
+    fastq_parts = get_fastq_parts(is_rna=fs['is_rna'])
     calref = "eno" if fs['is_rna'] else "lambda"
 
     xxpand = partial(expand, cell=cell, base=base, bc=barcodes, pf=fastq_parts, calref=calref)
@@ -350,6 +362,8 @@ def one_cell_inputs(wc):
         nanoplot_p   = xxpand("nanoplot/{cell}/{p}.png", p = NANOPLOT_PLOT_LIST),
         nanoplot_t   = xxpand("nanoplot/{cell}/{p}.__thumb.png", p = NANOPLOT_PLOT_LIST),
 
+        duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
+
         fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
         fin_summary  = f"{cell}/cell_final_summary.yaml",
 
@@ -377,11 +391,15 @@ rule one_cell:
         minknow_report = str(input.minknow_rept)
         if not os.path.getsize(minknow_report):
             minknow_report = None
+        # For duplex reads we just need the count of lines in input.duplex_list
+        with open(str(input.duplex_list)) as dlfh:
+            duplex_count = sum(1 for _ in dlfh)
 
         ci = get_cell_info( experiment = EXPERIMENT,
                             cell = wildcards.cell,
                             cell_content = SC[wildcards.cell],
                             counts = cdata,
+                            duplex = duplex_count,
                             fin_summary = fin_summary,
                             blobs = input.blobs,
                             fast5_meta = mdata,
@@ -415,6 +433,38 @@ rule fast5_metadata:
 if EXPDIR:
     include: "Snakefile.rundata"
 
+# https://github.com/nanoporetech/duplex-tools
+rule pairs_from_summary:
+    output:
+        out_dir    = directory("duplex_scan/{cell}"),
+        pair_ids   = "duplex_scan/{cell}/pair_ids.txt",
+        pair_stats = "duplex_scan/{cell}/pair_stats.txt",
+    input:
+        summary    = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz"
+    shell:
+        "duplex_tools pairs_from_summary {input.summary} {output.out_dir}"
+
+# Slightly tricky:
+# - Symlink input.passfastq files here to be explicit about which to scan
+# - Check for success in the log
+rule filter_pairs:
+    output:
+        pair_ids  = "duplex_scan/{cell}/pair_ids_filtered.txt",
+        scores    = "duplex_scan/{cell}/pair_ids_scored.csv",
+        segments  = "duplex_scan/{cell}/read_segments.pkl",
+    input:
+        pair_ids  = "duplex_scan/{cell}/pair_ids.txt",
+        passfastq = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass.fastq.gz"
+                                 for bc in SC[wc.cell] ],
+    log: "duplex_scan/{cell}/filter_pairs.log"
+    params:
+        fastq_dir = "duplex_scan/{cell}/"
+    shell:
+       r"""ln -sfrvt {fastq_dir} {input.passfastq}
+           duplex_tools filter_pairs {input.pair_ids} {params.fastq_dir} 2>&1 | tee {log}
+           grep -Fq "Found 100.0% of required reads" {log}
+        """
+
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
 # the stats, which come out as unstructured text.
 # Note this will produce many plots but there are only a few we care to check.
@@ -437,12 +487,12 @@ rule nanoplot:
         shell(r'cd nanoplot/{wildcards.cell} ; rm -f *.png *.html *.log')
 
         # We need a special case when there are no passing reads as NanoPlot will choke.
-        # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this will not be available
+        # Tempting to look at SC[wildcards.cell]['fastq_pass'] but this list could be empty
         # if EXPDIR is not set, so inspect input.passlist which should be preserved. Since
         # adding barcode support, there may be multiple passlist files.
         # Since adding .fastq.gz support there are these to consider too.
         if all( os.path.getsize(p) == 0 for p in input.passlist ):
-            if all( os.path.getsize(p) <= 32 for p in input.passlist_gz ):
+            if all( os.path.getsize(p) == 0 for p in input.passlist_gz ):
                 shell("touch {output}")
                 return
 

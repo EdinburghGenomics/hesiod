@@ -50,6 +50,10 @@ class T(unittest.TestCase):
                     Base       = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f/'
                                    '20210520_EGS1_16031BA_16031BApool01_PAG23119_76e7e00f' ) )
 
+        # There should be a couple of sanity checks
+        with self.assertRaises(ValueError): parse_cell_name('A/B', 'C/D')
+        with self.assertRaises(ValueError): parse_cell_name('A', 'B/C/D')
+
     def test_load_final_summary(self):
 
         example_file = os.path.join(DATA_DIR, "final_summary_PAK00383_564d5253.txt")
