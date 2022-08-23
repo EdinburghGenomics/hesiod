@@ -19,6 +19,7 @@ import math
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 from contextlib import suppress
+from pathlib import Path
 
 # For parsing of ISO/RFC format dates (note that newer Python has datetime.datetime.fromisoformat
 # but we're using dateutil.parser.isoparse from python-dateutil 2.8)
@@ -84,15 +85,15 @@ def read_pod5(p5_filename):
     for x in ['POD5Version', 'StartTime', 'GuppyVersion']:
         res[x] = 'unknown'
 
-    p5_handle = pod5_format.open_combined_file(p5_filename)
+    p5_handle = pod5_format.CombinedReader(Path(p5_filename))
     try:
         # Version of the POD5 file. We have to dig into the internals of the
         # library to see this. I think it should be part of the public API.
-        res['POD5Version'] = p5_handle._read_reader.reader.schema.metadata[b'MINKNOW:pod5_version']
+        res['POD5Version'] = p5_handle._handles.read.reader.schema.metadata[b'MINKNOW:pod5_version']
 
         # Just as the metadata is the same for each file, it's the same for each
         # read, so just get the first one, and dict-ify it.
-        read0 = next(p5_handle.reads()).run_info._asdict()
+        read0 = vars(next(p5_handle.reads()).run_info)
 
         # Run ID (should be in the filename anyway!)
         res['RunID'] = read0['acquisition_id']
