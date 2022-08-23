@@ -259,7 +259,7 @@ wildcard_constraints:
 # NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
 
-localrules: main, one_cell, pack_fast5
+localrules: main, one_cell, copy_fast5
 rule main:
     output:
         plist     = f"projects_ready.txt",
@@ -298,9 +298,9 @@ rule main:
         shell("ln -snr {output.rep} {output.replink}")
 
 # I've split out the fast5 packing in order to allow me to re-run everything else without
-# doing this. So to fully process a run you need to call main AND pack_fast5
+# doing this. So to fully process a run you need to call main AND copy_fast5
 # Note that as of v0.12, FAST5 file compression is no longer attempted
-rule pack_fast5:
+rule copy_fast5:
     input:
         fast5_link = lambda wc: [ fast5_out(f)
                                         for cell, barcodes in SC.items()
