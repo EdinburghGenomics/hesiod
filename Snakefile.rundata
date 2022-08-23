@@ -47,12 +47,13 @@ rule copy_report:
 # md5sum is invoked such that keeps the file path out of the .md5 file
 # Note that the fast5_out() utility function calculates outputs for this rule based on inputs.
 # Note2 that barcode=. should work with this even though it's a bit sus.
+# Note3 that making the input 'ancient' is an attempt to speed up the DAG build
 rule copy_md5sum_fast5:
     output:
         f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
         md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
     input:
-        f5 = EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5"
+        f5 = ancient(EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5")
     shell:
        r"""{TOOLBOX} h5stat {input.f5} > /dev/null
            if [ "$(stat -c %u/%D {input.f5})" = "$(id -u)/$(stat -c %D $(dirname {output.f5}))"  ] ; then
@@ -203,7 +204,7 @@ rule map_calref:
         bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}{calref}.bam"),
         counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.count"),
     input:
-        fq     = lambda wc: f"{EXPDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.'),
+        fq     = lambda wc: ancient(f"{EXPDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.')),
         ref    = lambda wc: ancient(calibration_refs[wc.calref]),
     params:
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',

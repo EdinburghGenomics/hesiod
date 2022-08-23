@@ -71,10 +71,10 @@ class T(unittest.TestCase):
                       '11650' : { 'name' : '11650_Test2_Test2' } }
 
         self.assertEqual(list_projects(cells[:1], realnames), [
-                                ('11608', 'Project 11608_Test_Test\n\n[\[Go to project page\]](http://foo)', [{'Project': '11608'}]), ])
+                                ('11608', 'Project 11608_Test_Test\n\n[\u21D2 Go to project page](http://foo)', [{'Project': '11608'}]), ])
 
         self.assertEqual(list_projects(cells, realnames), [
-                                ('11608', 'Project 11608_Test_Test\n\n[\[Go to project page\]](http://foo)', [{'Project': '11608'}]),
+                                ('11608', 'Project 11608_Test_Test\n\n[\u21D2 Go to project page](http://foo)', [{'Project': '11608'}]),
                                 ('11609', 'Project 11609', [{'Project': '11609'}]),
                                 ('11650', 'Project 11650_Test2_Test2', [{'Project': '11650'},{'Project': '11650'}]),
                                 ('11650000XXX', 'Project 11650000XXX', [{'Project': '11650000XXX'}]), ])

@@ -300,10 +300,12 @@ def format_report( all_info,
         if ci.get('_duplex'):
             P( format_dl( ci['_duplex'],
                           title = "Duplex reads" ) )
-        P("*Note: counts are estimated by [duplex-tools](https://github.com/nanoporetech/duplex-tools).*")
+        P("*Note: counts are estimated by [duplex-tools](https://github.com/nanoporetech/duplex-tools) -"
+          " duplex basecalling is not performed automatically.*\n")
 
         # Nanoplot stats
         if '_nanoplot_data' in ci:
+            P()
             ns = ci['_nanoplot_data']
 
             def _format(_k, _v):
@@ -582,7 +584,7 @@ def list_projects(cells, realname_dict):
             if n in realname_dict:
                 title = f"Project {realname_dict[n].get('name')}"
                 if realname_dict[n].get('url'):
-                    title += f"\n\n[\[Go to project page\]]({realname_dict[n].get('url')})"
+                    title += f"\n\n[\u21D2 Go to project page]({realname_dict[n].get('url')})"
             else:
                 title = f"Project {n}"
             res[n] = (title, [c])
