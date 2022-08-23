@@ -83,7 +83,7 @@ else
         # Here’s the big one
         pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0
-        pip_install pyarrow==7.0.0
+        pip_install pyarrow==8.0.0
         pip_install seaborn==0.10.1   # upgrade with NanoPlot
         pip_install kaleido==0.2.1
         pip_install threadpoolctl==3.1.0
