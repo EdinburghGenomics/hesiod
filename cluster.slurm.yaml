@@ -14,3 +14,5 @@ minionqc                 : {slurm_opts: '--exclusive --mem=0'}
 nanoplot                 : {slurm_opts: '--mem=12000 --mincpus=2'}
 samstats                 : {slurm_opts: '--mem=12000 --mincpus=2'}
 qualimap                 : {slurm_opts: '--mem=24000 --mincpus=8'}
+filter_pairs             : {slurm_opts: '--mem=128000 --mincpus=18'}
+pairs_from_summary       : {slurm_opts: '--mem=128000 --mincpus=18'}
