@@ -73,6 +73,7 @@ class RunStatus:
 
     def cell_to_tfn(self, cellname):
         """This corresponds to cell_to_tfn in driver.sh
+           tfn stands for touch file name
         """
         return cellname.split('/')[-1]
 
@@ -105,9 +106,14 @@ class RunStatus:
                 # Maybe the upstream is unreachable just now.
                 res[cellname] = self.CELL_INCOMPLETE
 
-        # Now factor in the remote stuff
+        # Now factor in the remote stuff. Only compare the suffixes here
+        # to allow for reasonable behaviour if a library is locally renamed.
+        # If a library is renamed before the sync finishes then it will not
+        # continue to sync, but I don't think I need to make that work.
+        local_tfn_set = set([self.cell_to_tfn(c) for c in res])
         for cellname in self.remote_cells:
-            if not cellname in res:
+            tfn = self.cell_to_tfn(cellname)
+            if not tfn in local_tfn_set:
                 res[cellname] = self.CELL_NEW
 
         self._cells_cache = res

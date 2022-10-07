@@ -243,6 +243,39 @@ class T(unittest.TestCase):
         run_info = RunStatus( os.path.join(self.current_run_dir) )
         self.assertEqual( run_info.get_status(), 'processing' )
 
+    def test_rename_upstream(self):
+        """If a sample is manually renamed in PROM_RUNS but not in upstream then the sync logic
+           gets in a tizz.
+           Probably this is not an entirely sensible thing to do, but we can make the
+           behaviour consistent pretty easily.
+        """
+        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+
+        # Mark those two cells as complete
+        self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done")
+        self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done")
+
+        # Check the run status with no upstream
+        run_info = RunStatus( os.path.join(self.current_run_dir) )
+
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED), [
+                                'a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa',
+                                'a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb' ] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_NEW), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
+
+        # Now with upstream but the sample names mismatch
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                            upstream = { "20000101_TEST_testrun2": {
+                                            "loc": "xxx",
+                                            "cells": set([ "wibble/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
+                                                           "bibble/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]) } } )
+
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED), [
+                                'a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa',
+                                'a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb' ] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_NEW), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
 
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
