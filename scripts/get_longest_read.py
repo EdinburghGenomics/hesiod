@@ -5,6 +5,7 @@
    I may add alternative criteria in future.
 """
 
+import gzip
 from Bio import SeqIO
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import logging as L
@@ -19,14 +20,14 @@ class TopResults:
         self._res = deque(maxlen=maxlen)
         self._res_full = False
 
-        # The measured score could be the sequence length, or any properly that is
-        # comparable. After a while, most values chacked will be <=minval and we can
+        # The measured score could be the sequence length, or any property that is
+        # comparable. After a while, most values checked will be <=minval and we can
         # quickly ignore them, assuming that the values are not being added in order
         # of score.
         # I could make a special case for when maxlen=1 but given the assumption that
         # calling self._add() is relatively rare I don't think I'll bother. If the
         # input was ordered by ascending score and maxlen=1 then this would be worth
-        # fixing.
+        # fixing as it would be a significant inefficiency.
         self._minscore = None
 
     def add(self, item, score):
@@ -89,12 +90,33 @@ class TopResults:
 
 def main(args):
 
-    for record in SeqIO.parse("Quality/example.fastq", "fastq"):
+    L.basicConfig(level=L.INFO)
+    tr = TopResults(args.num_records)
 
-        pass
+    for infile in args.infiles:
+        L.info(f"Reading from {infile}")
+
+        with (gzip.open if infile.endswith('.gz') else open)(infile, "rt") as ifh:
+            n = 0
+            for record in SeqIO.parse(ifh, "fastq"):
+                tr.add(record, len(record))
+                n += 1
+                if n % 100000 == 0:
+                    L.info(f"Scanned {n} sequence records")
+
+            L.info(f"Scanned {n} sequence records in {infile}")
+
+    top_res = tr.get_top()
+    L.info(f"Printing the longest {len(top_res)} sequences from {len(args.infiles)} files.")
+
+    for record in top_res:
+        print(record.format("fastq"), end='')
 
 def parse_args(*args):
-    description = """Using BioPython, get the longest N reads from a fastq[.gz] file.
+    description = """Using BioPython, get the longest N reads from a fastq[.gz] file and
+                     print them in descending order of length.
+                     If N is relatively small and the sequences are in random order this
+                     should be pretty efficient.
                   """
 
     argparser = ArgumentParser( description=description,
@@ -123,5 +145,4 @@ def test_top_results():
     pprint(tr.get_top_scored())
 
 if __name__ == "__main__":
-
     main(parse_args())
