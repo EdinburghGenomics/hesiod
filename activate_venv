@@ -67,6 +67,7 @@ else
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
         pip_install yte==1.5.1
+        pip_install tabulate==0.8.10
         pip_install snakemake==7.8.5
         pip_install drmaa==0.7.9
 
