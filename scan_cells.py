@@ -83,6 +83,9 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
 
     res = { c: dict() for c in cellsready }
 
+    # A place to store the skip files we otherwise ignore
+    skipped_skip_files = {}
+
     if expdir:
         for c, d in res.items():
             for pf, filetype in product(["pass", "fail"], filetypes_to_scan):
@@ -113,9 +116,18 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
             # I'm not sure what to do with fast5_skip files, but at this point if I see any I'll just
             # tack them on with fast5_fail. If I see "skipped" files _and_ barcodes well then I really
             # dunno.
+            # We may also have files in fast5_skip but these are never barcoded, nor are there any fastq files,
+            # since they are not basecalled. They need to be included in the tally when checking vs. the final
+            # summary.
+            # For non-barcoded runs I'll tack them on with fast5_fail. If I see "skipped" files _and_ barcodes
+            # I'll count them but not include them in the processing.
+            fast5_skip = [ f[len(expdir) + 1:]
+                           for f in glob(f"{expdir}/{c}/fast5_skip/*") ]
             if '.' in d:
-                d['.']['fast5_fail'].extend( [ f[len(expdir) + 1:]
-                                               for f in glob(f"{expdir}/{c}/fast5_skip/*.fast5") ] )
+                d['.']['fast5_fail'].extend( fast5_skip )
+            else:
+                skipped_skip_files[(c,'fast5')] = fast5_skip
+
 
         # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
@@ -126,6 +138,8 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
                                 for fileslist in d.values()
                                 for z in (["", ".gz"] if ft == "fastq" else [""])
                                 for pf in ["pass", "fail"] )
+                # Account for skipped_skip_files
+                ft_sum += len( skipped_skip_files.get((c,ft),[]) )
 
                 ft_expected = fs[f"{ft}_files_in_final_dest"]
                 if ft_sum != ft_expected:
@@ -190,8 +204,11 @@ def parse_args(*args):
     parser.add_argument("-r", "--cellsready", nargs='+',
                         help="Cells to process now. If not specified, the script will check all the cells.")
 
+    # The point of this is that if the pipeline is being re-run, ./rundata may have been deleted but we can
+    # still look at the outut files to reconstruct the info. But unless the pipeline has previously run and
+    # copied all the data then trying to look in the current dir will see nothing, or incomplete data.
     parser.add_argument("-m", "--missing_ok", action="store_true",
-                        help="If expdir is missing or incomplete, scan files in currend dir.")
+                        help="If expdir is missing or incomplete, scan files in current dir.")
 
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print more logging to stderr")
