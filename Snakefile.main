@@ -461,8 +461,13 @@ rule filter_pairs:
         fastq_dir = "duplex_scan/{cell}/"
     shell:
        r"""ln -sfrvt {params.fastq_dir} {input.passfastq}
-           duplex_tools filter_pairs {input.pair_ids} {params.fastq_dir} 2>&1 | tee {log}
-           grep -Fq "Found 100.0% of required reads" {log}
+           if [ -s {input.pair_ids} ] ; then
+             duplex_tools filter_pairs {input.pair_ids} {params.fastq_dir} 2>&1 | tee {log}
+             grep -Fq "Found 100.0% of required reads" {log}
+           else
+             touch {output}
+             echo 'Skipping filter_pairs as {input.pair_ids} is empty' > {log}
+           fi
         """
 
 # Make a nanoplot report form the sequencing summary and also do a quick conversion on
