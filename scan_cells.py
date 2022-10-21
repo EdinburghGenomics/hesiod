@@ -119,13 +119,16 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
             # We may also have files in fast5_skip but these are never barcoded, nor are there any fastq files,
             # since they are not basecalled. They need to be included in the tally when checking vs. the final
             # summary.
-            # For non-barcoded runs I'll tack them on with fast5_fail. If I see "skipped" files _and_ barcodes
-            # I'll count them but not include them in the processing.
+            # For non-barcoded runs I'll tack them on with fast5_fail. For barcoded runs they go in
+            # unclassified/fast5_fail
             fast5_skip = [ f[len(expdir) + 1:]
                            for f in glob(f"{expdir}/{c}/fast5_skip/*") ]
-            if '.' in d:
+            if 'unclassified' in d:
+                d['unclassified']['fast5_fail'].extend( fast5_skip )
+            elif '.' in d:
                 d['.']['fast5_fail'].extend( fast5_skip )
             else:
+                # Should never happen?
                 skipped_skip_files[(c,'fast5')] = fast5_skip
 
 
@@ -139,7 +142,10 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
                                 for z in (["", ".gz"] if ft == "fastq" else [""])
                                 for pf in ["pass", "fail"] )
                 # Account for skipped_skip_files
-                ft_sum += len( skipped_skip_files.get((c,ft),[]) )
+                if (c,ft) in skipped_skip_files:
+                    L.warning(f"skipped_skip_files is non-empty for {(c,ft)}:"
+                              F" {skipped_skip_files[(c,ft)]}")
+                    ft_sum += len( skipped_skip_files[(c,ft)] )
 
                 ft_expected = fs[f"{ft}_files_in_final_dest"]
                 if ft_sum != ft_expected:
