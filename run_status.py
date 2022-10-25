@@ -44,6 +44,9 @@ class RunStatus:
         self.local_cells = set()
         for l in glob( os.path.join(self.run_path, '*/20??????_*_????????/fast?_????') ):
             self.local_cells.add("{}/{}".format(*l.split('/')[-3:]))
+        # Allow for re-called cells which have an extension
+        for l in glob( os.path.join(self.run_path, '*/20??????_*_????????.*/fast?_????') ):
+            self.local_cells.add("{}/{}".format(*l.split('/')[-3:]))
 
         # Do we need a quick mode?
         self.quick_mode = 'q' in opts

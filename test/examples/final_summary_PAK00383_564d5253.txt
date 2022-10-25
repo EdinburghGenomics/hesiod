@@ -13,5 +13,7 @@ basecalling_enabled=1
 sequencing_summary_file=sequencing_summary_PAK00383_564d5253.txt
 fast5_files_in_final_dest=3126
 fast5_files_in_fallback=0
-fastq_files_in_final_dest=3125
+fastq_files_in_final_dest=69
 fastq_files_in_fallback=0
+# This is a comment
+fastq_files_in_final_dest=3125

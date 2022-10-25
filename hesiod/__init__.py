@@ -131,7 +131,9 @@ def load_final_summary(filename, yamlfile=None):
 
     # Easy txt-to-dict loader
     with open(filename) as fh:
-        res = dict([aline.rstrip("\n").split("=", 1) for aline in fh ])
+        res = dict([ aline.rstrip("\n").split("=", 1) for aline in fh
+                     if not aline.strip().startswith("#")
+                   ])
 
     # Coerce the data types to the target types
     for k in list(res):
@@ -160,9 +162,13 @@ def find_sequencing_summary(rundir, cell):
        too.
        In any case there should be only one.
     """
-    found = glob(f"{rundir}/{cell}/*_sequencing_summary.txt") + \
-            glob(f"{rundir}/{cell}/sequencing_summary/*_sequencing_summary.txt") + \
-            glob(f"{rundir}/{cell}/sequencing_summary_*_*.txt")
+    patterns = [ "*_sequencing_summary.txt",
+                 "sequencing_summary/*_sequencing_summary.txt",
+                 "sequencing_summary_*_*.txt",
+                 "sequencing_summary.txt" ]
+
+    found = [ f for g in [ glob(f"{rundir}/{cell}/{p}") for p in patterns ]
+                for f in g ]
 
     assert len(found) == 1, ( "There should be exactly one sequencing_summary.txt per cell"
                               f" - found {len(found)}." )
@@ -182,7 +188,9 @@ def fast5_out(f5_in):
         return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}"
 
 def find_summary(pattern, rundir, cell, allow_missing=False):
-    """Find other summary files. For the newer runs, this could replace find_sequencing_summary()
+    """Find other summary files then sequencing_summary.txt.
+       For the newer runs, this could replace find_sequencing_summary(), but it would break the
+       ability to process runs that are re-base-called and are thus weird.
     """
     prefix, suffix = pattern.split('.')
 
