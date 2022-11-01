@@ -6,9 +6,12 @@ But what is the better option?
 Leave them in place, in prom_runs? But then I can't delete the prom_run directory because it
 has important data.
 
-Move the files across? No this breaks the idea of prom_run being synced.
+Move the files across? No this breaks the idea of prom_run being synced, because next time the sync
+is run it will put the files back.
 
 OK lets's hard-link. It's a minimal change to my existing logic. I still need to md5sum the files in
 any case.
 
 Need to make sure that delivery still works with .fast5 vs .fast5.gz
+
+Nope there are problems. See fast5_linkable_perms.txt.

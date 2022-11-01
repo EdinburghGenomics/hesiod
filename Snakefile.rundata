@@ -20,7 +20,7 @@ rule gzip_sequencing_summary:
     threads: 2
     shell:
         r"""{PIGZ} -v -p{threads} -Nc {input} >{output.gz}
-            ( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}
+            ( cd "$(dirname {output.gz:q})" && md5sum -- "$(basename {output.gz:q})" ) > {output.md5:q}
          """
 
 localrules: convert_final_summary, copy_report
@@ -42,12 +42,14 @@ rule copy_report:
         else:
             shell("touch {output}")
 
-# Link (or copy) and checksum the fast5 file
-# Some validation is provided by h5stat. Not perfect but it will spot truncations.
-# md5sum is invoked such that keeps the file path out of the .md5 file
-# Note that the fast5_out() utility function calculates outputs for this rule based on inputs.
-# Note2 that barcode=. should work with this even though it's a bit sus.
-# Note3 that making the input 'ancient' is an attempt to speed up the DAG build
+# Link (or copy) and checksum the fast5 file:
+# * Some validation is provided by h5stat. Not perfect but it should at least spot truncations.
+# * md5sum is invoked such that keeps the file path out of the .md5 file, as usual
+# * the fast5_out() utility function can calculate outputs for this rule based on inputs.
+# * barcode=. should work with this even though it's a bit sus.
+# * making the input 'ancient' is an attempt to speed up the DAG build but I'm not sure it helps
+# * the 'chgrp' bit will change the ownership on the input file, which would not normally happen
+#   even with g+s in effect.
 rule copy_md5sum_fast5:
     output:
         f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
@@ -58,10 +60,11 @@ rule copy_md5sum_fast5:
        r"""{TOOLBOX} h5stat {input.f5} > /dev/null
            if [ "$(stat -c %u/%D {input.f5})" = "$(id -u)/$(stat -c %D $(dirname {output.f5}))"  ] ; then
               ln -T {input.f5} {output.f5}
+              chgrp --reference="$(dirname {output.f5})" {output.f5}
            else
               cp -T {input.f5} {output.f5}
            fi
-           ( cd `dirname {output.f5}` && md5sum `basename {output.f5}` ) > {output.md5}
+           ( cd "$(dirname {output.f5})" && md5sum -- "$(basename {output.f5})" ) > {output.md5}
         """
 
 # These two concatenate and zip and sums the fastq. The fastq are smaller so one file is OK

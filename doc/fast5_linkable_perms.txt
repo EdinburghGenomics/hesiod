@@ -1,0 +1,17 @@
+At present, the .fast5 files are synced to PROM_RUNS by whatever RSYNC invocation is
+set in the config, and then they are hard-linked to FASTQDATA when the run directory
+is processed.
+
+The problem is that the files end up like this:
+
+-rw-rw-r-- 3 pipeline eg-pipeline 35357114 Oct 26 15:33 FAV38763_pass_barcode01_ca3b0fd6_0.fast5
+
+And you can only hard-link to a file if you have write access, so currently deliveries are
+falling abck to making copies.
+
+As noted on ../smrtino/doc/edgen-smrtlink.epcc.ed.ac.uk.txt we really need reflinks, but it's not going
+to happen on Lustre.
+
+So my idea is that in Snakefile.rundata when the files are linked the group owner should also be changed.
+Thsi will make the files writeable by the analysts but I think it's a small problem - accidental deletion
+seems unlikely.
