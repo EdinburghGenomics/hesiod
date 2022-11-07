@@ -31,9 +31,14 @@ def main(args):
     # Add printable counts
     res['printable_counts'] = sc_counts(sc)
 
-    # And cells by project and by library
-    res['cells_per_project'] = groupby( sc, lambda c: parse_cell_name('-', c)['Project'], True)
-    res['cells_per_lib']     = groupby( sc, lambda c: parse_cell_name('-', c)['Library'], True)
+    # And cells by project and by library, in order
+    sc_sorted = sorted(sc)
+    res['cells_per_project'] = groupby( sc_sorted,
+                                        keyfunc = lambda c: parse_cell_name('-', c)['Project'],
+                                        sort_by_key = True )
+    res['cells_per_lib']     = groupby( sc_sorted,
+                                        keyfunc = lambda c: parse_cell_name('-', c)['Library'],
+                                        sort_by_key = True)
 
     print( dump_yaml(res), end='' )
 
@@ -103,26 +108,26 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
                     _, barcode, _ = bf[len(c) + 1:].split('/')
                     d.setdefault(barcode, dict()).setdefault(category, list()).append(bf)
 
-        # Add in empty lists for missing items.
-        # A quirk of the logic above is that barcodes with "fail" reads but no "pass" reads
-        # are listed after those with "pass" reads, and this carries into the reports. If this
-        # is a problem, this is the place to fix it by sorting all dicts within res.
+        # Some fixing-upping...
         for c, d in res.items():
-            for bcdict in d.values():
-                for pf, filetype in product(["pass", "fail"], filetypes_to_scan):
-                    # If the barcode is there we should have all four categories in bcdict
-                    bcdict.setdefault(f"{filetype}_{pf}", [])
-
-            # I'm not sure what to do with fast5_skip files, but at this point if I see any I'll just
-            # tack them on with fast5_fail. If I see "skipped" files _and_ barcodes well then I really
-            # dunno.
-            # We may also have files in fast5_skip but these are never barcoded, nor are there any fastq files,
-            # since they are not basecalled. They need to be included in the tally when checking vs. the final
-            # summary.
+            # We may have files in fast5_skip but these are never barcoded, nor are there any fastq files,
+            # since they are not even basecalled. They do need to be included in the tally when checking vs. the
+            # final summary.
             # For non-barcoded runs I'll tack them on with fast5_fail. For barcoded runs they go in
-            # unclassified/fast5_fail
+            # unclassified/fast5_fail. This seems to be fairly reasonable.
             fast5_skip = [ f[len(expdir) + 1:]
                            for f in glob(f"{expdir}/{c}/fast5_skip/*") ]
+
+            # For Promethion, at present, the skip files actually go into fast5_fail/. not fast5_skip/
+            # but by my logic when there are barcodes these need to be in 'unclassified' so
+            # detect this case first and pull them out before making the empty lists.
+            if 'unclassified' in d and d.get('.',{}).get('fast5_fail'):
+                fast5_skip.extend(d['.']['fast5_fail'])
+                del d['.']['fast5_fail']
+                if not d['.']:
+                    # This is like rmdir - only remove the key if it now points to an empty dict.
+                    del d['.']
+
             if 'unclassified' in d:
                 d['unclassified']['fast5_fail'].extend( fast5_skip )
             elif '.' in d:
@@ -131,6 +136,14 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
                 # Should never happen?
                 skipped_skip_files[(c,'fast5')] = fast5_skip
 
+            # Add in empty lists for missing items.
+            # A quirk of the logic above is that barcodes with "fail" reads but no "pass" reads
+            # are listed after those with "pass" reads, and this carries into the reports. If this
+            # is a problem, this is the place to fix it by sorting all dicts within res.
+            for bcdict in d.values():
+                for pf, filetype in product(["pass", "fail"], filetypes_to_scan):
+                    # If the barcode is there we should have all four categories in bcdict
+                    bcdict.setdefault(f"{filetype}_{pf}", [])
 
         # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
