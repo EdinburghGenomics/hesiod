@@ -19,6 +19,13 @@ def main(args):
     if not args.missing_ok and not glob(f"{args.expdir}/."):
         exit(f"No such directory {args.expdir}. Use -m to look for output files in CWD.")
 
+    # Call scan_main, which is amenable to testing
+    res = scan_main(args)
+
+    print( dump_yaml(res), end='' )
+
+def scan_main(args):
+
     # This will yield a dict with scanned_cells and counts as keys
     res = scan_cells(args.expdir, args.cells, args.cellsready, args.missing_ok)
     sc = res['scanned_cells']
@@ -42,7 +49,7 @@ def main(args):
                                         keyfunc = lambda c: parse_cell_name('-', c)['Library'],
                                         sort_by_key = True)
 
-    print( dump_yaml(res), end='' )
+    return res
 
 def scan_cells( expdir, cells=None, cellsready=None,
                         look_in_output = False,

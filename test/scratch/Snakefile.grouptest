@@ -1,0 +1,15 @@
+""" With this Snakefile I want to test grouping of cluster jobs and also to
+    make use of profiles, thus simplifying the code in "shell_helper_functions.sh"
+"""
+
+# A pair of rules that generates 30 jobs.
+localrules: main
+
+rule main:
+    input: expand("test_in_{x}", x=range(30))
+
+rule a_cluster_job:
+    output: "test_in_{x}"
+    shell:
+        "printenv > {output}"
+

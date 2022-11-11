@@ -8,10 +8,12 @@ import logging
 from pprint import pprint
 from textwrap import dedent
 
+import yaml
+
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from scan_cells import scan_cells, sc_counts, find_representative_fast5
+from scan_cells import scan_main, parse_args, scan_cells, sc_counts, find_representative_fast5
 
 class T(unittest.TestCase):
 
@@ -59,13 +61,17 @@ class T(unittest.TestCase):
                                  } }})
         self.assertEqual(res['counts'], dict( cells=1, cellsaborted=0, cellsready=1 ))
 
-    def test_scan_cells_bc(self):
+    def test_scan_main(self):
         """ A test with a big experiment with muliple flowcells and barcodes and BAM
             files.
+            Also this calls the main function so we expect a full output as if called
+            on the command line.
         """
-        res = scan_cells( os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT") )
+        args = parse_args([os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT")])
+        sc = scan_main( args )
 
-        expected = load_yaml( os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT/sc_data.yaml") )
+        with open(os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT/sc_data.yaml")) as yfh:
+            expected = yaml.safe_load(yfh)
 
         self.assertEqual(sc, expected)
 
