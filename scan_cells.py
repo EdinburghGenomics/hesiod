@@ -128,10 +128,11 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
                     # This is like rmdir - only remove the key if it now points to an empty dict.
                     del d['.']
 
+            # Whatever we got for fast5_skip, work out where to put it
             if 'unclassified' in d:
-                d['unclassified']['fast5_fail'].extend( fast5_skip )
+                d['unclassified'].setdefault('fast5_fail',[]).extend( fast5_skip )
             elif '.' in d:
-                d['.']['fast5_fail'].extend( fast5_skip )
+                d['.'].setdefault('fast5_fail',[]).extend( fast5_skip )
             else:
                 # Should never happen?
                 skipped_skip_files[(c,'fast5')] = fast5_skip
