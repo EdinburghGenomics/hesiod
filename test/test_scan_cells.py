@@ -39,6 +39,8 @@ class T(unittest.TestCase):
         sc = res['scanned_cells']
 
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
+                                       "bam_pass": [],
+                                       "bam_fail": [],
                                        "fast5_fail": [],
                                        "fastq_fail": [],
                                        "fastq.gz_fail": [],
@@ -56,6 +58,16 @@ class T(unittest.TestCase):
                                                            'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_2.fastq.gz']
                                  } }})
         self.assertEqual(res['counts'], dict( cells=1, cellsaborted=0, cellsready=1 ))
+
+    def test_scan_cells_bc(self):
+        """ A test with a big experiment with muliple flowcells and barcodes and BAM
+            files.
+        """
+        res = scan_cells( os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT") )
+
+        expected = load_yaml( os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT/sc_data.yaml") )
+
+        self.assertEqual(sc, expected)
 
     def test_scan_error(self):
         """ A missing fast5 file should raise an exception
@@ -120,8 +132,11 @@ class T(unittest.TestCase):
         """ Test the function that prints a representation of the SC dict
         """
         sc =  {'testlib/testcell_123' : { '.': dict(
+                       bam_fail   = [],
                        fast5_fail = [],
                        fastq_fail = [],
+                       bam_pass   = ['testlib/testcell_123/bam_pass/PAD38578_aaa_0.bam',
+                                     'testlib/testcell_123/bam_pass/PAD38578_aaa_1.bam'],
                        fast5_pass = ['testlib/testcell_123/fast5_pass/PAD38578_aaa_0.fast5',
                                      'testlib/testcell_123/fast5_pass/PAD38578_aaa_1.fast5'],
                        fastq_pass = ['testlib/testcell_123/fastq_pass/PAD38578_aaa_0.fastq',
@@ -132,7 +147,9 @@ class T(unittest.TestCase):
 
         # pformat sorts the dict keys alphabetically
         expected = """\
-                      {'testlib/testcell_123': {'.': {'fast5_fail': '<0 files>',
+                      {'testlib/testcell_123': {'.': {'bam_fail': '<0 files>',
+                                                      'bam_pass': '<2 files>',
+                                                      'fast5_fail': '<0 files>',
                                                       'fast5_pass': '<2 files>',
                                                       'fastq_fail': '<0 files>',
                                                       'fastq_pass': '<2 files>'}}}
@@ -143,6 +160,20 @@ class T(unittest.TestCase):
             print("#" + res + "#")
             print("#" + expected + "#")
         self.assertEqual(res, expected)
+
+        res2 = sc_counts(sc, width=80, show_zeros=False)
+        expected2 = """\
+                       {'testlib/testcell_123': {'.': {'bam_pass': '<2 files>',
+                                                       'fast5_pass': '<2 files>',
+                                                       'fastq_pass': '<2 files>'}}}
+                    """
+        expected2 = dedent(expected2).rstrip()
+
+        if VERBOSE:
+            print("#" + res2 + "#")
+            print("#" + expected2 + "#")
+        self.assertEqual(res2, expected2)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,0 +1,17 @@
+instrument=PC24B218
+position=1D
+flow_cell_id=PAM83454
+sample_id=25070AT0004
+protocol_group_id=25070AT
+protocol=sequencing/sequencing_PRO002_DNA:FLO-PRO002:SQK-LSK109
+protocol_run_id=1f1b14bd-9861-478d-80d3-df2570daa31d
+acquisition_run_id=490b3e310f41ce27baf592c8d8f319200006c936
+started=2022-11-03T17:14:42.237762+00:00
+acquisition_stopped=2022-11-06T17:14:50.189757+00:00
+processing_stopped=2022-11-06T17:14:55.618045+00:00
+basecalling_enabled=1
+sequencing_summary_file=sequencing_summary_PAM83454_1f1b14bd_490b3e31.txt
+fast5_files_in_final_dest=49
+fast5_files_in_fallback=0
+fastq_files_in_final_dest=48
+fastq_files_in_fallback=0

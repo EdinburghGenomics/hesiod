@@ -1,0 +1,30 @@
+Hesiod currently has a major inefficiency that md5summing of and minimap2 aligning of the
+reads are done as all separate jobs, but these complete in just a couple of seconds and most of the
+runtime is spent waiting for SLURM to churn through all the jobs.
+
+I can't group them into a single job because that would take far too long. Really want to group
+about 100 at a time, I think.
+
+We should have an easy fix in terms of https://snakemake.readthedocs.io/en/stable/executing/grouping.html
+
+But to get this working properly I may need to switch from cluster.yml to using profiles which I've
+avoided doing. But it's probably worth it really. Hmmm.
+
+Well I'll give it a bash anyway. First I need to remind myself if Snakemake can be forced to load a profile
+from a fixed location and not the home dir? Yes, apparently you just give the absolute path to the profile.
+Cool. I'll remind myself what I did with Verkko to make that happy. I wonder how easily I can implement
+overriding resource settings on the fly with profiles? There must be a cunning way.
+
+---
+
+Related question, is can I sort out the annoyance that we always run a whole load of BLAST jobs even if
+there is nothing to BLAST? Ideas would be:
+
+1) Use checkpoint rules to dynamically determine the number of jobs (I mean, this should work fine)
+
+2) Is there any way to try the rule locally then only submit to the cluster of this fails (hacky, even if it works)
+
+No - I can use the "{attempt}" placeholder to set resources but there's no way to switch a the 'localrules'
+setting based upon this parameter. So yeah make it a checkpoint rule. And test it on a big run with barcodes cos
+that is the main place I need it. (ie. the later Tim Aitman runs)
+

@@ -8,6 +8,8 @@ from pprint import pprint, pformat
 from hesiod import ( glob, groupby, parse_cell_name, load_final_summary,
                      fast5_out, find_summary, dump_yaml )
 
+DEFAULT_FILETYPES_TO_SCAN = ["fastq", "fastq.gz", "fast5", "bam"]
+
 def main(args):
 
     L.basicConfig( level = L.DEBUG if args.verbose else L.INFO,
@@ -42,7 +44,9 @@ def main(args):
 
     print( dump_yaml(res), end='' )
 
-def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
+def scan_cells( expdir, cells=None, cellsready=None,
+                        look_in_output = False,
+                        filetypes_to_scan = DEFAULT_FILETYPES_TO_SCAN ):
     """ Work out all the cells to process. Normally simple since the list is just passed in
         by driver.sh directly but I do want to be able to process all the cells by default so
         there is some scanning capability too.
@@ -84,8 +88,6 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
         # Not a fatal error but warrants a warning
         L.warning("List of cells to process is empty")
 
-    filetypes_to_scan = ["fastq", "fastq.gz", "fast5"]
-
     res = { c: dict() for c in cellsready }
 
     # A place to store the skip files we otherwise ignore
@@ -115,27 +117,29 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
             # final summary.
             # For non-barcoded runs I'll tack them on with fast5_fail. For barcoded runs they go in
             # unclassified/fast5_fail. This seems to be fairly reasonable.
-            fast5_skip = [ f[len(expdir) + 1:]
-                           for f in glob(f"{expdir}/{c}/fast5_skip/*") ]
+            # Oh and we apparently need to do this for BAM files too? Let's just do it for all types.
+            for filetype in filetypes_to_scan:
+                files_in_skip = [ f[len(expdir) + 1:]
+                                  for f in glob(f"{expdir}/{c}/{filetype}_skip/*") ]
 
-            # For Promethion, at present, the skip files actually go into fast5_fail/. not fast5_skip/
-            # but by my logic when there are barcodes these need to be in 'unclassified' so
-            # detect this case first and pull them out before making the empty lists.
-            if 'unclassified' in d and d.get('.',{}).get('fast5_fail'):
-                fast5_skip.extend(d['.']['fast5_fail'])
-                del d['.']['fast5_fail']
-                if not d['.']:
-                    # This is like rmdir - only remove the key if it now points to an empty dict.
-                    del d['.']
+                # For Promethion, at present, the skip files actually go into fast5_fail/. not fast5_skip/
+                # but by my logic when there are barcodes these need to be in 'unclassified' so
+                # detect this case first and pull them out before making the empty lists.
+                if 'unclassified' in d and d.get('.',{}).get(f"{filetype}_fail"):
+                    files_in_skip.extend(d['.'][f"{filetype}_fail"])
+                    del d['.'][f"{filetype}_fail"]
+                    if not d['.']:
+                        # This is like rmdir - only remove the key if it now points to an empty dict.
+                        del d['.']
 
-            # Whatever we got for fast5_skip, work out where to put it
-            if 'unclassified' in d:
-                d['unclassified'].setdefault('fast5_fail',[]).extend( fast5_skip )
-            elif '.' in d:
-                d['.'].setdefault('fast5_fail',[]).extend( fast5_skip )
-            else:
-                # Should never happen?
-                skipped_skip_files[(c,'fast5')] = fast5_skip
+                # Whatever we got in the skip, work out where to put it
+                if 'unclassified' in d:
+                    d['unclassified'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
+                elif '.' in d:
+                    d['.'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
+                else:
+                    # Should never happen?
+                    skipped_skip_files[(c,filetype)] = files_in_skip
 
             # Add in empty lists for missing items.
             # A quirk of the logic above is that barcodes with "fail" reads but no "pass" reads
@@ -173,12 +177,13 @@ def scan_cells(expdir, cells=None, cellsready=None, look_in_output=False):
     return dict( scanned_cells = res,
                  counts = counts )
 
-def sc_counts(sc_dict, width=140):
+def sc_counts(sc_dict, width=140, show_zeros=True):
     """ Make a printable summary of SC
     """
     # Make a dict that just shows the counts
     sc_counts = { c : { bc: { category: f"<{len(filelist)} files>"
-                              for category, filelist in d.items() }
+                              for category, filelist in d.items()
+                              if (show_zeros or filelist) }
                         for bc, d in bc_dict.items() }
                   for c, bc_dict in sc_dict.items() }
 

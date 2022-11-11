@@ -12,7 +12,7 @@ from .YAMLHelpers import load_yaml, dump_yaml, abspath
 
 def glob():
     """Regular glob() is useful but we want consistent sort order, including
-       for the numbnered files produced by the Promethion.
+       for the numbered files produced by the Promethion.
     """
     from glob import glob
 
