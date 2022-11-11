@@ -11,12 +11,14 @@ from collections import OrderedDict, namedtuple
 from datetime import datetime, timezone
 from dateutil.tz.tz import tzutc
 from pprint import pprint
+from textwrap import dedent as dd
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
-                     find_sequencing_summary, find_summary, load_yaml, empty_sc_data)
+                     find_sequencing_summary, find_summary, load_yaml, dump_yaml,
+                     empty_sc_data )
 
 class T(unittest.TestCase):
 
@@ -208,6 +210,26 @@ class T(unittest.TestCase):
         self.assertTrue(isinstance(res2, tuple))
         self.assertEqual(type(res2).__name__, "FinalSummary")
         self.assertEqual(res2._asdict(), res1)
+
+    def test_dump_yaml(self):
+        """YAML dumper now uses the blockquote style for multi-line strings which makes it
+           easier to read, should you eve need to.
+        """
+        some_struct = dict( foo = [ "string one",
+                                    "string\ntwo",
+                                    "string\nthree\nhas\ttab\tcharacters\t" ] )
+
+        dumped_yaml = dump_yaml(some_struct)
+
+        self.assertEqual( dumped_yaml,
+                          dd('''\
+                                foo:
+                                - string one
+                                - |-
+                                  string
+                                  two
+                                - "string\\nthree\\nhas\\ttab\\tcharacters\\t"
+                             ''') )
 
     def test_empty_sc_data(self):
         """This just returns the same structure each time

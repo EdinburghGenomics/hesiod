@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import os, re
 from collections import OrderedDict
-import yaml, yamlloader
 
 # For parsing of ISO/RFC format dates (note that newer Python has datetime.datetime.fromisoformat
 # but we're using dateutil.parser.isoparse from python-dateutil 2.8)
 from dateutil.parser import isoparse
 from datetime import timedelta
 from collections import namedtuple
+
+from .YAMLHelpers import load_yaml, dump_yaml, abspath
 
 def glob():
     """Regular glob() is useful but we want consistent sort order, including
@@ -202,22 +203,6 @@ def find_summary(pattern, rundir, cell, allow_missing=False):
     assert len(found) == 1, f"Found {len(found)} {pattern} for cell {cell}"
     return found[0]
 
-# YAML convenience functions that use the ordered loader/saver
-# yamlloader is basically the same as my yaml_ordered hack. It will go away with Py3.7.
-def load_yaml(filename, relative_to=None, as_tuple=None):
-    """Load YAML from a file (not a file handle).
-       If specified, relative paths are resolved relative to os.path.dirname(relative_to)
-    """
-    with open(abspath(filename, relative_to)) as yfh:
-        res = yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
-
-    if not as_tuple:
-        return res
-
-    else:
-        # This is just to make the syntax a little cleaner in the Snakefile
-        return namedtuple(as_tuple, res)(**res)
-
 def empty_sc_data():
     """Return an empty data structure in the same format as scan_cells.py
     """
@@ -231,41 +216,6 @@ def empty_sc_data():
                 scanned_cells = {} )
 
     return namedtuple("empty_sc_data", res)(**res)
-
-def abspath(filename, relative_to=None):
-    """Version of abspath which can optionally be resolved relative to another file.
-    """
-    if relative_to and not filename.startswith('/'):
-        return os.path.abspath(os.path.join(os.path.dirname(relative_to), filename))
-    else:
-        return os.path.abspath(filename)
-
-class _MyYAMLDumper(yamlloader.ordereddict.CSafeDumper):
-    """Subclass of the yamlloader dumper which dumps multi-line strings in the '|'
-       style but short strings in the regular style. Why this is not default I have
-       no idea.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-        self.add_representer(str, self.my_representer)
-        self.default_flow_style = False
-
-    def my_representer(self, dumper, data):
-        style = '|' if '\n' in data else None
-
-        # Note that if the str contains unrepresentable chars or trailing whitespace
-        # it will still be forced back to quoted style so this is robust.
-        return dumper.represent_scalar('tag:yaml.org,2002:str', data, style=style)
-
-def dump_yaml(foo, filename=None):
-    """Return YAML string and optionally dump to a file (not a file handle).
-    """
-    ydoc = yaml.dump(foo, Dumper=_MyYAMLDumper)
-    if filename:
-        with open(filename, 'w') as yfh:
-            print(ydoc, file=yfh, end='')
-    return ydoc
 
 # Another generic and useful function
 def groupby(iterable, keyfunc, sort_by_key=True):
