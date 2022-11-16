@@ -441,6 +441,9 @@ rule pairs_from_summary:
         pair_stats = "duplex_scan/{cell}/pair_stats.txt",
     input:
         summary    = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz"
+    resources:
+        mem_mb = 128000,
+        n_cpus = 18,
     shell:
         "duplex_tools pairs_from_summary {input.summary} {output.out_dir}"
 
@@ -459,6 +462,9 @@ rule filter_pairs:
     log: "duplex_scan/{cell}/filter_pairs.log"
     params:
         fastq_dir = "duplex_scan/{cell}/"
+    resources:
+        mem_mb = 128000,
+        n_cpus = 18,
     shell:
        r"""ln -sfrvt {params.fastq_dir} {input.passfastq}
            if [ -s {input.pair_ids} ] ; then
@@ -487,6 +493,9 @@ rule nanoplot:
                                     for bc in SC[wc.cell] ],
     params:
         thumbsize = "320x320"
+    resources:
+        mem_mb = 12000,
+        n_cpus = 2,
     run:
         ap = os.path.realpath(str(input.summary))
         shell(r'cd nanoplot/{wildcards.cell} ; rm -f *.png *.html *.log')
@@ -563,6 +572,9 @@ rule samstats:
     output: "{calref}qc/{cell}/{all,[^/]+}_{calref}.bam.stats"
     input:  "{cell}/{all}_{calref}.bam"
     threads: 4
+    resources:
+        mem_mb = 12000,
+        n_cpus = 2,
     run:
         if os.path.getsize(str(input)) == 0:
             shell("echo 'Zero-byte BAM File' > {output}")
@@ -577,6 +589,9 @@ rule qualimap:
     params:
         windows = 5000
     threads: 8
+    resources:
+        mem_mb = 24000,
+        n_cpus = 8,
     run:
         fail_reason = None
         if os.path.getsize(str(input)) == 0:

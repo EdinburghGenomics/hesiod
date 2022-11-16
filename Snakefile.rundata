@@ -56,6 +56,9 @@ rule copy_md5sum_fast5:
         md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
     input:
         f5 = ancient(EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5")
+    group: "copy_md5sum_fast5"
+    resources:
+        local_concurrency = 2
     shell:
        r"""{TOOLBOX} h5stat {input.f5} > /dev/null
            if [ "$(stat -c %u/%D {input.f5})" = "$(id -u)/$(stat -c %D $(dirname {output.f5}))"  ] ; then
@@ -99,6 +102,9 @@ rule concat_gzip_md5sum_fastq:
         fofn    = "{cell}/{fullid}_{barcode}_{pf}_fastq.list",
         fofn_gz = "{cell}/{fullid}_{barcode}_{pf}_fastq.gz.list",
     threads: 8
+    resources:
+        mem_mb = 24000,
+        n_cpus = 8,
     run:
         # Rely on xargs to deal with way more files than could fit on the command line
         # and zip them all into one.
@@ -171,6 +177,9 @@ rule concat_md5sum_calref_bam:
         bam    = lambda wc: [f"fastq_pass_tmp/{f}.{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
         bam_gz = lambda wc: [f"fastq_pass_tmp/{f}{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
     threads: 4
+    resources:
+        mem_mb = 12000,
+        n_cpus = 4,
     run:
         def getinputs(*vnames):
             """Little helper to get combined input values"""
@@ -216,6 +225,11 @@ rule map_calref:
         f      = "[^/]+",
         gz     = "gz|",
     threads: 6
+    resources:
+        local_concurrency = 2,
+        mem_mb = 12000,
+        n_cpus = 4,
+    group: "map_calref"
     shell:
        r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {input.ref} {input.fq} | tee >( \
                 lambda_splitter.awk \

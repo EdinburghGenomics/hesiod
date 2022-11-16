@@ -3,17 +3,17 @@
 ## Helper functions for shell scripts.
 __EXEC_DIR="${EXEC_DIR:-`dirname $BASH_SOURCE`}"
 
-# All the Snakefiles have bootstrapping scripts on them, but this script
-# will run snakemake directly via the shell helper functions.
+# All the Snakefiles are designed to run via these helper functions, and
+# in fact have bootstrapping scripts on them that source this file.
 export DRY_RUN=${DRY_RUN:-0}
 LOCAL_CORES=${LOCAL_CORES:-4}
 SNAKE_THREADS=${SNAKE_THREADS:-100}
 EXTRA_SNAKE_FLAGS="${EXTRA_SNAKE_FLAGS:-}"
-EXTRA_SLURM_FLAGS="${EXTRA_SLURM_FLAGS:---time=24:00:00 --qos=edgen}"
+EXTRA_SLURM_FLAGS="${EXTRA_SLURM_FLAGS:-}"
 
-## Dump out the right cluster config (just now we only have one)
-function cat_cluster_yaml(){
-    cat "`dirname $0`"/cluster.slurm.yaml
+## Dump out the right Snakemake profile for this cluster
+function gen_profile(){
+    env TOOLBOX=$(find_toolbox) gen_profile.py --clobber
 }
 
 find_toolbox() {
@@ -78,28 +78,17 @@ snakerun_drmaa() {
         export SNAKE_PRERUN="${VIRTUAL_ENV}/bin/activate"
     fi
 
-    # Spew out cluster.yaml
-    [ -e cluster.yaml ] || cat_cluster_yaml > cluster.yaml
-
-    # Ensure Snakemake uses the right wrapper script.
-    # In particular this sets TMPDIR
-    _jobscript="`find_toolbox`/snakemake_jobscript.sh"
+    # Save out the profile, which includes setting the right jobscript
+    gen_profile
 
     echo
-    echo "Running $snakefile in `pwd` on the SLURM cluster"
+    echo "Running $snakefile in $(pwd -P) on the SLURM cluster"
 
     mkdir -p ./slurm_output
     set -x
     snakemake \
-         -s "$snakefile" -j $SNAKE_THREADS -p --rerun-incomplete \
-         ${EXTRA_SNAKE_FLAGS} --keep-going --cluster-config cluster.yaml \
-         --resources nfscopy=1 --local-cores $LOCAL_CORES --latency-wait 10 \
-         --jobname "{rulename}.snakejob.{jobid}.sh" --jobscript "$_jobscript" \
-         --drmaa " ${EXTRA_SLURM_FLAGS} -p ${CLUSTER_QUEUE} {cluster.slurm_opts} \
-                   -e slurm_output/{rule}.snakejob.%A.err \
-                   -o slurm_output/{rule}.snakejob.%A.out \
-                 " \
-         "$@"
+        -s "$snakefile" --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS} \
+        "$@"
 
 }
 
@@ -107,17 +96,17 @@ snakerun_single() {
     snakefile=`find_snakefile "$1"` ; shift
 
     echo
-    echo "Running $snakefile in `pwd -P` in local mode"
+    echo "Running $snakefile in $(pwd -P) in local mode"
     snakemake \
-         -s "$snakefile" -j $LOCAL_CORES -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-} \
-         "$@"
+        -s "$snakefile" -j $LOCAL_CORES -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-} \
+        "$@"
 }
 
 snakerun_touch() {
     snakefile=`find_snakefile "$1"` ; shift
 
     echo
-    echo "Running $snakefile --touch in `pwd -P` to update file timestamps"
+    echo "Running $snakefile --touch in $(pwd -P) to update file timestamps"
     snakemake -s "$snakefile" --quiet --touch "$@"
     echo "DONE"
 }
@@ -128,6 +117,7 @@ if [ "$0" = "$BASH_SOURCE" ] ; then
 
     echo
     echo "Here is the cluster config..."
-    cat_cluster_yaml
+    echo
+    env TOOLBOX=$(find_toolbox) "$__EXEC_DIR"/gen_profile.py --print
 fi
 

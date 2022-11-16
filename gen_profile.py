@@ -14,8 +14,9 @@ import logging as L
 
 # If TOOLBOX is not set, use a default. This script should produce some reasonable output
 # even if no env vars are set.
+# I use realpath() here because if Hesiod is updated then symlinks may change.
 env_copy = {k: v for k, v in os.environ.items() if k}
-env_copy.setdefault('TOOLBOX', os.path.abspath(f"{os.path.dirname(__file__)}/toolbox"))
+env_copy.setdefault('TOOLBOX', os.path.realpath(f"{os.path.dirname(__file__)}/toolbox"))
 
 def main(args):
 
@@ -85,7 +86,7 @@ def parse_args(*args):
                   """
     argparser = ArgumentParser( description=description,
                                 formatter_class = ArgumentDefaultsHelpFormatter )
-    argparser.add_argument("-o", "--output", default="./profile",
+    argparser.add_argument("-o", "--output", default="./snakemake_profile",
                             help="Directory to create with the profile")
     argparser.add_argument("-t", "--template", default=f"{env_copy['TOOLBOX']}/profile_config.yaml",
                             help="YAML file to use as a profile template.")
