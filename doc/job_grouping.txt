@@ -15,6 +15,13 @@ from a fixed location and not the home dir? Yes, apparently you just give the ab
 Cool. I'll remind myself what I did with Verkko to make that happy. I wonder how easily I can implement
 overriding resource settings on the fly with profiles? There must be a cunning way.
 
+OK I think I have everything working in test/scratch, albeit with a patched version of Snakemake (for now).
+I can define a group for every rule I want to batch up, and tell Smakemake to run these in batches of 100,
+albeit the syntax is a little funky.
+
+What I'll need is a Python script that emits config.yaml files because some things in the file need to
+be fixed on the fly.
+
 ---
 
 Related question, is can I sort out the annoyance that we always run a whole load of BLAST jobs even if
@@ -24,7 +31,7 @@ there is nothing to BLAST? Ideas would be:
 
 2) Is there any way to try the rule locally then only submit to the cluster of this fails (hacky, even if it works)
 
-No - I can use the "{attempt}" placeholder to set resources but there's no way to switch a the 'localrules'
+No - I can use the "{attempt}" placeholder to set resources but there's no way to switch the 'localrules'
 setting based upon this parameter. So yeah make it a checkpoint rule. And test it on a big run with barcodes cos
 that is the main place I need it. (ie. the later Tim Aitman runs)
 

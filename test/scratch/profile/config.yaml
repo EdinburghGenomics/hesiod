@@ -1,0 +1,25 @@
+drmaa: >-
+    -p edgen-global --qos=edgen --time={resources.time_h}:00:00
+    --mem={resources.mem_gb}000 --mincpus={resources.n_cpus}
+    -e slurm_job.{rule}.%A.err
+    -o slurm_job.{rule}.%A.out
+jobname: '{rulename}.snakejob.{jobid}.sh'
+group-components:
+    - a_cluster_job=10
+    - a_cluster_job2=10
+printshellcmds: true
+rerun-incomplete: true
+keep-going: true
+resources:
+    - nfscopy=1
+    - local_thread=2
+set-resource-scopes:
+    - local_thread=local
+jobs: 100
+local-cores: 4
+latency-wait: 10
+default-resources:
+    - tmpdir='/lustre-gseg/tmp'
+    - time_h=2
+    - mem_gb=6
+    - n_cpus=1

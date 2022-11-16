@@ -45,7 +45,7 @@ else
         "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
 
-        # We need to upgrade pip before --prefer-binary is a valid option
+        # We need to upgrade pip so that --prefer-binary is a valid option
         pip3 --disable-pip-version-check install --upgrade 'pip>22' 2>&1
 
         # A check that the Python is not broken
@@ -67,9 +67,14 @@ else
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
         pip_install yte==1.5.1
-        pip_install tabulate==0.8.10
-        pip_install snakemake==7.8.5
+        pip_install tabulate==0.9.0
+        pip_install reretry==0.11.1
+        pip_install throttler==1.2.1
+        pip_install snakemake==7.18.2
         pip_install drmaa==0.7.9
+
+        # Patch for Snakemake bug
+        pip_install 'git+https://github.com/EdinburghGenomics/snakemake.git@main#egg=snakemake'
 
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8

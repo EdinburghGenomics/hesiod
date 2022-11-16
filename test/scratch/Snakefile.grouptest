@@ -1,15 +1,42 @@
+# vim: ft=python
 """ With this Snakefile I want to test grouping of cluster jobs and also to
     make use of profiles, thus simplifying the code in "shell_helper_functions.sh"
+    and avoiding submitting thousands of small jobs to SLURM.
 """
+
+workdir: f"{os.environ['HOME']}/tmp/grouptest"
 
 # A pair of rules that generates 30 jobs.
 localrules: main
-
 rule main:
-    input: expand("test_in_{x}", x=range(30))
+    input:
+        i1 = expand("test_in1_{x}", x=range(30)),
+        i2 = expand("test_in2_{x}", x=range(15)),
 
 rule a_cluster_job:
-    output: "test_in_{x}"
+    output: "test_in1_{x}"
     shell:
         "printenv > {output}"
+    group: "a_cluster_job"
+    resources:
+        local_thread=1
 
+rule a_cluster_job2:
+    output: "test_in2_{x}"
+    shell:
+        "printenv > {output}"
+    group: "a_cluster_job2"
+    resources:
+        local_thread=1
+
+
+# 1) How do I get these to group into 3 cluster jobs?
+
+# $ snakemake --groups a_cluster_job=group_cluster_job --group-components group_cluster_job=10
+# I'll make a profile to test with. If this works I'll make a profile making script.
+
+# Hmm this allocates parallel jobs with 10 cores.
+
+# 2) Within the grouped job, do the jobs run in serial or parallel?
+
+# I can force it. It's a bit ugly but it works.
