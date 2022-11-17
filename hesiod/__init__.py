@@ -91,12 +91,18 @@ def parse_cell_name(experiment, cell):
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
         res['Checksum'] = cell.split('_')[-1] if '_' in cell else 'UNKNOWN'
 
-    # FIXME - not sure this is the right thing to do when the regex fails.
+    # Get the project number out of the library name
     mo =  re.match(r"([0-9]{5})[A-Z]{2}", res['Library'])
     if mo:
         res['Project'] = mo.group(1)
     else:
-        res['Project'] = res['Library']
+        # OK, so then get the project from the experiment
+        mo = re.match(r"[0-9]{8}_\w+_([0-9]{5})[A-Z]{2}", res['Experiment'])
+        if mo:
+            res['Project'] = mo.group(1)
+        else:
+            # I guess, this?
+            res['Project'] = res['Library']
 
     # Given all this, what do we call output files releting to this cell?
     # See doc/naming_convention.txt
