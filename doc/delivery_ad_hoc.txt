@@ -1,0 +1,24 @@
+Project 24970CE is one of these where an external user is using our Promethion.
+
+They have been told to use the experiment name 24970CE but they have chosen
+their own sample name, and there is nothing in the LIMS regarding samples.
+But there is a LIMS project, which captures the name and customer e-mail.
+
+This breaks automated delivery, but it shouldn't.
+
+Let's fix this to make it work, since this will not be the last of these projects.
+
+1) Edit get_np_yml.py to have a --by_experiment flag which ignores the projects_ready.txt
+and just looks for runs by project name.
+
+I'm not sure I like this. Maybe Hesiod could auto-generate projects_ready.txt in a different
+way?
+
+Yep, I've just made it more flexible to assume that it can get the project number out
+of the experiment name.  Changes were made to hesiod.parse_cell_name()
+
+And then I made a load of changes to nanopore_scripts and a couple of changes to
+qc_tools_python and it looks like we should just be able to handle these without any
+special flags, and without messing up the sanity cheching logic for the regular runs.
+
+DONE!

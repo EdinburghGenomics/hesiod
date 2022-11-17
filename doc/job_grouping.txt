@@ -35,3 +35,10 @@ No - I can use the "{attempt}" placeholder to set resources but there's no way t
 setting based upon this parameter. So yeah make it a checkpoint rule. And test it on a big run with barcodes cos
 that is the main place I need it. (ie. the later Tim Aitman runs)
 
+OK, so adding a checkpoint rule. What needs to happen to make this work?
+
+rule merge_blast_reports requests BLOB_CHUNKS (eg. 20) inputs per barcode,
+so with 12 barcodes we spawn 240 jobs.
+
+instead we should 
+
