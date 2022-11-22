@@ -82,7 +82,7 @@ localrules: list_fastq
 rule list_fastq:
     priority: 100
     output:
-        fofn  = "{cell}/{fullid}_{barcode}_{pf}_fastq{gz,\.gz|}.list"
+        fofn  = r"{cell}/{fullid}_{barcode}_{pf}_fastq{gz,\.gz|}.list"
     input:
         fastq = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"fastq{wc.gz}_{wc.pf}"]]
     run:

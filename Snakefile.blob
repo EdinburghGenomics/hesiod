@@ -205,7 +205,7 @@ def i_merge_blast_reports(wildcards):
         fasta_chunks = [ l.rstrip('\n') for l in fh ]
     # Munge the list of FASTA chunks to get the list of required BLAST chunks
     return [ re.sub(r'\.fasta_parts/', '.blast_parts/',
-                    re.sub(r'\.fasta$', '.blast', c)
+                    re.sub(r'\.fasta$', '.blast', c))
              for c in chunks ]
 
 # Combine all the 100 (or however many) blast reports into one
