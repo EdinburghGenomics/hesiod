@@ -7,9 +7,6 @@ __EXEC_DIR="${EXEC_DIR:-`dirname $BASH_SOURCE`}"
 # in fact have bootstrapping scripts on them that source this file.
 export DRY_RUN=${DRY_RUN:-0}
 LOCAL_CORES=${LOCAL_CORES:-4}
-SNAKE_THREADS=${SNAKE_THREADS:-100}
-EXTRA_SNAKE_FLAGS="${EXTRA_SNAKE_FLAGS:-}"
-EXTRA_SLURM_FLAGS="${EXTRA_SLURM_FLAGS:-}"
 
 ## Dump out the right Snakemake profile for this cluster
 function gen_profile(){
@@ -79,6 +76,8 @@ snakerun_drmaa() {
     fi
 
     # Save out the profile, which includes setting the right jobscript
+    # TODO - maybe this should not be clobbered, to allow for manual
+    # tweaking of the config?
     gen_profile
 
     echo
@@ -87,7 +86,7 @@ snakerun_drmaa() {
     mkdir -p ./slurm_output
     set -x
     snakemake \
-        -s "$snakefile" --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS} \
+        -s "$snakefile" --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS:-} \
         "$@"
 
 }

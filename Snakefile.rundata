@@ -48,8 +48,10 @@ rule copy_report:
 # * the fast5_out() utility function can calculate outputs for this rule based on inputs.
 # * barcode=. should work with this even though it's a bit sus.
 # * making the input 'ancient' is an attempt to speed up the DAG build but I'm not sure it helps
-# * the 'chgrp' bit will change the ownership on the input file, which would not normally happen
-#   even with g+s in effect.
+# * due to hard-link logic the 'chgrp' bit will change the ownership on the input file, which
+#   would not normally happen even with g+s in effect. We need to avoid this for test runs because
+#   these often use real data for input and I would end up with production files owned by tbooth2,
+#   but the same-owner check is good for this, I think.
 rule copy_md5sum_fast5:
     output:
         f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",

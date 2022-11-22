@@ -22,7 +22,7 @@ resources:
 set-resource-scopes:
     - nfscopy=global
     - local_concurrency=local
-jobs: 100
+cores: 400
 local-cores: 4
 latency-wait: 10
 default-resources:

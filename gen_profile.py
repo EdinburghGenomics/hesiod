@@ -38,7 +38,7 @@ def main(args):
     assert isinstance(template_profile, dict)
     final_profile = gen_profile(template_profile, env = env_copy,
                                                   groupsize = args.groupsize,
-                                                  jobs = args.jobs)
+                                                  cores = args.cores)
 
     # Now save it
     if args.print:
@@ -46,7 +46,7 @@ def main(args):
     else:
         dump_yaml(final_profile, f"{args.output}/config.yaml")
 
-def gen_profile(template, env, groupsize=None, jobs=None):
+def gen_profile(template, env, groupsize=None, cores=None):
     """Modify the data structure by filling in various bits of stuff.
     """
     res = OrderedDict()
@@ -65,9 +65,9 @@ def gen_profile(template, env, groupsize=None, jobs=None):
             # v should be a list of strings we need to modify
             res[k] = [ f"{x.split('=')[0]}={groupsize}" for x in v ]
             continue
-        if k == "jobs" and jobs:
-            L.debug(f"overriding jobs")
-            res[k] = jobs
+        if k == "cores" and cores:
+            L.debug(f"overriding cores")
+            res[k] = cores
             continue
 
         # Generic fixes-ups
@@ -92,9 +92,9 @@ def parse_args(*args):
                             help="YAML file to use as a profile template.")
     argparser.add_argument("-g", "--groupsize", type=int,
                             help="Size of group components for batching small jobs.")
-    argparser.add_argument("-j", "--jobs", type=int,
+    argparser.add_argument("-c", "--cores", type=int,
                             default=(int(env_copy['SNAKE_THREADS']) if env_copy.get('SNAKE_THREADS') else None),
-                            help="Max concurrent jobs to be run (--jobs setting in Snakemake).")
+                            help="Max concurrent cores to utilise (--cores setting in Snakemake).")
     argparser.add_argument("-p", "--print", action="store_true",
                             help="Just print the profile/config.yaml don't save it out.")
     argparser.add_argument("--clobber", action="store_true",

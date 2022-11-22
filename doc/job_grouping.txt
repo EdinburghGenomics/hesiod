@@ -38,7 +38,22 @@ that is the main place I need it. (ie. the later Tim Aitman runs)
 OK, so adding a checkpoint rule. What needs to happen to make this work?
 
 rule merge_blast_reports requests BLOB_CHUNKS (eg. 20) inputs per barcode,
-so with 12 barcodes we spawn 240 jobs.
+so with 12 barcodes we spawn 240 jobs even if not all barcodes are in use.
 
-instead we should 
+instead we should have the input to this be a function which refers to checkpoints.
+split_fasta_in_chunks should be a checkpoint rule that produces a directory of outputs
+and then we should see what is produced in that directory. Yup.
+Beware of filesystem latency issues here - it's possible that the directory will be seen by the
+master process, and thus the rule will complete, even while all the files are not there.
+We will armour against this. - DONE
 
+---
+
+OK it's all coded up. Let's test it. I'll test by reprocessing the latest Tim Aitman run.
+This had barcodes but only one actual sample per cell so it's perfect.
+
+$ mkdir ~/test_promethion/runs/2022/20221103_EGS2_25070AT
+$ ln -snf /lustre-gseg/promethion/prom_runs/2022/20221103_EGS2_25070AT/25* \
+    ~/test_promethion/runs/2022/20221103_EGS2_25070AT
+
+Cool
