@@ -86,9 +86,8 @@ snakerun_drmaa() {
     mkdir -p ./slurm_output
     set -x
     snakemake \
-        -s "$snakefile" --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS:-} \
-        "$@"
-
+        -s "$snakefile" "$@" \
+        --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS:-}
 }
 
 snakerun_single() {
@@ -97,8 +96,8 @@ snakerun_single() {
     echo
     echo "Running $snakefile in $(pwd -P) in local mode"
     snakemake \
-        -s "$snakefile" -j $LOCAL_CORES -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-} \
-        "$@"
+        -s "$snakefile" "$@" \
+        -j $LOCAL_CORES -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-}
 }
 
 snakerun_touch() {

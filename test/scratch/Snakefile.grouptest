@@ -15,19 +15,19 @@ rule main:
 
 rule a_cluster_job:
     output: "test_in1_{x}"
-    shell:
-        "printenv > {output}"
     group: "a_cluster_job"
     resources:
         local_thread=1
+    shell:
+        "printenv > {output}"
 
 rule a_cluster_job2:
     output: "test_in2_{x}"
-    shell:
-        "printenv > {output}"
     group: "a_cluster_job2"
     resources:
         local_thread=1
+    shell:
+        "printenv > {output}"
 
 
 # 1) How do I get these to group into 3 cluster jobs?

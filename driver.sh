@@ -311,9 +311,9 @@ action_cell_ready(){
         scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml
 
         unset IFS
-        Snakefile.main -f -R $_force_rerun \
-            --config ${EXTRA_SNAKE_CONFIG:-} -- \
-            ${MAIN_SNAKE_TARGETS:-copy_fast5 main}
+        Snakefile.main ${MAIN_SNAKE_TARGETS:-copy_fast5 main} \
+            -f -R $_force_rerun \
+            --config ${EXTRA_SNAKE_CONFIG:-}
       ) |& plog
 
     ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready_p" ; return ; }
