@@ -42,37 +42,50 @@ rule copy_report:
         else:
             shell("touch {output}")
 
-# Link (or copy) and checksum the fast5 file:
+# Link (or copy) and checksum a batch of fast5 files:
+# * see doc/job_grouping.txt for why I'm doing manual batching not using Snakemake groups
 # * Some validation is provided by h5stat. Not perfect but it should at least spot truncations.
-# * md5sum is invoked such that keeps the file path out of the .md5 file, as usual
-# * the fast5_out() utility function can calculate outputs for this rule based on inputs.
+# * md5sum is invoked such that keeps the full path out of the .md5 file, as usual
 # * barcode=. should work with this even though it's a bit sus.
 # * making the input 'ancient' is an attempt to speed up the DAG build but I'm not sure it helps
 # * due to hard-link logic the 'chgrp' bit will change the ownership on the input file, which
 #   would not normally happen even with g+s in effect. We need to avoid this for test runs because
 #   these often use real data for input and I would end up with production files owned by tbooth2,
 #   but the same-owner check is good for this, I think.
-rule copy_md5sum_fast5:
+def i_copy_md5sum_fast5_batch(wildcards):
+    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"fast5_{wildcards.pfs}"]
+
+    batch_size = int(wildcards.bsize)
+    batch_num = int(wildcards.batch)
+
+    return [ ancient(f"{EXPDIR}/{f}" for f in
+             all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size] ]
+
+rule copy_md5sum_fast5_batch:
     output:
-        f5  = "{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5",
-        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/{f5fn}.fast5.md5"
+        dir = directory("{cell}/fast5_{barcode}_{pfs}/batch{bsize}_{batch}"),
+        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/batch{bsize}_{batch}.md5"
     input:
-        f5 = ancient(EXPDIR + "/{cell}/fast5_{pfs}/{barcode}/{f5fn}.fast5")
-    group: "copy_md5sum_fast5"
-    resources:
-        local_concurrency = 2
+        i_copy_md5sum_fast5_batch
+    params:
+        batchdir = "batch{bsize}_{batch}"
     shell:
-       r"""{TOOLBOX} h5stat {input.f5} > /dev/null
-           if [ "$(stat -c %u/%D {input.f5})" = "$(id -u)/$(stat -c %D $(dirname {output.f5}))"  ] ; then
-              ln -T {input.f5} {output.f5}
-              chgrp --reference="$(dirname {output.f5})" {output.f5}
-           else
-              cp -T {input.f5} {output.f5}
-           fi
-           ( cd "$(dirname {output.f5})" && md5sum -- "$(basename {output.f5})" ) > {output.md5}
+       r"""true > {output.md5}.tmp
+           for ifile in {input} ; do
+               ofile="{output.dir}/$(basename "$ifile")"
+               if [ "$(stat -c %u/%D "$ifile")" = "$(id -u)/$(stat -c %D $(dirname "$ofile"))"  ] ; then
+                  ln -T "$ifile" "$ofile"
+                  chgrp --reference="$(dirname "$ofile")" "$ofile"
+               else
+                  cp -T "$ifile" "$ofile"
+               fi
+               {TOOLBOX} h5stat "$ofile" > /dev/null
+               ( cd "$(dirname {output.dir})" && md5sum -- "{wildcards.batchdir}/$(basename "$ofile")" ) >> {output.md5}.tmp
+           done
+           mv {output.md5}.tmp {output.md5}
         """
 
-# These two concatenate and zip and sums the fastq. The fastq are smaller so one file is OK
+# These two concatenate and zip and sum the fastq. The fastq are smaller so one final file is OK.
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care
 # TODO - should possibly convert this to zip the individual chunks, as per the no{calref} files?
 
@@ -227,11 +240,6 @@ rule map_calref:
         f      = "[^/]+",
         gz     = "gz|",
     threads: 6
-    resources:
-        local_concurrency = 2,
-        mem_mb = 12000,
-        n_cpus = 4,
-    group: "map_calref"
     shell:
        r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {input.ref} {input.fq} | tee >( \
                 lambda_splitter.awk \

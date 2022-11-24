@@ -5,23 +5,17 @@ drmaa: >-
     -p {CLUSTER_QUEUE} --qos=edgen
     --time={{resources.time_h}}:00:00
     --mem={{resources.mem_mb}} --mincpus={{resources.n_cpus}}
-    -e slurm_output/slurm_job.{{rule}}.%A.err
-    -o slurm_output/slurm_job.{{rule}}.%A.out
+    -e slurm_output/{{rule}}.%A.err
+    -o slurm_output/{{rule}}.%A.out
     {EXTRA_SLURM_FLAGS}
 jobname: '{{rulename}}.snakejob.{{jobid}}.sh'
 jobscript: '{TOOLBOX}/snakemake_jobscript.sh'
-group-components:
-    - copy_md5sum_fast5=100
-    - map_calref=100
 printshellcmds: true
 rerun-incomplete: true
 keep-going: true
 resources:
     - nfscopy=1
-    - local_concurrency=2
-set-resource-scopes:
-    - nfscopy=global
-    - local_concurrency=local
+jobs: 200
 cores: 400
 local-cores: 4
 latency-wait: 10

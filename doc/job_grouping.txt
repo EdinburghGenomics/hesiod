@@ -57,3 +57,90 @@ $ ln -snf /lustre-gseg/promethion/prom_runs/2022/20221103_EGS2_25070AT/25* \
     ~/test_promethion/runs/2022/20221103_EGS2_25070AT
 
 Cool
+
+---
+
+At this point I realise that I've only half implemented the BAM support and I need to merge
+the BAM files that are now listed in sc_data.yaml into the output. Hopefully not a big
+job though. Remember to allocate enough resource, and use 'samtools' not Picard for the
+merge, but you can compare the result to what you got with Picard before.
+
+I might have to merge in batches and then merge the batches, but we'll see. Actually the batching
+of our .fast5 processing may resolve this issue for us...
+
+anyway, back to the main event.
+
+---
+
+Hmmm. The job grouping is shonky. It's putting 10000 jobs together for no apparent reason. I'm just not sure
+it's solid enough for us. Is there any other way to make this happen? Let me think.
+
+I can define a rule that takes N inputs and makes N outputs. If there were exactly N outputs this would be
+OK. What if there are a multiple of N outputs?
+
+Say the rule processes 4 at once and I have 12 files to process.
+
+rule silly:
+    output: expand( "out_{{x}}.{n}" for n in range(4) )
+    input:  expand( "in_{{x}}.{n}" for n in range(4) )
+    shell:
+        ...
+
+This requires my outputs to have batch numbers in the names. I could make a really hacky input function to
+have any inputs I like though. For calref .bam files this is fine because I merge them all anyway so we
+lose the names, but for FAST5 it's bad.
+
+For the FAST5 files I want to keep the names. Ah, but what if I batch into directories?
+I was thinking that tracking directories rather than individual files would be bad, but
+actually giving Snakemake less to think about is a win. So lettuce have a think about that.
+
+rule less_silly:
+    output:
+        f5 = directory("{cell}/fast5_{barcode}_{pfs}/batch_{batch}")
+        md5 = "{cell}/fast5_{barcode}_{pfs}/batch_{batch}/all.md5"
+    input:
+        function that gets a chunk of fast5 files based on batch
+
+The function is not very tricky it just takes a slice of files from SC.
+
+Now the copy_fast5 job would have to request all the chunks. Maybe it could request
+all the 'all.md5' files and then produce an 'all_fast5.md5' file. Ideally I'd like these
+split out - currently the copy_md5sum_fast5 rule makes all the outputs but I think
+copy_fast5 could do some splitting. Maybe? Or else I can modify the disseminate script to
+work with the one big file.
+
+OK, I think this is reasonable. I'll implement it tomorrow. Amend the copy_fast5 rule
+first, I think.
+
+def i_copy_fast5(wildcards=None):
+    """Available files within a single directory are divided into
+       batches of 100
+    """
+    batch_size = 100
+
+    # Dict mapping each directory to the number of files it contains
+    dirs = { (cell, bc, pf): len(SC[cell][bc][pf])
+                    for cell, barcodes in SC.items()
+                    for bc in barcodes
+                    for pf in ['fast5_pass', 'fast5_fail'] }
+
+    # List of md5 files we thus need to generate.
+    res = []
+    for (cell, bc, pf), total in dirs.items():
+        batches_for_dir = ((total - 1) // batch_size) + 1
+        for b in range(batches_for_dir):
+            md5 = f"{cell}/fast5_{bc}_{pf}/batch{batch_size}_{b:08d}/all.md5"
+            res.append(md5)
+    return res
+
+# And we'll need a corresponding input function for copy_md5sum_fast5_batch
+
+def i_copy_md5sum_fast5_batch(wildcards):
+    all_in_dir = SC[wildcards.cell][wildcards.bc][wildcards.pf]
+
+    batch_size = int(wildcards.bs)
+    batch_num = int(wildcards.b)
+
+    return all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size]
+
+OK that all looks reasonable.

@@ -247,11 +247,13 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
 
 # Global wildcard patterns
 wildcard_constraints:
-    fullid  = "[^/]+",
-    barcode = "[^/_]+",
-    pf      = "pass|fail",
-    pfs     = "pass|fail|skip",
-    calref  = "|".join(calibration_refs),
+    fullid     = "[^/]+",
+    barcode    = "[^/_]+",
+    pf         = "pass|fail",
+    pfs        = "pass|fail|skip",
+    calref     = "|".join(calibration_refs),
+    batch      = "[0-9]{8}",
+    batch_size = "[0-9]+",
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
@@ -297,21 +299,50 @@ rule main:
 
         shell("ln -snr {output.rep} {output.replink}")
 
-# I've split out the fast5 packing in order to allow me to re-run everything else without
-# doing this. So to fully process a run you need to call main AND copy_fast5
-# Note that as of v0.12, FAST5 file compression is no longer attempted
+# I've split out the fast5 md5summing in order to allow me to re-run everything else without
+# doing this part. So to fully process a run you need to call targets main AND copy_fast5
+# Note that as of v0.12, FAST5 file compression is no longer attempted. At some point we'll
+# switch to POD5.
+def i_copy_fast5(wildcards=None):
+    """Available files within a single directory are divided into
+       batches of, say, 100
+    """
+    batch_size = 100
+
+    # Dict mapping each directory to the number of files it contains
+    dirs = { f"{cell}/fast5_{bc}_{pf}" : len(SC[cell][bc][f'fast5_{pf}'])
+                    for cell, barcodes in SC.items()
+                    for bc in barcodes
+                    for pf in ['pass', 'fail'] }
+
+    # List of md5 files we thus need to generate.
+    res = []
+    for fast5_dir, total in dirs.items():
+        batches_for_dir = ((total - 1) // batch_size) + 1
+        for b in range(batches_for_dir):
+            md5 = f"{fast5_dir}/batch{batch_size}_{b:08d}.md5"
+            res.append(md5)
+    return res
+
 rule copy_fast5:
+    output:
+        all_md5 = [ f"{cell}/fast5_{bc}_{pf}/all_fast5.md5"
+                        for cell, barcodes in SC.items()
+                        for bc in barcodes
+                        for pf in ['pass', 'fail'] ]
     input:
-        fast5_link = lambda wc: [ fast5_out(f)
-                                        for cell, barcodes in SC.items()
-                                        for bc in barcodes
-                                        for pf in ['fast5_pass', 'fast5_fail']
-                                        for f in SC[cell][bc][pf] ],
-        fast5_md5  = lambda wc: [ f"md5sums/{fast5_out(f)}.md5"
-                                        for cell, barcodes in SC.items()
-                                        for bc in barcodes
-                                        for pf in ['fast5_pass', 'fast5_fail']
-                                        for f in SC[cell][bc][pf] ],
+        fast5_md5  = i_copy_fast5
+    run:
+        # Compile the batch md5 files into one per directory.
+        for out_md5 in output.all_md5:
+            with open(str(out_md5), 'x') as ofh:
+                out_dir = os.path.dirname(str(out_md5))
+                # Could do this with shell("cat ...")
+                for c in input.fast5_md5:
+                    if os.path.dirname(str(c)) == out_dir:
+                        with open(str(c)) as ifh:
+                            for md5line in ifh:
+                                ofh.write(md5line)
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
