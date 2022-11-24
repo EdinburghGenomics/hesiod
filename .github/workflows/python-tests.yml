@@ -25,9 +25,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 pytest pyflakes
         pip install wheel
-        # For some reason there is no wheel for this one?
-        pip install connection_pool==0.0.3
-        pip install --only-binary ":all:" -r test/requirements.txt
+        pip install --prefer-binary -r test/requirements.txt
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
