@@ -4,4 +4,5 @@ rt==2.2.2
 h5py==3.1.0
 pod5_format==0.0.41
 python-dateutil==2.8.2
+connection-pool==0.0.3
 snakemake==7.18.2
