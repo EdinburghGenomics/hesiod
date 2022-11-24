@@ -85,11 +85,11 @@ def read_pod5(p5_filename):
     for x in ['POD5Version', 'StartTime', 'GuppyVersion']:
         res[x] = 'unknown'
 
-    p5_handle = pod5_format.CombinedReader(Path(p5_filename))
+    p5_handle = pod5_format.Reader(Path(p5_filename))
     try:
-        # Version of the POD5 file. We have to dig into the internals of the
-        # library to see this. I think it should be part of the public API.
-        res['POD5Version'] = p5_handle._handles.read.reader.schema.metadata[b'MINKNOW:pod5_version']
+        # Version of the POD5 file. But this seems to change with the library not the file?
+        # Presumably a bug in the 0.0.41 library.
+        res['POD5Version'] = p5_handle.file_version.public
 
         # Just as the metadata is the same for each file, it's the same for each
         # read, so just get the first one, and dict-ify it.

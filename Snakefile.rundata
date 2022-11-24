@@ -58,7 +58,7 @@ def i_copy_md5sum_fast5_batch(wildcards):
     batch_size = int(wildcards.bsize)
     batch_num = int(wildcards.batch)
 
-    return [ ancient(f"{EXPDIR}/{f}" for f in
+    return [ ancient(f"{EXPDIR}/{f}") for f in
              all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size] ]
 
 rule copy_md5sum_fast5_batch:

@@ -73,9 +73,6 @@ else
         pip_install snakemake==7.18.2
         pip_install drmaa==0.7.9
 
-        # Patch for Snakemake bug
-        pip_install 'git+https://github.com/EdinburghGenomics/snakemake.git@main#egg=snakemake'
-
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8
         pip_install psycopg2-binary==2.9.3
