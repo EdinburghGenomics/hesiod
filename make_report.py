@@ -83,7 +83,7 @@ def get_cell_summary( all_info ):
 
         row["Experiment Name"] = ci["UpstreamExpt"]
         row["Sample ID"] = ci["Library"]
-        row["Run ID"] = ci["_final_summary"]["protocol_run_id"]
+        row["Run ID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
         row["Flow Cell ID"] = ci["CellID"]
         row["Run Length"] = ci["_final_summary"]["run_time"]
 
