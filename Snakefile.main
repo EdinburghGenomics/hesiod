@@ -59,6 +59,8 @@ PIGZ    = 'pigz -nT -9 -b512'
 # Convert name of CWD to EXPERIMENT
 EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
 
+FAST5_BATCH_SIZE = config.get("fast5_batch_size", 100)
+
 logger.info( f"EXPERIMENT = {EXPERIMENT}" )
 logger.info( f"config = {pformat(config)}" )
 
@@ -307,8 +309,6 @@ def i_copy_fast5(wildcards=None):
     """Available files within a single directory are divided into
        batches of, say, 100
     """
-    batch_size = 100
-
     # Dict mapping each directory to the number of files it contains
     dirs = { f"{cell}/fast5_{bc}_{pf}" : len(SC[cell][bc][f'fast5_{pf}'])
                     for cell, barcodes in SC.items()
@@ -318,15 +318,15 @@ def i_copy_fast5(wildcards=None):
     # List of md5 files we thus need to generate.
     res = []
     for fast5_dir, total in dirs.items():
-        batches_for_dir = ((total - 1) // batch_size) + 1
+        batches_for_dir = ((total - 1) // FAST5_BATCH_SIZE) + 1
         for b in range(batches_for_dir):
-            md5 = f"{fast5_dir}/batch{batch_size}_{b:08d}.md5"
+            md5 = f"md5sums/{fast5_dir}/batch{FAST5_BATCH_SIZE}_{b:08d}.md5"
             res.append(md5)
     return res
 
 rule copy_fast5:
     output:
-        all_md5 = [ f"{cell}/fast5_{bc}_{pf}/all_fast5.md5"
+        all_md5 = [ f"md5sums/{cell}/fast5_{bc}_{pf}/all_fast5.md5"
                         for cell, barcodes in SC.items()
                         for bc in barcodes
                         for pf in ['pass', 'fail'] ]
@@ -442,11 +442,16 @@ rule one_cell:
 def find_representative_fast5(wildcards):
     """Looks in SC_DATA for a representative FAST5 for this cell. If there is none,
        raises an exception.
+       Since Snakemake now tracks only batches of FAST5 files we need to convert this
+       representative file into a batch directory.
     """
     rep_fast5 = SC_DATA.representative_fast5[wildcards.cell]
     if not rep_fast5:
         raise RuntimeError("No representative FAST5 in SC_DATA")
-    return rep_fast5
+
+    batch_dir = f"{os.path.dirname(rep_fast5)}/batch{FAST5_BATCH_SIZE}_00000000"
+
+    return batch_dir
 
 # Note this currently gets the metadata from the gzipped fast5 meaning it can be run
 # even after the originals are deleted, except that in this case SC will not be populated.

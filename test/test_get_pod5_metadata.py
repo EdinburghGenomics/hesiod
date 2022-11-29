@@ -32,8 +32,9 @@ class T(unittest.TestCase):
 
     ### THE TESTS ###
 
-    # Expected failure because the POD5 library is returning the wrong version?!
-    # Need to chase this up at some point.
+    # Expected failure because the POD5 library is returning the wrong version?
+    # There is now an explanation from the authors on this issue thread, and a fix is
+    # anticipated soon.
     # see https://github.com/nanoporetech/pod5-file-format/issues/11#issuecomment-1326676660
 
     @unittest.expectedFailure

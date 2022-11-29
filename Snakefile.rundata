@@ -80,7 +80,7 @@ rule copy_md5sum_fast5_batch:
                   cp -T "$ifile" "$ofile"
                fi
                {TOOLBOX} h5stat "$ofile" > /dev/null
-               ( cd "$(dirname {output.dir})" && md5sum -- "{wildcards.batchdir}/$(basename "$ofile")" ) >> {output.md5}.tmp
+               ( cd "$(dirname {output.dir})" && md5sum -- "{params.batchdir}/$(basename "$ofile")" ) >> {output.md5}.tmp
            done
            mv {output.md5}.tmp {output.md5}
         """
