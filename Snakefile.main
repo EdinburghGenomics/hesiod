@@ -333,8 +333,15 @@ rule copy_fast5:
     input:
         fast5_md5  = i_copy_fast5
     run:
-        # Compile the batch md5 files into one per directory.
+        # Pre-calculate the number of fast5 files per barcode
+        expected_counts = { "md5sums/{cell}/fast5_{bc}_{pf}": len(cats[f"bam_{pf}"])
+                                for cell, barcodes in SC.items()
+                                for bc, cats in barcodes.items()
+                                for pf in ['pass', 'fail'] }
+
+        # Compile the per-batch md5 files into one per barcode.
         for out_md5 in output.all_md5:
+            lines_written = 0
             with open(str(out_md5), 'x') as ofh:
                 out_dir = os.path.dirname(str(out_md5))
                 # Could do this with shell("cat ...")
@@ -343,6 +350,11 @@ rule copy_fast5:
                         with open(str(c)) as ifh:
                             for md5line in ifh:
                                 ofh.write(md5line)
+                                lines_written += 1
+            # We should now be able to check that the count of md5 lines matches
+            # the expected number of lines in SC, which is useful as we no longer
+            # have Snakemake tracking every individual file.
+            assert lines_written = expected_counts[os.path.dirname(out_md5)]
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed

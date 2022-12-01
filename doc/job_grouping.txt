@@ -143,4 +143,26 @@ def i_copy_md5sum_fast5_batch(wildcards):
 
     return all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size]
 
-OK that all looks reasonable.
+OK that all looks reasonable. With some modification I think I have this working nicely.
+
+Next is to do the same for concat_md5sum_nocalref_fastq and concat_md5sum_calref_bam. Both these
+rules take multiple inputs from fastq_pass_tmp and they are pretty ugly as it is.
+Instead they should take a list files as input and the lists should be partitioned by chunk.
+
+File is still:
+
+fastq_pass_tmp/25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/unclassified/PAM82832_pass_unclassified_3ed26d0e_3f3157da_27.fastq.gznolambdafq.gz
+
+no, actually:
+
+fastq_pass_tmp/25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_unclassified_pass/PAM82832_pass_unclassified_3ed26d0e_3f3157da_27[.nolambdafq.fastq.gz]
+ditto for .nolambdafq.fastq.count and .lambda.bam.
+
+And the list is:
+
+fastq_pass_tmp/25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_unclassified_pass/batch100_00000000.list
+
+And the rule depends on all the list files (like the fast5 rule depends on all the md5sums chunks)
+
+
+

@@ -138,47 +138,55 @@ rule concat_gzip_md5sum_fastq:
 # We've decided to do the calref mapping up front. Here's the rule to combine the filtered
 # fastq.gz files, by simply concatenating them rather than unzip/rezip.
 # Note this is specific to the pass reads. We don't partition the fail reads (should we??)
+def i_concat_md5sum_nocalref(wildcards):
+    """Available files within a single directory are divided into
+       batches of, say, 100
+       This is very similar to i_copy_fast5() and we'll use the same FAST5_BATCH_SIZE
+    """
+    # Dict mapping each directory to the number of files it contains.
+    # .fastq and .fastq.gz are grouped together.
+    dirs = { f"{cell}/fastq_{bc}_{pf}" : len(cats[f'{ftype}_{pf}'])
+                    for cell, barcodes in SC.items()
+                    for bc, cats in barcodes.items()
+                    for ftype in ['fastq', 'fastq.gz']
+                    for pf in ['pass'] }
+
+    # But we only want the batches for one cell/barcode here
+    batch_dir = f"{wildcards.cell}/fastq_{wildcards.barcode}_pass"
+
+    # List of .list files we thus need to generate.
+    res = []
+    total = dirs[batch_dir]
+    batches_for_dir = ((total - 1) // FAST5_BATCH_SIZE) + 1
+    for b in range(batches_for_dir):
+        listfile = f"fastq_pass_tmp/{tmp_dir}/batch{FAST5_BATCH_SIZE}_{b:08d}.list"
+        res.append(listfile)
+    return res
+
+# This rule combines all the FASTQ listed in all the listfiles for a given barcode on a
+# given cell. It also numerically combines the counts and md5sums everything.
 rule concat_md5sum_nocalref_fastq:
     priority: 100
     output:
         gz     = "{cell}/{fullid}_{barcode}_no{calref}.fastq.gz",
         md5    = "md5sums/{cell}/{fullid}_{barcode}_no{calref}.fastq.gz.md5",
         counts = "counts/{cell}/{fullid}_{barcode}_no{calref}.fastq.count",
-        fofn   = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_no{calref}fq.list"),
-        fofn2  = temp("fastq_pass_tmp/{cell}/{fullid}_{barcode}_no{calref}fq_count.list"),
     input:
-        fastq     = lambda wc: [f"fastq_pass_tmp/{f}.no{wc.calref}fq.gz"    for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        fastq_gz  = lambda wc: [f"fastq_pass_tmp/{f}no{wc.calref}fq.gz"     for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
-        counts    = lambda wc: [f"fastq_pass_tmp/{f}.no{wc.calref}fq.count" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        counts_gz = lambda wc: [f"fastq_pass_tmp/{f}no{wc.calref}fq.count"  for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        listfiles = i_concat_md5sum_nocalref
     run:
-        def getinputs(*vnames):
-            """Little helper to get combined input values"""
-            for v in vnames:
-                try: yield from getattr(input, v)
-                except AttributeError: pass
-
-        # Avoid blowing the command line limit by listing files in a file. This could be
-        # marked temporary but it's small and handy for debugging.
-        with open(output.fofn, "w") as fh:
-            for fname in getinputs("fastq", "fastq_gz"):
-                print(fname, file=fh)
-
-        fofn2_linecount = 0
-        with open(output.fofn2, "w") as fh:
-            for fname in getinputs("counts", "counts_gz"):
-                print(fname, file=fh)
-                fofn2_linecount += 1
-
-        # Simply concatenate the gzipped files. This works even if no files.
-        shell(r"xargs -rd '\n' cat <{output.fofn} > {output.gz}")
-
-        if fofn2_linecount:
-            # Combine base counts
-            shell(r"xargs -rd '\n' cat <{output.fofn2} | fq_base_combiner.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
-        else:
-            # Synthesize an empty count.
+        if not str(input.listfiles):
+            shell(r"touch {output.gz}") # or should this be "true | gzip -c > {output.gz}"?
             shell(r"true | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
+        else:
+            # each file in input.listfiles is created by one map_calref job and
+            # lists out the basenames of the output files that we need to collect up.
+            shell(r"""sed 's/$/.no{wildcards.calref}.fastq.gz/' {input.listfiles} | \
+                         xargs -rd '\n' cat \
+                      > {output.gz}""")
+            shell(r"""sed 's/$/.no{wildcards.calref}.fastq.count/' {input.listfiles} | \
+                         xargs -rd '\n' cat | \
+                         fq_base_combiner.awk -r fn=`basename {output.gz} .gz` \
+                      > {output.counts}""")
 
         # Checksum over the whole file
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
@@ -189,31 +197,19 @@ rule concat_md5sum_calref_bam:
         md5  = "md5sums/{cell}/{fullid}_{barcode}_{calref}.bam.md5",
         fofn = temp("{cell}/{fullid}_{barcode}_{calref}_bam.list")
     input:
-        bam    = lambda wc: [f"fastq_pass_tmp/{f}.{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq_pass']],
-        bam_gz = lambda wc: [f"fastq_pass_tmp/{f}{wc.calref}.bam" for f in SC[wc.cell][wc.barcode]['fastq.gz_pass']],
+        listfiles = i_concat_md5sum_nocalref
     threads: 4
     resources:
         mem_mb = 12000,
         n_cpus = 4,
     run:
-        def getinputs(*vnames):
-            """Little helper to get combined input values"""
-            for v in vnames:
-                try: yield from getattr(input, v)
-                except AttributeError: pass
-
-        fofn_linecount = 0
-        with open(output.fofn, "w") as fh:
-            for fname in getinputs("bam", "bam_gz"):
-                print(fname, file=fh)
-                fofn_linecount += 1
-
-        if fofn_linecount:
-            # samtools merge (files in fastq_pass_tmp should be pre-sorted)
-            shell("{TOOLBOX} samtools merge -@ {threads} -l9 -b {output.fofn} {output.bam}")
-        else:
+        if not str(input.listfiles):
             # We're merging nothing. But Snakemake must have her output file.
             shell("touch {output.bam}")
+        else:
+            shell(r"""{TOOLBOX} samtools merge -@ {threads} -l9 -b \
+                         <(sed 's/$/.{wildcards.calref}.bam/' {input.listfiles}) \
+                         {output.bam}""")
 
         shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
 
