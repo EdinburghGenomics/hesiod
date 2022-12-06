@@ -164,5 +164,12 @@ fastq_pass_tmp/25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_unclassified
 
 And the rule depends on all the list files (like the fast5 rule depends on all the md5sums chunks)
 
+----
 
+OK so I re-jigged the two rules concat_md5sum_nocalref_fastq and concat_md5sum_calref_bam in terms of the fofn input files
+and the rules are easier to read (yay) but the input function is a bit long-winded (meh). Now I need to re-do the map_calref
+function so instead of outputting the individual files it outputs "fastq_pass_tmp/{cell}/fastq_{barcode}_pass/batch{bsize}_{batch}.list"
 
+rename map_calref to map_calref_batch
+
+actually the dir should be "fastq_nolambda_tmp" not "fastq_pass_tmp".

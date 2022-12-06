@@ -90,7 +90,7 @@ rule copy_md5sum_fast5_batch:
 # TODO - should possibly convert this to zip the individual chunks, as per the no{calref} files?
 
 # I've broken out the rule that makes _fastq.list files so I can request the list without
-# making the actual merged file.
+# making the actual merged file. The basic FASTQ merge step doesn't do any batching.
 localrules: list_fastq
 rule list_fastq:
     priority: 100
@@ -135,36 +135,39 @@ rule concat_gzip_md5sum_fastq:
 
         shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
 
-# We've decided to do the calref mapping up front. Here's the rule to combine the filtered
-# fastq.gz files, by simply concatenating them rather than unzip/rezip.
+# We've decided to do the calref mapping up front. Here's two rules to combine the filtered
+# fastq.gz files (by simply concatenating them rather than unzip/rezip) and the BAM files
+# aligned to the calibration reference.
 # Note this is specific to the pass reads. We don't partition the fail reads (should we??)
 def i_concat_md5sum_nocalref(wildcards):
     """Available files within a single directory are divided into
        batches of, say, 100
        This is very similar to i_copy_fast5() and we'll use the same FAST5_BATCH_SIZE
     """
+    pf = "pass"
     # Dict mapping each directory to the number of files it contains.
-    # .fastq and .fastq.gz are grouped together.
-    dirs = { f"{cell}/fastq_{bc}_{pf}" : len(cats[f'{ftype}_{pf}'])
+    # .fastq and .fastq.gz are concatenated together.
+    dirs = { f"{cell}/fastq_{bc}_{pf}" : sum([ len(cats[f'{ftype}_{pf}'])
+                                               for ftype in ['fastq', 'fastq.gz'] ])
                     for cell, barcodes in SC.items()
                     for bc, cats in barcodes.items()
-                    for ftype in ['fastq', 'fastq.gz']
-                    for pf in ['pass'] }
+                    for pf in [pf] }
 
-    # But we only want the batches for one cell/barcode here
-    batch_dir = f"{wildcards.cell}/fastq_{wildcards.barcode}_pass"
+    # But we only want the batches for one cell+barcode per job
+    batch_dir = f"{wildcards.cell}/fastq_{wildcards.barcode}_{pf}"
 
     # List of .list files we thus need to generate.
     res = []
     total = dirs[batch_dir]
     batches_for_dir = ((total - 1) // FAST5_BATCH_SIZE) + 1
     for b in range(batches_for_dir):
-        listfile = f"fastq_pass_tmp/{tmp_dir}/batch{FAST5_BATCH_SIZE}_{b:08d}.list"
+        listfile = f"fastq_no{wildcards.calref}_tmp/{batch_dir}/batch{FAST5_BATCH_SIZE}_{b:08d}.list"
         res.append(listfile)
     return res
 
-# This rule combines all the FASTQ listed in all the listfiles for a given barcode on a
-# given cell. It also numerically combines the counts and md5sums everything.
+# This rule combines all the FASTQ, with calref removed, listed in all the
+# listfiles for a given barcode on a given cell. It also numerically combines
+# the counts and md5sums everything.
 rule concat_md5sum_nocalref_fastq:
     priority: 100
     output:
@@ -180,22 +183,24 @@ rule concat_md5sum_nocalref_fastq:
         else:
             # each file in input.listfiles is created by one map_calref job and
             # lists out the basenames of the output files that we need to collect up.
-            shell(r"""sed 's/$/.no{wildcards.calref}.fastq.gz/' {input.listfiles} | \
+            idir = os.path.dirname(input.listfiles[0])
+            shell(r"""sed -e 's/^/{idir}\//' \
+                          -e 's/$/.no{wildcards.calref}.fastq.gz/' {input.listfiles} | \
                          xargs -rd '\n' cat \
                       > {output.gz}""")
-            shell(r"""sed 's/$/.no{wildcards.calref}.fastq.count/' {input.listfiles} | \
+            shell(r"""sed -e 's/^/{idir}\//' \
+                          -e 's/$/.no{wildcards.calref}.fastq.count/' {input.listfiles} | \
                          xargs -rd '\n' cat | \
                          fq_base_combiner.awk -r fn=`basename {output.gz} .gz` \
                       > {output.counts}""")
 
         # Checksum over the whole file
-        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+        shell(r"( cd $(dirname {output.gz}) && md5sum $(basename {output.gz}) ) > {output.md5}")
 
 rule concat_md5sum_calref_bam:
     output:
         bam  = "{cell}/{fullid}_{barcode}_{calref}.bam",
         md5  = "md5sums/{cell}/{fullid}_{barcode}_{calref}.bam.md5",
-        fofn = temp("{cell}/{fullid}_{barcode}_{calref}_bam.list")
     input:
         listfiles = i_concat_md5sum_nocalref
     threads: 4
@@ -207,27 +212,43 @@ rule concat_md5sum_calref_bam:
             # We're merging nothing. But Snakemake must have her output file.
             shell("touch {output.bam}")
         else:
+            idir = os.path.dirname(input.listfiles[0])
             shell(r"""{TOOLBOX} samtools merge -@ {threads} -l9 -b \
-                         <(sed 's/$/.{wildcards.calref}.bam/' {input.listfiles}) \
+                         <(sed -e 's/^/{idir}\//' \
+                               -e 's/$/.{wildcards.calref}.bam/' {input.listfiles}) \
                          {output.bam}""")
 
-        shell(r"( cd `dirname {output.bam}` && md5sum `basename {output.bam}` ) > {output.md5}")
+        shell(r"( cd $(dirname {output.bam}) && md5sum $(basename {output.bam}) ) > {output.md5}")
 
-
-# This rule produces the stuff in fastq_pass_tmp, and will normally be applied
-# to every individual fastq_pass file prior to combining the results. It uses nested
-# implicit FIFOs. I call it "bashception".
+# This rule produces the stuff in fastq_pass_tmp, by scanning the original .fastq files
+# for calibration reference, and will process batches of
+# fastq_pass files prior to combining the results in the two rules above. It uses nested
+# implicit FIFOs for the actual mapping. I call it "bashception".
 # Note this type of construct is vulnerable to the kill-before-flush bug but it seems with
 # this arrangement we are OK. See:
 #  https://www.pixelbeat.org/docs/coreutils-gotchas.html
-# In normal operation the temp dir will be removed by the "onsuccess" handler below.
-rule map_calref:
+# In normal operation the fastq_pass_tmp dir will be removed by the "onsuccess" handler below.
+def i_map_calref_batch(wildcards):
+    """As with like i_copy_md5sum_fast5_batch() this returns the list of input files
+       (both .fastq and .fastq.gz) which are the members of a given batch of files,
+       which map_calref_batch will process in a loop.
+    """
+    all_in_dir = [ f for ftype in ["fastq", "fastq.gz"]
+                   for fs in SC[wildcards.cell][wildcards.barcode][f"{ftype}_{wildcards.pf}"]
+                   for f in fs ]
+
+    batch_size = int(wildcards.bsize)
+    batch_num = int(wildcards.batch)
+
+    return [ ancient(f"{EXPDIR}/{f}") for f in
+             all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size] ]
+
+
+rule map_calref_batch:
     output:
-        fq     = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.gz"),
-        bam    = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}{calref}.bam"),
-        counts = temp("fastq_pass_tmp/{cell_pf_bc}/{f}.fastq.{gz}no{calref}fq.count"),
+        listfile = "fastq_no{calref}_tmp/{cell}/fastq_{barcode}_{pf}/batch{bsize}_{batch}.list"
     input:
-        fq     = lambda wc: ancient(f"{EXPDIR}/{wc.cell_pf_bc}/{wc.f}.fastq.{wc.gz}".rstrip('.')),
+        fq     = i_map_calref_batch,
         ref    = lambda wc: ancient(calibration_refs[wc.calref]),
     params:
         rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
@@ -237,17 +258,28 @@ rule map_calref:
         gz     = "gz|",
     threads: 6
     shell:
-       r"""{TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {input.ref} {input.fq} | tee >( \
-                lambda_splitter.awk \
-                    -v paf=/dev/stdin \
-                    -v nolambda=>({PIGZ} -c -p{threads} > {output.fq}) \
-                    <({PIGZ} -fdc {input.fq}) ) | \
-                {TOOLBOX} samtools sort - -@ {threads} -o {output.bam}
-           {PIGZ} -dc -p{threads} {output.fq} | fq_base_counter.awk -r fn=`basename {output.fq} .gz` > {output.counts}
+       r"""true > {output.listfile}.tmp
+           for ifile in {input.fq} ; do
+               obase="$(basename "${{ifile%%.*}}")"
+               odir="$(dirname {output.listfile})"
+               ofastq="$odir/$obase.no{wildcards.calref}.fastq.gz"
+               ocount="$odir/$obase.no{wildcards.calref}.fastq.count"
+               obam="$odir/$obase.{wildcards.calref}.bam"
+               {TOOLBOX} minimap2 {params.mmopts} -R {params.rg:q} {input.ref} "$ifile" | tee >( \
+                    lambda_splitter.awk \
+                        -v paf=/dev/stdin \
+                        -v nolambda=>({PIGZ} -c -p{threads} > "$ofastq") \
+                        <({PIGZ} -fdc "$ifile") ) | \
+                    {TOOLBOX} samtools sort - -@ {threads} -o "$obam"
+               {PIGZ} -dc -p{threads} "$ofastq" | fq_base_counter.awk -r fn="$obase.no{wildcards.calref}.fastq" > "$ocount"
+               echo "$obase" >> {output.listfile}.tmp
+           done
+           mv {output.listfile}.tmp {output.listfile}
         """
 
 # Remove the fastq_pass_tmp directory which should normally be empty of files if
 # everything worked.
+# FIXME - this now has to be 'rm -r'
 onsuccess:
     shell("find fastq_pass_tmp/ -type d -delete || true")
 

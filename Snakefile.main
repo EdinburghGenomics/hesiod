@@ -354,7 +354,7 @@ rule copy_fast5:
             # We should now be able to check that the count of md5 lines matches
             # the expected number of lines in SC, which is useful as we no longer
             # have Snakemake tracking every individual file.
-            assert lines_written = expected_counts[os.path.dirname(out_md5)]
+            assert lines_written == expected_counts[os.path.dirname(out_md5)]
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
