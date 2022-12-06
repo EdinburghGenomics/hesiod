@@ -391,7 +391,7 @@ def one_cell_inputs(wc):
         logger.debug("Defaulting to looking for HTML report")
         minknow_report = f"{base}_report.html"
 
-    return dict(
+    res = dict(
         fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
         seq_summary  = xxpand("{base}_sequencing_summary.txt.gz"),
         minknow_rept = minknow_report,
@@ -413,6 +413,15 @@ def one_cell_inputs(wc):
         # Previously we added:
         #minionqc     = "minionqc/{cell}/summary.yaml",
         )
+
+    # If there are any BAM files, we also need the merged BAM files
+    if any([ cats[f'bam_{pf}']
+             for barcodes in SC.values()
+             for cats in barcodes.values()
+             for pf in ["pass", "fail"] ]):
+        res['merged_bam'] = xxpand("{base}_{bc}_{pf}.bam")
+
+    return res
 
 rule one_cell:
     output: "{cell}/cell_info.yaml"

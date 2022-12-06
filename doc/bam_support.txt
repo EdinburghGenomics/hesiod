@@ -1,0 +1,20 @@
+If a run is set up in MinKNOW to have BAM outputs then we'll get BAM files as well as the .fastq and .fast5
+
+For the run 20221103_EGS2_25070AT I manually merged these using Picard tools:
+
+$ picard-tools-2.27.2 MergeSamFiles --MAX_RECORDS_IN_RAM 10000000 "${infiles[@]}" \
+          -O "${outpath}/${name_prefix}_modbases_gpu_${barcode}_${pf}.bam"     \
+          --MERGE_SEQUENCE_DICTIONARIES true --VALIDATION_STRINGENCY LENIENT --USE_THREADING true \
+          --CREATE_INDEX false --ASSUME_SORTED true
+
+This is fine but Picard can't take a FOFN as input plus we're already using samtools. So let's merge
+with samtools instead. To make the equivalent command:
+
+--MAX_RECORDS_IN_RAM : not needed
+"${infiles[@]}" : -b fofn.txt
+--MERGE_SEQUENCE_DICTIONARIES : (no -c or -p)
+--VALIDATION_STRINGENCY : not needed
+--USE_THREADING : -@ {threads}
+--CREATE_INDEX : --write-index (leave this out)
+--ASSUME_SORTED : -n (I think?)
+

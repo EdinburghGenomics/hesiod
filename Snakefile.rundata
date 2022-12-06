@@ -91,28 +91,51 @@ rule copy_md5sum_fast5_batch:
 
 # I've broken out the rule that makes _fastq.list files so I can request the list without
 # making the actual merged file. The basic FASTQ merge step doesn't do any batching.
-localrules: list_fastq
-rule list_fastq:
+localrules: list_fastq_or_bam
+rule list_fastq_or_bam:
     priority: 100
     output:
-        fofn  = r"{cell}/{fullid}_{barcode}_{pf}_fastq{gz,\.gz|}.list"
+        fofn  = r"{cell}/{fullid}_{barcode}_{pf}_{extn,fastq|fastq\.gz|bam}.list"
     input:
-        fastq = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"fastq{wc.gz}_{wc.pf}"]]
+        infiles = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"{wc.extn}_{wc.pf}"]]
     run:
-        # Just write all the input files to the output file.
+        # Just write all the input filenames to the output file.
         with open(output.fofn, "w") as fh:
             try:
-                for fname in input.fastq: print(fname, file=fh)
+                for fname in input.infiles: print(fname, file=fh)
             except AttributeError:
                 # So there are no files. Make an empty list then.
                 pass
+
+rule concat_gzip_md5sum_bam:
+    priority: 100
+    output:
+        bam    = "{cell}/{fullid}_{barcode}_{pf}.bam",
+        md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.bam.md5",
+    input:
+        fofn    = "{cell}/{fullid}_{barcode}_{pf}_bam.list",
+    threads: 8
+    resources:
+        mem_mb = 24000,
+        n_cpus = 8,
+    run:
+        # Rely on xargs to deal with way more files than could fit on the command line
+        # and zip them all into one.
+        shell(r"""{TOOLBOX} samtools merge \
+                    -@ {threads} -n -l9 \
+                    -b {input.fofn} \
+                    {output.bam}""")
+
+        # md5sum
+        shell(r"( cd $(dirname {output.bam}) && md5sum $(basename {output.bam}) ) > {output.md5}")
+
 
 rule concat_gzip_md5sum_fastq:
     priority: 100
     output:
         gz     = "{cell}/{fullid}_{barcode}_{pf}.fastq.gz",
         md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.fastq.gz.md5",
-        counts = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count"
+        counts = "counts/{cell}/{fullid}_{barcode}_{pf}.fastq.count",
     input:
         fofn    = "{cell}/{fullid}_{barcode}_{pf}_fastq.list",
         fofn_gz = "{cell}/{fullid}_{barcode}_{pf}_fastq.gz.list",
@@ -133,7 +156,7 @@ rule concat_gzip_md5sum_fastq:
         # Base counter
         shell(r"{PIGZ} -cd {output.gz} | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
-        shell(r"( cd `dirname {output.gz}` && md5sum `basename {output.gz}` ) > {output.md5}")
+        shell(r"( cd $(dirname {output.gz}) && md5sum $(basename {output.gz}) ) > {output.md5}")
 
 # We've decided to do the calref mapping up front. Here's two rules to combine the filtered
 # fastq.gz files (by simply concatenating them rather than unzip/rezip) and the BAM files
@@ -177,10 +200,7 @@ rule concat_md5sum_nocalref_fastq:
     input:
         listfiles = i_concat_md5sum_nocalref
     run:
-        if not str(input.listfiles):
-            shell(r"touch {output.gz}") # or should this be "true | gzip -c > {output.gz}"?
-            shell(r"true | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
-        else:
+        try:
             # each file in input.listfiles is created by one map_calref job and
             # lists out the basenames of the output files that we need to collect up.
             idir = os.path.dirname(input.listfiles[0])
@@ -193,6 +213,10 @@ rule concat_md5sum_nocalref_fastq:
                          xargs -rd '\n' cat | \
                          fq_base_combiner.awk -r fn=`basename {output.gz} .gz` \
                       > {output.counts}""")
+        except AttributeError:
+            # No input then
+            shell(r"touch {output.gz}") # or should this be "true | gzip -c > {output.gz}"?
+            shell(r"true | fq_base_counter.awk -r fn=`basename {output.gz} .gz` > {output.counts}")
 
         # Checksum over the whole file
         shell(r"( cd $(dirname {output.gz}) && md5sum $(basename {output.gz}) ) > {output.md5}")
@@ -208,15 +232,15 @@ rule concat_md5sum_calref_bam:
         mem_mb = 12000,
         n_cpus = 4,
     run:
-        if not str(input.listfiles):
-            # We're merging nothing. But Snakemake must have her output file.
-            shell("touch {output.bam}")
-        else:
+        try:
             idir = os.path.dirname(input.listfiles[0])
             shell(r"""{TOOLBOX} samtools merge -@ {threads} -l9 -b \
                          <(sed -e 's/^/{idir}\//' \
                                -e 's/$/.{wildcards.calref}.bam/' {input.listfiles}) \
                          {output.bam}""")
+        except AttributeError:
+            # We're merging nothing. But Snakemake must have her output file.
+            shell("touch {output.bam}")
 
         shell(r"( cd $(dirname {output.bam}) && md5sum $(basename {output.bam}) ) > {output.md5}")
 
