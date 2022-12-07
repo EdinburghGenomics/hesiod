@@ -10,22 +10,33 @@ from collections import namedtuple
 
 from .YAMLHelpers import load_yaml, dump_yaml, abspath
 
-def glob():
+def _glob():
     """Regular glob() is useful but we want consistent sort order, including
        for the numbered files produced by the Promethion.
     """
-    from glob import glob
+    from glob import iglob
+    from itertools import islice
 
     key_regex = re.compile(r"(?<=[._])(\d+)(?=[._])")
     def key_func(filename):
         r"""Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
-            that dictionary sort will produce a numeric sort.
+            that dictionary sort will produce a numeric sort (at least up to 99.9 million
+            files)
         """
         return re.sub(key_regex, lambda d: d.group().rjust(8,'0'), filename)
 
-    return lambda p: sorted( (f.rstrip('/') for f in glob(os.path.expanduser(p))),
-                             key = key_func )
-glob = glob()
+    def _new_glob(p, limit=None):
+        """Enhanced glob() wrapper.
+           p : blob pattern, may contain ~/
+           limit : max number of results to return
+        """
+        res = [f.rstrip('/') for f in islice(iglob(os.path.expanduser(p)),0,limit)]
+
+        res.sort(key=key_func)
+        return res
+
+    return _new_glob
+glob = _glob()
 
 def _determine_version():
     """Report the version of Hesiod being used. Normally this is in version.txt

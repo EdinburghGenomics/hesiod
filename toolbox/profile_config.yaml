@@ -12,6 +12,7 @@ jobname: '{{rulename}}.snakejob.{{jobid}}.sh'
 jobscript: '{TOOLBOX}/snakemake_jobscript.sh'
 printshellcmds: true
 rerun-incomplete: true
+rerun-triggers: mtime
 keep-going: true
 resources:
     - nfscopy=1

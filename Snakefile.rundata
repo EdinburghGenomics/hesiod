@@ -34,8 +34,10 @@ rule convert_final_summary:
 # This needs to work for the HTML or the PDF reports
 rule copy_report:
     output:
-        pdf = "{cell}/{fullid}_report.{extn,pdf|html}"
+        pdf = "{cell}/{fullid}_report.{extn}"
     input: lambda wc: find_summary(f"report.{wc.extn}", EXPDIR, wc.cell, allow_missing=True) or []
+    wildcard_constraints:
+        extn = r"pdf|html",
     run:
         if input:
             shell("cp -T {input} {output.pdf}")
@@ -95,9 +97,11 @@ localrules: list_fastq_or_bam
 rule list_fastq_or_bam:
     priority: 100
     output:
-        fofn  = r"{cell}/{fullid}_{barcode}_{pf}_{extn,fastq|fastq\.gz|bam}.list"
+        fofn  = r"{cell}/{fullid}_{barcode}_{pf}_{extn}.list"
     input:
         infiles = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"{wc.extn}_{wc.pf}"]]
+    wildcard_constraints:
+        extn = r"fastq|fastq\.gz|bam",
     run:
         # Just write all the input filenames to the output file.
         with open(output.fofn, "w") as fh:
@@ -167,17 +171,16 @@ def i_concat_md5sum_nocalref(wildcards):
        batches of, say, 100
        This is very similar to i_copy_fast5() and we'll use the same FAST5_BATCH_SIZE
     """
-    pf = "pass"
+    pf = "pass" # hard-coded as not in wildcards
+    cell = wildcards.cell
     # Dict mapping each directory to the number of files it contains.
     # .fastq and .fastq.gz are concatenated together.
     dirs = { f"{cell}/fastq_{bc}_{pf}" : sum([ len(cats[f'{ftype}_{pf}'])
                                                for ftype in ['fastq', 'fastq.gz'] ])
-                    for cell, barcodes in SC.items()
-                    for bc, cats in barcodes.items()
-                    for pf in [pf] }
+                    for bc, cats in SC[cell].items() }
 
     # But we only want the batches for one cell+barcode per job
-    batch_dir = f"{wildcards.cell}/fastq_{wildcards.barcode}_{pf}"
+    batch_dir = f"{cell}/fastq_{wildcards.barcode}_{pf}"
 
     # List of .list files we thus need to generate.
     res = []
@@ -258,8 +261,7 @@ def i_map_calref_batch(wildcards):
        which map_calref_batch will process in a loop.
     """
     all_in_dir = [ f for ftype in ["fastq", "fastq.gz"]
-                   for fs in SC[wildcards.cell][wildcards.barcode][f"{ftype}_{wildcards.pf}"]
-                   for f in fs ]
+                   for f in SC[wildcards.cell][wildcards.barcode][f"{ftype}_{wildcards.pf}"] ]
 
     batch_size = int(wildcards.bsize)
     batch_num = int(wildcards.batch)
@@ -275,11 +277,8 @@ rule map_calref_batch:
         fq     = i_map_calref_batch,
         ref    = lambda wc: ancient(calibration_refs[wc.calref]),
     params:
-        rg     = r'@RG\tID:1\tSM:{cell_pf_bc}\tPL:promethion',
+        rg     = r'@RG\tID:1\tSM:{cell}/fastq_{pf}/{barcode}\tPL:promethion',
         mmopts = '-t 1 -a --MD --sam-hit-only -y --secondary=no -x map-ont '
-    wildcard_constraints:
-        f      = "[^/]+",
-        gz     = "gz|",
     threads: 6
     shell:
        r"""true > {output.listfile}.tmp

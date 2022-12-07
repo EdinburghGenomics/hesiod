@@ -3,6 +3,7 @@
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import logging as L
 from itertools import product
+from functools import partial
 from pprint import pprint, pformat
 
 from hesiod import ( glob, groupby, parse_cell_name, load_final_summary,
@@ -25,9 +26,11 @@ def main(args):
     print( dump_yaml(res), end='' )
 
 def scan_main(args):
-
     # This will yield a dict with scanned_cells and counts as keys
-    res = scan_cells(args.expdir, args.cells, args.cellsready, args.missing_ok)
+    res = scan_cells(args.expdir, cells = args.cells,
+                                  cellsready = args.cellsready,
+                                  look_in_output = args.missing_ok,
+                                  subset = args.subset)
     sc = res['scanned_cells']
 
     # Find a representative FAST5 per cell
@@ -53,6 +56,7 @@ def scan_main(args):
 
 def scan_cells( expdir, cells=None, cellsready=None,
                         look_in_output = False,
+                        subset = None,
                         filetypes_to_scan = DEFAULT_FILETYPES_TO_SCAN ):
     """ Work out all the cells to process. Normally simple since the list is just passed in
         by driver.sh directly but I do want to be able to process all the cells by default so
@@ -62,6 +66,9 @@ def scan_cells( expdir, cells=None, cellsready=None,
         res['scanned_cells'] structure is { cell : barcode : 'fastX_pass' : [ list of files ] }
         res['counts'] is headline counts for cells found
     """
+    # Implement subset by providing a glob function with a baked-in limit
+    globn = partial(glob, limit=subset)
+
     if cells is None:
         if expdir:
             # Look for valid cells in the input files
@@ -107,9 +114,9 @@ def scan_cells( expdir, cells=None, cellsready=None,
                 cat_dir  = f"{filetype.split('.')[0]}_{pf}"
                 # Collect un-barcoded files
                 non_barcoded_files = [ f[len(expdir) + 1:]
-                                       for f in glob(f"{expdir}/{c}/{cat_dir}/*.{filetype}") ]
+                                       for f in globn(f"{expdir}/{c}/{cat_dir}/*.{filetype}") ]
                 barcoded_files = [ f[len(expdir) + 1:]
-                                   for f in glob(f"{expdir}/{c}/{cat_dir}/*/*.{filetype}") ]
+                                   for f in globn(f"{expdir}/{c}/{cat_dir}/*/*.{filetype}") ]
                 if non_barcoded_files:
                     d.setdefault('.', dict())[category] = non_barcoded_files
                 for bf in barcoded_files:
@@ -127,7 +134,7 @@ def scan_cells( expdir, cells=None, cellsready=None,
             # Oh and we apparently need to do this for BAM files too? Let's just do it for all types.
             for filetype in filetypes_to_scan:
                 files_in_skip = [ f[len(expdir) + 1:]
-                                  for f in glob(f"{expdir}/{c}/{filetype}_skip/*") ]
+                                  for f in globn(f"{expdir}/{c}/{filetype}_skip/*") ]
 
                 # For Promethion, at present, the skip files actually go into fast5_fail/. not fast5_skip/
                 # but by my logic when there are barcodes these need to be in 'unclassified' so
@@ -167,13 +174,13 @@ def scan_cells( expdir, cells=None, cellsready=None,
                                 for z in (["", ".gz"] if ft == "fastq" else [""])
                                 for pf in ["pass", "fail"] )
                 # Account for skipped_skip_files
-                if (c,ft) in skipped_skip_files:
+                if skipped_skip_files.get((c,ft)):
                     L.warning(f"skipped_skip_files is non-empty for {(c,ft)}:"
                               F" {skipped_skip_files[(c,ft)]}")
                     ft_sum += len( skipped_skip_files[(c,ft)] )
 
                 ft_expected = fs[f"{ft}_files_in_final_dest"]
-                if ft_sum != ft_expected:
+                if ft_sum != ft_expected and (subset is None):
                     raise RuntimeError( f"Mismatch between count of {ft.upper()} files for {c}:\n" +
                                         f"{ft_sum} (seen) != {ft_expected} (in final_summary.txt)" )
 
@@ -242,6 +249,8 @@ def parse_args(*args):
     parser.add_argument("-m", "--missing_ok", action="store_true",
                         help="If expdir is missing or incomplete, scan files in current dir.")
 
+    parser.add_argument("--subset", type=int,
+                        help="Only report the first N files per barcode. Useful for debugging only.")
     parser.add_argument("-v", "--verbose", action="store_true",
                         help="Print more logging to stderr")
 

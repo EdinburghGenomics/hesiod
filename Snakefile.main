@@ -378,7 +378,8 @@ def one_cell_inputs(wc):
     fastq_parts = get_fastq_parts(is_rna=fs['is_rna'])
     calref = "eno" if fs['is_rna'] else "lambda"
 
-    xxpand = partial(expand, cell=cell, base=base, bc=barcodes, pf=fastq_parts, calref=calref)
+    xxpand = partial(expand, cell=cell,        base=base,          bc=barcodes,
+                             pfn=fastq_parts,  pf=['pass','fail'], calref=calref)
 
     # The MinKNOW report used to be a PDF but is now HTML. We need to peek at which is there,
     # but as usual remember the input may not be available.
@@ -392,10 +393,10 @@ def one_cell_inputs(wc):
         minknow_report = f"{base}_report.html"
 
     res = dict(
-        fastq_gz     = xxpand("{base}_{bc}_{pf}.fastq.gz"),
+        fastq_gz     = xxpand("{base}_{bc}_{pfn}.fastq.gz"),
         seq_summary  = xxpand("{base}_sequencing_summary.txt.gz"),
         minknow_rept = minknow_report,
-        counts       = xxpand("counts/{base}_{bc}_{pf}.fastq.count"),
+        counts       = xxpand("counts/{base}_{bc}_{pfn}.fastq.count"),
         calref_bam   = xxpand("{base}_{bc}_{calref}.bam"),
         calref_stats = xxpand("{calref}qc/{base}_{bc}_{calref}.bam.stats"),
         calref_qmap  = xxpand("{calref}qc/{base}_{bc}_{calref}.bam.qmap"),
@@ -415,9 +416,8 @@ def one_cell_inputs(wc):
         )
 
     # If there are any BAM files, we also need the merged BAM files
-    if any([ cats[f'bam_{pf}']
-             for barcodes in SC.values()
-             for cats in barcodes.values()
+    if any([ SC[cell][bc].get(f'bam_{pf}')
+             for bc in barcodes
              for pf in ["pass", "fail"] ]):
         res['merged_bam'] = xxpand("{base}_{bc}_{pf}.bam")
 
