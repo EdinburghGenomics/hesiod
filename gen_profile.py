@@ -15,7 +15,7 @@ import logging as L
 # If TOOLBOX is not set, use a default. This script should produce some reasonable output
 # even if no env vars are set.
 # I use realpath() here because if Hesiod is updated then symlinks may change.
-env_copy = {k: v for k, v in os.environ.items() if k}
+env_copy = {k: v.strip() for k, v in os.environ.items() if v}
 env_copy.setdefault('TOOLBOX', os.path.realpath(f"{os.path.dirname(__file__)}/toolbox"))
 
 def main(args):

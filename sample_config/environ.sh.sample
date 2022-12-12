@@ -22,7 +22,8 @@ FASTQDATA=/lustre-gseg/promethion/prom_fastqdata
 
 # For production, use the real RT and use the casava partition on SLURM
 RT_SYSTEM="production-rt"
-CLUSTER_QUEUE=edgen-casava
+CLUSTER_PARTITION=standard
+EXTRA_SLURM_FLAGS='--account edg01-nanopore'
 
 # Provide a sync command as a template that may access:
 #   {upstream}      - The full path as per column 2 of the remote info
@@ -56,7 +57,7 @@ PROJECT_PAGE_URL=https://www.wiki.ed.ac.uk/display/GenePool/
 # SPECIAL CASE
 # For running when there is minimal processing power - avoid fast5 compression and minimize blasting.
 #MAIN_SNAKE_TARGETS=main
-#CLUSTER_QUEUE=none
+#CLUSTER_PARTITION=none
 
 # And for the RSYNC backups...
 BACKUP_NAME_REGEX='[0-9]{8}_.*_.*'

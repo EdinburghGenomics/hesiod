@@ -62,9 +62,7 @@ find_snakefile() {
 ### SEE doc/snakemake_be_careful.txt
 
 snakerun_drmaa() {
-    CLUSTER_QUEUE="${CLUSTER_QUEUE:-edgen-casava}"
-
-    if [ "$CLUSTER_QUEUE" = none ] ; then
+    if [ "${CLUSTER_PARTITION:-}" = none ] ; then
         snakerun_single "$@"
         return
     fi

@@ -31,7 +31,7 @@ FASTQDATA=~/test_promethion/fastqdata
 
 # For testing, bypass RT and use the global partition on SLURM
 RT_SYSTEM=none
-CLUSTER_QUEUE=edgen-global
+CLUSTER_PARTITION=standard
 
 # Log to the terminal
 MAINLOG=/dev/stdout
@@ -67,4 +67,4 @@ RSYNC_CMD="rsync --rsync-path=bin/rsync_reports"
 # Set these for running when there is minimal processing power...
 #MAIN_SNAKE_TARGETS=main
 #EXTRA_SNAKE_CONFIG="blob_subsample=2000 blob_chunks=10"
-#CLUSTER_QUEUE=none
+#CLUSTER_PARTITION=none

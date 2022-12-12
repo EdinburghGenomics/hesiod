@@ -1,8 +1,8 @@
 DEFAULTS:
-    CLUSTER_QUEUE: edgen-global
+    CLUSTER_PARTITION: standard
     EXTRA_SLURM_FLAGS: ''
 drmaa: >-
-    -p {CLUSTER_QUEUE} --qos=edgen
+    -p {CLUSTER_PARTITION}
     --time={{resources.time_h}}:00:00
     --mem={{resources.mem_mb}} --mincpus={{resources.n_cpus}}
     -e slurm_output/{{rule}}.%A.err

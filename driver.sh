@@ -52,12 +52,14 @@ if [ -e "$ENVIRON_SH" ] ; then
     popd >/dev/null
 
     # Saves having to put 'export' on every line in the config.
-    export CLUSTER_QUEUE PROM_RUNS FASTQDATA GENOLOGICSRC \
-           PROJECT_PAGE_URL REPORT_DESTINATION REPORT_LINK RSYNC_CMD \
-           RT_SYSTEM STALL_TIME VERBOSE TOOLBOX \
-           DEL_REMOTE_CELLS PROJECT_NAME_LIST PROM_RUNS_BATCH \
-           SNAKE_THREADS LOCAL_CORES \
-           EXTRA_SNAKE_FLAGS EXTRA_SNAKE_CONFIG MAIN_SNAKE_TARGETS
+    export VERBOSE \
+           TOOLBOX            CLUSTER_PARTITION   EXTRA_SLURM_FLAGS \
+           PROM_RUNS          FASTQDATA           REPORT_DESTINATION \
+           PROJECT_PAGE_URL   GENOLOGICSRC        REPORT_LINK \
+           RSYNC_CMD          RT_SYSTEM           STALL_TIME \
+           DEL_REMOTE_CELLS   PROJECT_NAME_LIST   PROM_RUNS_BATCH \
+           SNAKE_THREADS      LOCAL_CORES \
+           EXTRA_SNAKE_FLAGS  EXTRA_SNAKE_CONFIG  MAIN_SNAKE_TARGETS
 fi
 
 # LOG_DIR is ignored if MAINLOG is set explicitly.
