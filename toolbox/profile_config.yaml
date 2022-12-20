@@ -1,6 +1,6 @@
 DEFAULTS:
     CLUSTER_PARTITION: standard
-    EXTRA_SLURM_FLAGS: ''
+    EXTRA_SLURM_FLAGS: '--qos=edgen --account=edg01'
 drmaa: >-
     -p {CLUSTER_PARTITION}
     --time={{resources.time_h}}:00:00
@@ -10,12 +10,7 @@ drmaa: >-
     {EXTRA_SLURM_FLAGS}
 jobname: '{{rulename}}.snakejob.{{jobid}}.sh'
 jobscript: '{TOOLBOX}/snakemake_jobscript.sh'
-printshellcmds: true
-rerun-incomplete: true
-rerun-triggers: mtime
 keep-going: true
-resources:
-    - nfscopy=1
 jobs: 200
 cores: 400
 local-cores: 4

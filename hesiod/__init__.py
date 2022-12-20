@@ -17,7 +17,7 @@ def _glob():
     from glob import iglob
     from itertools import islice
 
-    key_regex = re.compile(r"(?<=[._])(\d+)(?=[._])")
+    key_regex = re.compile(r"(?<=[._])\d+(?=[._])")
     def key_func(filename):
         r"""Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
             that dictionary sort will produce a numeric sort (at least up to 99.9 million

@@ -73,6 +73,7 @@ rule copy_md5sum_fast5_batch:
         batchdir = "batch{bsize}_{batch}"
     shell:
        r"""true > {output.md5}.tmp
+           mkdir -v {output.dir}
            for ifile in {input} ; do
                ofile="{output.dir}/$(basename "$ifile")"
                if [ "$(stat -c %u/%D "$ifile")" = "$(id -u)/$(stat -c %D $(dirname "$ofile"))"  ] ; then
@@ -123,12 +124,12 @@ rule concat_gzip_md5sum_bam:
         mem_mb = 24000,
         n_cpus = 8,
     run:
-        # Rely on xargs to deal with way more files than could fit on the command line
-        # and zip them all into one.
-        shell(r"""{TOOLBOX} samtools merge \
-                    -@ {threads} -n -l9 \
-                    -b {input.fofn} \
-                    {output.bam}""")
+        # Samtools can accept a list of files to merge so we don't need xargs
+        try:
+            shell(r"{TOOLBOX} samtools merge -@ {threads} -n -l9 -b {input.fofn} {output.bam}")
+        except AttributeError:
+            # We're merging nothing. But Snakemake must have her output file.
+            shell("touch {output.bam}")
 
         # md5sum
         shell(r"( cd $(dirname {output.bam}) && md5sum $(basename {output.bam}) ) > {output.md5}")

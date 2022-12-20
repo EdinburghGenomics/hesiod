@@ -18,6 +18,22 @@ import logging as L
 env_copy = {k: v.strip() for k, v in os.environ.items() if v}
 env_copy.setdefault('TOOLBOX', os.path.realpath(f"{os.path.dirname(__file__)}/toolbox"))
 
+# Base config that should apply regardless of the cluster being used (but may be
+# overridden)
+BASE_CONFIG = dict(
+    printshellcmds    = True,
+    rerun_incomplete  = True,
+    keep_going        = True,
+    drop_metadata     = True,
+    rerun_triggers    = 'mtime',
+    resources         = {'nfscopy' : 1},
+    cores             = 10,
+    default_resources = {'tmpdir': '/tmp',
+                         'time_h': 24,
+                         'mem_mb': '6000',
+                         'n_cpus': 1},
+)
+
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
@@ -46,10 +62,16 @@ def main(args):
     else:
         dump_yaml(final_profile, f"{args.output}/config.yaml")
 
+def get_BASE_CONFIG():
+    """A small amount of munging on the base config...
+    """
+    return OrderedDict({ k.replace('_','-'): v
+                         for k, v in BASE_CONFIG.items() })
+
 def gen_profile(template, env, groupsize=None, cores=None):
     """Modify the data structure by filling in various bits of stuff.
     """
-    res = OrderedDict()
+    res = get_BASE_CONFIG()
 
     # Get the defaults and override them with env vars. Note that env vars set to ''
     # are regarded as unset and ignored when env is copied above.

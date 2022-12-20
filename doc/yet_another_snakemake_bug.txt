@@ -1,0 +1,24 @@
+After upgrading Snakemake to version 7.18.2 I discovered and submitted this bug report:
+
+https://github.com/snakemake/snakemake/issues/1968
+
+* But I've patched it so we're OK
+
+There is also this one:
+
+https://github.com/snakemake/snakemake/issues/1976
+
+* But we can avoid it by not using '--'
+
+But more importantly this one!:
+
+https://github.com/snakemake/snakemake/issues/2011
+
+* But I think we can avoid this by using '--drop-metadata' - and maybe speed
+things up a little too.
+
+And this other one:
+
+https://github.com/snakemake/snakemake/issues/2015
+
+* But Paul supplied a patch I can use
