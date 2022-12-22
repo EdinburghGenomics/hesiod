@@ -13,6 +13,10 @@ function gen_profile(){
     env TOOLBOX=$(find_toolbox) gen_profile.py --clobber
 }
 
+function gen_local_profile(){
+    gen_profile.py --template None -c "$LOCAL_CORES" --clobber
+}
+
 find_toolbox() {
     # The toolbox used by the pipeline can be set by setting TOOLBOX in the
     # environment (or environ.sh). Otherwise look for it in the program dir.
@@ -72,17 +76,20 @@ snakerun_drmaa() {
     if [ -n "${VIRTUAL_ENV:-}" ] ; then
         export SNAKE_PRERUN="${VIRTUAL_ENV}/bin/activate"
     fi
+    mkdir -p ./slurm_output
 
     # Save out the profile, which includes setting the right jobscript
     # TODO - maybe this should not be clobbered, to allow for manual
     # tweaking of the config?
-    gen_profile
+    gen_profile || return 1
 
     echo
     echo "Running $snakefile in $(pwd -P) on the SLURM cluster"
+    if [ -n "${EXTRA_SNAKE_FLAGS:-}" ] ; then
+        echo "with extra flags: ${EXTRA_SNAKE_FLAGS}"
+    fi
 
-    mkdir -p ./slurm_output
-    set -x
+    [ "${VERBOSE:-0}" == 0 ] || set -x
     snakemake \
         -s "$snakefile" "$@" \
         --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS:-}
@@ -91,11 +98,17 @@ snakerun_drmaa() {
 snakerun_single() {
     snakefile=`find_snakefile "$1"` ; shift
 
+    gen_local_profile || return 1
+
     echo
     echo "Running $snakefile in $(pwd -P) in local mode"
+    if [ -n "${EXTRA_SNAKE_FLAGS:-}" ] ; then
+        echo "with extra flags: ${EXTRA_SNAKE_FLAGS}"
+    fi
+
     snakemake \
         -s "$snakefile" "$@" \
-        -j $LOCAL_CORES -p --rerun-incomplete ${EXTRA_SNAKE_FLAGS:-}
+        --profile ./snakemake_profile ${EXTRA_SNAKE_FLAGS:-}
 }
 
 snakerun_touch() {

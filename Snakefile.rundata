@@ -125,9 +125,9 @@ rule concat_gzip_md5sum_bam:
         n_cpus = 8,
     run:
         # Samtools can accept a list of files to merge so we don't need xargs
-        try:
+        if os.stat(str(input.fofn)).st_size:
             shell(r"{TOOLBOX} samtools merge -@ {threads} -n -l9 -b {input.fofn} {output.bam}")
-        except AttributeError:
+        else:
             # We're merging nothing. But Snakemake must have her output file.
             shell("touch {output.bam}")
 
@@ -303,7 +303,8 @@ rule map_calref_batch:
 
 # Remove the fastq_pass_tmp directory which should normally be empty of files if
 # everything worked.
-# FIXME - this now has to be 'rm -r'
+# FIXME - this now has to be 'rm -r', but this would be bad because Snakemake runs this hook
+# after every run including if I'm just manually recreating a single file.
 onsuccess:
     shell("find fastq_pass_tmp/ -type d -delete || true")
 

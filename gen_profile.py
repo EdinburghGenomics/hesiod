@@ -20,18 +20,18 @@ env_copy.setdefault('TOOLBOX', os.path.realpath(f"{os.path.dirname(__file__)}/to
 
 # Base config that should apply regardless of the cluster being used (but may be
 # overridden)
-BASE_CONFIG = dict(
+BASE_PROFILE = dict(
     printshellcmds    = True,
     rerun_incomplete  = True,
     keep_going        = True,
     drop_metadata     = True,
-    rerun_triggers    = 'mtime',
-    resources         = {'nfscopy' : 1},
+    rerun_triggers    = "mtime",
+    resources         = [ "nfscopy=1" ],
     cores             = 10,
-    default_resources = {'tmpdir': '/tmp',
-                         'time_h': 24,
-                         'mem_mb': '6000',
-                         'n_cpus': 1},
+    default_resources = [ "tmpdir='/tmp'",
+                          "time_h=24",
+                          "mem_mb=6000",
+                          "n_cpus=1" ],
 )
 
 def main(args):
@@ -50,7 +50,10 @@ def main(args):
                 raise
 
     # Now generate the profile
-    template_profile = load_yaml(args.template)
+    if args.template.lower() != "none":
+        template_profile = load_yaml(args.template)
+    else:
+        template_profile = dict()
     assert isinstance(template_profile, dict)
     final_profile = gen_profile(template_profile, env = env_copy,
                                                   groupsize = args.groupsize,
@@ -62,16 +65,16 @@ def main(args):
     else:
         dump_yaml(final_profile, f"{args.output}/config.yaml")
 
-def get_BASE_CONFIG():
+def get_BASE_PROFILE():
     """A small amount of munging on the base config...
     """
     return OrderedDict({ k.replace('_','-'): v
-                         for k, v in BASE_CONFIG.items() })
+                         for k, v in BASE_PROFILE.items() })
 
 def gen_profile(template, env, groupsize=None, cores=None):
     """Modify the data structure by filling in various bits of stuff.
     """
-    res = get_BASE_CONFIG()
+    res = get_BASE_PROFILE()
 
     # Get the defaults and override them with env vars. Note that env vars set to ''
     # are regarded as unset and ignored when env is copied above.
@@ -87,10 +90,6 @@ def gen_profile(template, env, groupsize=None, cores=None):
             # v should be a list of strings we need to modify
             res[k] = [ f"{x.split('=')[0]}={groupsize}" for x in v ]
             continue
-        if k == "cores" and cores:
-            L.debug(f"overriding cores")
-            res[k] = cores
-            continue
 
         # Generic fixes-ups
         if isinstance(v, str):
@@ -99,6 +98,10 @@ def gen_profile(template, env, groupsize=None, cores=None):
         else:
             # For everything else, just copy
             res[k] = v
+
+    if cores:
+        L.debug(f"overriding cores")
+        res["cores"] = cores
 
     return res
 
