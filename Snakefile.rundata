@@ -151,6 +151,9 @@ rule list_fastq_or_bam:
         # Just write all the input filenames to the output file.
         with open(output.fofn, "w") as fh:
             try:
+                if not input.infiles:
+                    # Some Snakemake versions still add an empty list
+                    raise AttributeError("input.listfiles is empty")
                 for fname in input.infiles: print(fname, file=fh)
             except AttributeError:
                 # So there are no files. Make an empty list then.
@@ -251,13 +254,16 @@ rule concat_md5sum_nocalref_fastq:
         try:
             # each file in input.listfiles is created by one map_calref job and
             # lists out the basenames of the output files that we need to collect up.
+            if not input.listfiles:
+                # Some Snakemake versions still add an empty list
+                raise AttributeError("input.listfiles is empty")
             idir = os.path.dirname(input.listfiles[0])
-            shell(r"""sed -e 's/^/{idir}\//' \
-                          -e 's/$/.no{wildcards.calref}.fastq.gz/' {input.listfiles} | \
+            shell(r"""sed -e 's|^|{idir}/|' \
+                          -e 's|$|.no{wildcards.calref}.fastq.gz|' {input.listfiles} | \
                          xargs -rd '\n' cat \
                       > {output.gz}""")
-            shell(r"""sed -e 's/^/{idir}\//' \
-                          -e 's/$/.no{wildcards.calref}.fastq.count/' {input.listfiles} | \
+            shell(r"""sed -e 's|^|{idir}/|' \
+                          -e 's|$|.no{wildcards.calref}.fastq.count|' {input.listfiles} | \
                          xargs -rd '\n' cat | \
                          fq_base_combiner.awk -r fn=`basename {output.gz} .gz` \
                       > {output.counts}""")
@@ -281,10 +287,13 @@ rule concat_md5sum_calref_bam:
         n_cpus = 4,
     run:
         try:
+            if not input.listfiles:
+                # Some Snakemake versions still add an empty list
+                raise AttributeError("input.listfiles is empty")
             idir = os.path.dirname(input.listfiles[0])
             shell(r"""{TOOLBOX} samtools merge -@ {threads} -l9 -b \
-                         <(sed -e 's/^/{idir}\//' \
-                               -e 's/$/.{wildcards.calref}.bam/' {input.listfiles}) \
+                         <(sed -e 's|^|{idir}/|' \
+                               -e 's|$|.{wildcards.calref}.bam|' {input.listfiles}) \
                          {output.bam}""")
         except AttributeError:
             # We're merging nothing. But Snakemake must have her output file.
