@@ -1,0 +1,19 @@
+Snakemake is slow.
+
+Is there any way to work out what it's doing?
+
+And maybe speed it up?
+
+Probably not, but I can try, right?
+
+My main idea is that if it's writing a bunch of files I can force them onto a tmpfs file system.
+
+...
+
+OK, running `stat()` on every input file is definitely a big slowdown. Perhaps I can fudge Snakemake so
+that if the files are "ancient()" it will skip this part. Maybe? I mean, let's give it a go.
+
+I don't think the times are very useful to me in the context of this pipeline since we almost always assume
+that all the files are there before we start.
+
+

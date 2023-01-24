@@ -90,8 +90,10 @@ rule per_cell_blob_plots:
 # See above. Now we want to make a CSV table per project summarizing the main taxa found
 # in the blob database.
 # TODO - work out if this should be split by barcode? Prob not.
+# Note - the "{x,$}" is a hack to foil Snakemake which tries to stat all the inputs for
+# the rule even if we don't even try to generate this output.
 rule per_project_blob_tables:
-    output: "blob/blobstats_by_project.yaml"
+    output: "blob/blobstats_by_project.yaml{x,$}"
     input:
         tsv = expand("blob/blobstats.{project}.{pf}.{taxlevel}.tsv",
                                           project = SC_DATA.cells_per_project,

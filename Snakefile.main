@@ -314,18 +314,19 @@ rule copy_fast5:
     run:
         # Exlicitly verify that all the files are actually present (but don't run 'md5sum -c'
         # that would be silly).
-        for ifile in input.all_md5:
-            with open(str(ifile)) as ifh:
-                for md5line in ifh:
-                    fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
-                    cell = os.path.dirname(os.path.dirname(ifile))[len("md5sums/"):]
-                    # Use os.stat to assert the file exists.
-                    try:
+        try:
+            for ifile in input.all_md5:
+                shell("echo Checking md5 file {ifile:q} >&2")
+                with open(str(ifile)) as ifh:
+                    for md5line in ifh:
+                        fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
+                        cell = os.path.dirname(os.path.dirname(ifile))[len("md5sums/"):]
+                        # Use os.stat to assert the file exists.
                         os.stat(f"{cell}/{fast5_file}")
-                    except Exception as e:
-                        # Cos sys.stderr gets silenced in sub-jobs:
-                        shell("echo {e:q} >&2")
-                        raise
+        except Exception as e:
+            # Cos sys.stderr gets silenced in sub-jobs:
+            shell("echo {e!r:q} >&2")
+            raise
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
@@ -522,10 +523,10 @@ rule nanoplot:
     params:
         thumbsize = "320x320"
     resources:
-        mem_mb = 12000,
-        n_cpus = 2,
+        mem_mb = 36000,
+        n_cpus = 6,
     run:
-        ap = os.path.realpath(str(input.summary))
+        summary_ap = os.path.realpath(str(input.summary))
         shell(r'cd nanoplot/{wildcards.cell} ; rm -f *.png *.html *.log')
 
         # We need a special case when there are no passing reads as NanoPlot will choke.
@@ -538,7 +539,7 @@ rule nanoplot:
                 shell("touch {output}")
                 return
 
-        shell(r'cd nanoplot/{wildcards.cell} ; NanoPlot --summary {ap}')
+        shell(r'cd nanoplot/{wildcards.cell} ; NanoPlot -t {threads} --summary {summary_ap}')
 
         # Finally, make thumbnails for everything
         for apng in glob(f"nanoplot/{wildcards.cell}/*.png"):

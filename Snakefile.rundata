@@ -113,24 +113,30 @@ rule merge_fast5_md5_batches:
     output: "md5sums/{cell}/fast5_{bc}_{pf}/all_fast5.md5"
     input:  i_merge_fast5_md5_batches
     run:
-        # Re-calculate the number of fast5 files for this barcode, as we can't easily extract
-        # it from the input function. We'll use this for a sanity check at the end.
-        total_files = len(SC[wildcards.cell][wildcards.bc][f'fast5_{wildcards.pf}'])
+        try:
+            # Re-calculate the number of fast5 files for this barcode, as we can't easily extract
+            # it from the input function. We'll use this for a sanity check at the end.
+            total_files = len(SC[wildcards.cell][wildcards.bc][f'fast5_{wildcards.pf}'])
 
-        # Compile the per-batch md5 files into one per barcode.
-        lines_written = 0
-        with open(str(output), 'x') as ofh:
-            out_dir = os.path.dirname(str(output))
-            # Could do this with shell("cat ...")
-            for c in input:
-                with open(str(c)) as ifh:
-                    for md5line in ifh:
-                        ofh.write(md5line)
-                        lines_written += 1
-        # We should now be able to check that the count of md5 lines matches
-        # the expected number of lines in SC, which is useful as we no longer
-        # have Snakemake tracking every individual file.
-        assert lines_written == total_files
+            # Compile the per-batch md5 files into one per barcode.
+            lines_written = 0
+            with open(str(output), 'x') as ofh:
+                out_dir = os.path.dirname(str(output))
+                shell("echo Writing fast5 md5 for {out_dir:q} >&2")
+                # Could do this with shell("cat ...")
+                for c in input:
+                    with open(str(c)) as ifh:
+                        for md5line in ifh:
+                            ofh.write(md5line)
+                            lines_written += 1
+            # We should now be able to check that the count of md5 lines matches
+            # the expected number of lines in SC, which is useful as we no longer
+            # have Snakemake tracking every individual file.
+            assert lines_written == total_files, "lines_written == total_files"
+        except Exception as e:
+            # Cos sys.stderr gets silenced in sub-jobs:
+            shell("echo {e!r:q} >&2")
+            raise
 
 # These two concatenate and zip and sum the fastq. The fastq are smaller so one final file is OK.
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care.
@@ -144,7 +150,8 @@ rule list_fastq_or_bam:
     output:
         fofn  = r"{cell}/{fullid}_{barcode}_{pf}_{extn}.list"
     input:
-        infiles = lambda wc: [f"{EXPDIR}/{f}" for f in SC[wc.cell][wc.barcode][f"{wc.extn}_{wc.pf}"]]
+        infiles = lambda wc: [ ancient(f"{EXPDIR}/{f}")
+                               for f in SC[wc.cell][wc.barcode][f"{wc.extn}_{wc.pf}"] ]
     wildcard_constraints:
         extn = r"fastq|fastq\.gz|bam",
     run:
