@@ -1,0 +1,7 @@
+Barcode	Internal Name	External Name
+barcode01	12345XX0001	Sample number one
+barcode02	12345XX0022	Sample number two
+barcode02	12345XX0032	Repeated sample two
+barcode03	12345XX0003	Sample number three
+barcode04	12345XX0004	Sample number four
+barcode12	12345XX0005	Another lovely sample

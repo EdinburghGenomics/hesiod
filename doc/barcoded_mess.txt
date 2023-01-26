@@ -14,3 +14,40 @@ Yeah, we'll shelve this for now. Make the histogram as that's most useful. But m
 graphing library should be in accord with the idea above. Grrr.
 
 OK, let's get the delivery sorted first and then come back to it.
+
+---
+
+Jan 2023
+
+See https://github.com/EdinburghGenomics/hesiod/issues/1
+
+Urmi wants to press on and fix this. My idea is that for any cell there can be a
+sample_names.tsv which maps the barcodes to the actual sample names. Like:
+
+barcodeNN  internal_name  external_name
+
+I'll want a script that fetches the file from somewhere. Ideally this should be a LIMS
+but for now it will have to copy from a shared location, and I'll need to apply some
+checks to it. The coding will not affect the processing, only the report. We'll have two
+reports - one with all codes and no names, one with only the named codes.
+
+How to do this? In most cases the sample names will be fixed by project, but sometimes
+by pool, so for a run/cell like:
+
+20220101_EGS2_12345XX/12345XXpool01/20220101_1142_1E_PAM30735_b8d4bc73
+
+The possible files to look for would be, in this order:
+
+12345XXpool01_sample_names.tsv
+PAM30735_sample_names.tsv
+12345_sample_names.tsv
+
+We'll assume for now that there is a shared directory to be searched for these things.
+Having found the file, we need to process it. We should be suspicious. If the file has
+only 2 columns we can use the second column as both internal and external name. Other
+problems should lead to a result like:
+
+<< sample_names.yaml >>
+error: 'Malformed sample table in PAM30735_sample_names.tsv'
+
+OK. Let's do this.

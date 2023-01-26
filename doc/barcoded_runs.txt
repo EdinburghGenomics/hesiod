@@ -63,3 +63,7 @@ couldn't do it with the whole directory since Snakemake uses it for shadow and s
 like the sort of thing that might slow the system down. Matbe we can nix it??
 
 For now let's just try having 20 chunks rather than 100.
+
+- Note that in Jan 2023 I seem to have fixed this by deploying a hacked/patched version of Snakemake that minimises
+the amount of stat() calls, as well as btaching up all the FAST5 processing jobs and eliminating unneeded blob jobs.
+See doc/job_grouping.txt

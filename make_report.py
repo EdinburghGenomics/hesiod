@@ -737,7 +737,7 @@ def parse_args(*args):
     argparser.add_argument("--minionqc",
                            help="Add minionqc combined stats")
     argparser.add_argument("--totalcells",
-                            help="Manually set the total number of cells, if not all are yet reported.")
+                            help="Manually set the total number of cells, in case not all are yet reported.")
     argparser.add_argument("-p", "--pipeline", default="rundata/pipeline",
                             help="Directory to scan for pipeline meta-data.")
     argparser.add_argument("-r", "--realnames",

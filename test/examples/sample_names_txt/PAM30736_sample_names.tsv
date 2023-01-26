@@ -1,0 +1,6 @@
+Barcode	Internal Name	External Name
+barcode01	12345XX0001	Sample number one
+barcode02	12345XX0002	Next line should raise an error
+barcode03
+barcode04	12345XX0004	Sample number four
+barcode12	12345XX0005	Another lovely sample
