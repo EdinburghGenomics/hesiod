@@ -126,7 +126,10 @@ def format_report( all_info,
                    minionqc = None,
                    totalcells = None,
                    project_realnames = None,
-                   blobstats = None ):
+                   blobstats = None,
+                   filter = 'none',
+                   cutoff = 0.01,
+                   filename = '-' ):
     """Makes the report as a list of strings (lines)
     """
     P = aggregator()
@@ -165,6 +168,12 @@ def format_report( all_info,
     P( f"% Promethion Experiment {','.join(expts)}",
        f"% Hesiod version {pipedata['version']}",
        f"% {strftime()}" )
+
+    #########################################################################
+    # Maybe a link to the other report, if we have filtered vs. unfiltered
+    #########################################################################
+
+    P( gen_unfilt_link(filter, cutoff, filename) )
 
     #########################################################################
     # Run metadata
@@ -410,6 +419,46 @@ def format_report( all_info,
     P("*~~~*")
     return P
 
+def gen_unfilt_link(filter, cutoff, filename='-'):
+    """Return a link to the other report, if reports are being generated as
+       a filtered+unfiltered pair.
+    """
+    # Otherwise, we need to consider filenames like
+    # report.3cells.pan.html
+    # report.3cells.all.pan.html
+    unfilt_link = None
+    if filter is 'all':
+        mo = re.fullmatch(r'(.+)\.all\.pan')
+        if mo:
+            unfilt_link = f"{mo.group(1)}.pan.html"
+    else:
+        mo = re.fullmatch(r'(.+)\.pan')
+        if mo:
+            unfilt_link = f"{mo.group(1)}.all.pan.html"
+
+    if unfilt_link:
+        # We can't make a link. This includes when filename is -
+        return ''
+
+    if not filter or filter is 'none':
+        # This is a full report and there is no pair.
+        return ''
+    elif 'barcodes' in filter:
+        # This report shows specified barcodes
+        return ( f"Only samples listed in the sample list file are shown."
+                 f" [See report with all barcodes]({unfilt_link})." )
+
+    elif filter is 'all':
+        # This is a full report and there is a filtered version
+        return ( f"This is the full report showing all barcodes."
+                 f" [See the filtered version]({unfilt_link})." )
+    else:
+        # either filter is 'cutoff' or there are no barcodes and we've
+        # defaulted to filtering on cutoff.
+        return ( f"Only samples with more than {cutoff}% of total reads shown."
+                 f" [See report with all barcodes]({unfilt_link})." )
+
+
 def format_dl(data_pairs, title=None):
     """Formats a table of values with headings in the first column.
        Currently we do this as a <dl>, but this may change.
@@ -519,25 +568,38 @@ def main(args):
     else:
         blobstats  = None
 
+    # Load the barcodes file if supplied
+    if args.filter.lower() == 'yaml':
+        args.filter = 'sample_names.yaml'
 
-    # FIXME - we're missing a pipeline status and list of aborted/pending cells?
+    if args.filter.lower() in ['all', 'none', 'cutoff']:
+        bc_filter = args.filter.lower()
+    else:
+        # It's a file to load
+        bc_filter = load_yaml(args.filter)
 
+    out_file = args.out or '-'
+
+    # FIXME - we're missing a pipeline status!?
     rep = format_report( all_info,
                          pipedata = pipedata,
                          aborted_list = [],
                          minionqc = args.minionqc,
                          totalcells = args.totalcells,
                          project_realnames = realnames,
-                         blobstats = blobstats )
+                         blobstats = blobstats,
+                         filter = bc_filter,
+                         cutoff = args.cutoff,
+                         filename = os.path.basename(out_file) )
 
-    if (not args.out) or (args.out == '-'):
+    if out_file == '-':
         print(*rep, sep="\n")
     else:
-        L.info(f"Writing to {args.out}")
-        with open(args.out, "w") as ofh:
+        L.info(f"Writing to {out_file}")
+        with open(out_file, "w") as ofh:
             print(*rep, sep="\n", file=ofh)
 
-        copy_dest = os.path.dirname(args.out) or '.'
+        copy_dest = os.path.dirname(out_file) or '.'
         L.info(f"Copying files to {copy_dest}")
 
         copy_files(all_info, copy_dest, minionqc=args.minionqc)
@@ -727,31 +789,35 @@ def copy_file(src, dest):
     return shutil.copyfile(src, dest)
 
 def parse_args(*args):
-    description = """ Makes a report (in PanDoc format) for a run (aka an experiment), by compiling the info from the
-                      YAML files that are made per-cell.
+    description = """Makes a report (in PanDoc format) for a run (aka an experiment), by compiling the info from the
+                     YAML files that are made per-cell.
                   """
-    argparser = ArgumentParser( description=description,
-                                formatter_class = ArgumentDefaultsHelpFormatter )
-    argparser.add_argument("yamls", nargs='*',
-                            help="Supply a list of info.yml files to compile into a report.")
-    argparser.add_argument("--minionqc",
-                           help="Add minionqc combined stats")
-    argparser.add_argument("--totalcells",
-                            help="Manually set the total number of cells, in case not all are yet reported.")
-    argparser.add_argument("-p", "--pipeline", default="rundata/pipeline",
-                            help="Directory to scan for pipeline meta-data.")
-    argparser.add_argument("-r", "--realnames",
-                            help="YAML file containing real names for projects.")
-    argparser.add_argument("-b", "--blobstats",
-                            help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")
-    argparser.add_argument("-f", "--fudge_status",
-                            help="Override the PipelineStatus shown in the report.")
-    argparser.add_argument("-o", "--out",
-                            help="Where to save the report. Defaults to stdout.")
-    argparser.add_argument("-d", "--debug", action="store_true",
-                            help="Print more verbose debugging messages.")
+    parser = ArgumentParser( description=description,
+                             formatter_class = ArgumentDefaultsHelpFormatter )
+    parser.add_argument("yamls", nargs='*',
+                        help="Supply a list of info.yml files to compile into a report.")
+    parser.add_argument("--minionqc",
+                        help="Add minionqc combined stats")
+    parser.add_argument("--totalcells",
+                        help="Manually set the total number of cells, in case not all are yet reported.")
+    parser.add_argument("-p", "--pipeline", default="rundata/pipeline",
+                        help="Directory to scan for pipeline meta-data.")
+    parser.add_argument("-r", "--realnames",
+                        help="YAML file containing real names for projects.")
+    parser.add_argument("-b", "--blobstats",
+                        help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")
+    parser.add_argument("-f", "--fudge_status",
+                        help="Override the PipelineStatus shown in the report.")
+    parser.add_argument("-o", "--out",
+                        help="Where to save the report. Defaults to stdout.")
+    parser.add_argument("-F", "--filter", default="none",
+                        help="Filter out unused barcodes based upon a YAML file or heuristic.")
+    parser.add_argument("-C", "--cutoff", type=float, default=0.01,
+                        help="When the filter is in effect, set the cutoff percentage.")
+    parser.add_argument("-d", "--debug", action="store_true",
+                        help="Print more verbose debugging messages.")
 
-    return argparser.parse_args(*args)
+    return parser.parse_args(*args)
 
 if __name__ == "__main__":
     main(parse_args())

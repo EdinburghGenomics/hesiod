@@ -50,4 +50,18 @@ problems should lead to a result like:
 << sample_names.yaml >>
 error: 'Malformed sample table in PAM30735_sample_names.tsv'
 
-OK. Let's do this.
+OK. Let's do this. Done. Now for when there are no barcodes, I want a heuristic about which
+to show on the regular report.
+I think under 1000 reads out of 10M is a good cutoff, so 0.0001 (0.01%). This can be applied
+at the report maker stage.
+
+Tasks:
+
+* Have the report maker able to make filtered or unfiltered reports
+    --filter sample_names.yaml
+    --filter yaml (implies sample_names.yaml)
+    --filter all (or none)
+    --filter cutoff
+* Have a symlink between the two
+* Apply the cutoff (as per --filter cutoff) if sample_names.yaml has no barcodes
+
