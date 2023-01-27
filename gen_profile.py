@@ -5,7 +5,6 @@
    Missing values will be filled in and the group size can be set as desired.
 """
 import os
-import shutil
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from hesiod import load_yaml, dump_yaml
 from pprint import pprint

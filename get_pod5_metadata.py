@@ -15,7 +15,6 @@ import logging as L
 import gzip
 from tempfile import NamedTemporaryFile
 import shutil
-import math
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 from contextlib import suppress

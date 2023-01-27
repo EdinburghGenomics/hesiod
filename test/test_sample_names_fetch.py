@@ -29,7 +29,7 @@ class T(unittest.TestCase):
         pass
 
     ### THE TESTS ###
-    def test_find_tsv(self):
+    def test_find_tsv_good(self):
 
         # Explicit to this pool
         res1 = find_tsv( experiment = '20220101_EGS2_12345XX',
@@ -55,12 +55,24 @@ class T(unittest.TestCase):
                          dir = DATA_DIR )
         self.assertEqual(res4, f"{DATA_DIR}/12345_sample_names.tsv")
 
+    def test_find_tsv_bad(self):
+
         # Nothing found
         res4 = find_tsv( experiment = '20220101_EGS2_12346XX',
                          cell = '12346XXpool02/20220101_1142_1E_PAM76599_b8d4bc73',
                          dir = DATA_DIR )
         self.assertEqual(res4, None)
 
+        # Bad data dir
+        res5 = find_tsv( experiment = '20220101_EGS2_12345XX',
+                         cell = '12345XXpool01/20220101_1142_1E_PAM30735_b8d4bc73',
+                         dir = '/dev/null/nosuchfile' )
+        self.assertEqual(res5, None)
+
+        # Unparseable cell name
+        with self.assertRaises(ValueError):
+            res6 = find_tsv( experiment = 'woo',
+                             cell = 'woo' )
 
     def test_parse_tsv_good(self):
 
@@ -123,6 +135,15 @@ class T(unittest.TestCase):
         # Un-parseable line at end of file
         res4 = parse_tsv(f"{DATA_DIR}/PAM30737_sample_names.tsv")
         self.assertEqual( res4, dict( error = "Unable to parse line 7" ) )
+
+        # Empty file
+        res5 = parse_tsv("/dev/null")
+        self.assertEqual( res5, dict( error = "No barcodes found in the file" ) )
+
+        # Unreadable file
+        res6 = parse_tsv("/dev/null/nosuchfile")
+        self.assertEqual( res6, dict( error = "[Errno 20] Not a directory: '/dev/null/nosuchfile'" ) )
+
 
 if __name__ == '__main__':
     unittest.main()

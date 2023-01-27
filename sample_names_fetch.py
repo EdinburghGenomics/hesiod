@@ -5,18 +5,69 @@ import ast
 import logging as L
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import csv
+import shutil
 from collections import Counter
 
-from hesiod import parse_cell_name, glob
+from hesiod import parse_cell_name, glob, dump_yaml
 
 def main(args):
 
     L.basicConfig(level=(L.DEBUG if args.debug else L.WARNING))
 
-    # Turns r'\t' into '\t'
+    # Turns r'\t' into '\t' the fancy way
     delim = ast.literal_eval(f"'{args.delim}'")
 
-def find_tsv( experiment, cell, dir='.' ):
+    experiment = args.experiment or os.path.dirname(os.path.abspath('.'))
+    cell, = args.cell
+
+    if args.find:
+        # In this case, just find the file and quit
+        tsv_file = find_tsv(experiment, cell, args.tsvdir)
+        if tsv_file:
+            print(tsv_file)
+            exit(0)
+        else:
+            exit(1)
+
+    # Get the YAML which might be a sample list or might be an error.
+    info_dict = get_info_main(experiment, cell, args.tsvdir, delim)
+
+    if args.print:
+        # Print and done
+        print(dump_yaml(info_dict), end='')
+    else:
+        # Copy the TSV file to the cell dir, and save the YAML.
+        # At this point, the cell dir must exist
+        if 'error' not in info_dict:
+            orig_filename = os.path.basename(info_dict['file'])
+            shutil.copyfile(info_dict['file'], f"{cell}/{orig_filename}")
+
+        dump_yaml(info_dict, filename=f"{cell}/sample_names.yaml")
+
+def get_info_main(experiment, cell, dir, delim):
+
+    error = None
+
+    # See if we can find a sample names file for this cell
+    if not os.path.isdir(dir):
+        error = f"No such directory {dir}"
+    else:
+        tsv_file = find_tsv(experiment, cell, dir)
+        if not tsv_file:
+            error = f"No suitable TSV file found in {dir}"
+
+    if error:
+        return dict( error = error,
+                     file = None )
+
+    # Well, we have a file
+    res = parse_tsv(tsv_file, delim=delim)
+
+    # Add the file and return
+    res['file'] = os.path.abspath(tsv_file)
+    return res
+
+def find_tsv(experiment, cell, dir='.'):
     """Locate a sample names TSV file to use for this cell.
     """
     parsed_cell = parse_cell_name(experiment, cell)
@@ -44,31 +95,35 @@ def parse_tsv(filename, delim="\t"):
     error = None
     codes = []
 
-    with open(filename, newline='') as csvfile:
-        tsvreader = csv.reader(csvfile, delimiter=delim)
-        for n, row in enumerate(tsvreader):
+    try:
+        with open(filename, newline='') as csvfile:
+            tsvreader = csv.reader(csvfile, delimiter=delim)
+            for n, row in enumerate(tsvreader):
 
-            # Blank rows are ignored.
-            if not row:
-                continue
-            if not re.fullmatch(r'barcode\d\d', row[0]):
-                if n == 0:
-                    # Header row does not need to be a barcode
+                # Blank rows are ignored.
+                if not row:
                     continue
-                else:
-                    # Other rows do need to be a barcode
-                    error = f"Unable to parse line {n+1}"
+                if not re.fullmatch(r'barcode\d\d', row[0]):
+                    if n == 0:
+                        # Header row does not need to be a barcode
+                        continue
+                    else:
+                        # Other rows do need to be a barcode
+                        error = f"Unable to parse line {n+1}"
+                        break
+                if len(row) == 1:
+                    error = f"Missing internal name for {row[0]}"
                     break
-            if len(row) == 1:
-                error = f"Missing internal name for {row[0]}"
-                break
-            if not re.fullmatch(r'\d{5}[A-Z]{2}\w*', row[1]):
-                error = f"Invalid internal name for {row[0]}"
-                break
+                if not re.fullmatch(r'\d{5}[A-Z]{2}\w*', row[1]):
+                    error = f"Invalid internal name for {row[0]}"
+                    break
 
-            codes.append( dict( bc = row[0],
-                                int_name = row[1],
-                                ext_name = ' '.join(row[2:]).strip() or row[1] ) )
+                codes.append( dict( bc = row[0],
+                                    int_name = row[1],
+                                    ext_name = ' '.join(row[2:]).strip() or row[1] ) )
+    except OSError as e:
+        # Catches exceptions where the file cannot be read
+        error = str(e)
 
     # OK we gottem. Now some sanity checks
     if not error:
