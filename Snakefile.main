@@ -282,7 +282,6 @@ rule main:
         save_out_plist(input.yaml, str(output.plist))
         counts = SC_DATA.counts
 
-        # shell("make_report.py -o {output.panrep} --totalcells {counts[cells]} --minionqc {input.minionqc} {input.yaml}")
         shell(r'''
             make_report.py -o {output.panrep} --totalcells {counts[cells]} \
                            --blobstats {input.blobstats} --realnames {input.realnames} \

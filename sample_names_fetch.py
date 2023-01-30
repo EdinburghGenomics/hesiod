@@ -120,7 +120,7 @@ def parse_tsv(filename, delim="\t"):
 
                 codes.append( dict( bc = row[0],
                                     int_name = row[1],
-                                    ext_name = ' '.join(row[2:]).strip() or row[1] ) )
+                                    ext_name = ' '.join(row[2:]).strip() or None ) )
     except OSError as e:
         # Catches exceptions where the file cannot be read
         error = str(e)

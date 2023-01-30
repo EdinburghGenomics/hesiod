@@ -44,7 +44,7 @@ PAM30735_sample_names.tsv
 
 We'll assume for now that there is a shared directory to be searched for these things.
 Having found the file, we need to process it. We should be suspicious. If the file has
-only 2 columns we can use the second column as both internal and external name. Other
+only 2 columns we can be happy without an external name. Other
 problems should lead to a result like:
 
 << sample_names.yaml >>
@@ -59,9 +59,18 @@ Tasks:
 
 * Have the report maker able to make filtered or unfiltered reports
     --filter sample_names.yaml
-    --filter yaml (implies sample_names.yaml)
+    --filter yaml (implies per-cell sample_names.yaml)
     --filter all (or none)
     --filter cutoff
-* Have a symlink between the two
+* Have a hyperlink between the two
 * Apply the cutoff (as per --filter cutoff) if sample_names.yaml has no barcodes
+  (I thought about doing this at the driver level I think, rather than trying to
+  have make_report.py be clever, but I think it needs to be clever).
 
+OK this is trickier than I thought, because the report could potentially have a mixture
+of cells...
+Do all cells actually have barcodes? Or none? Or some?
+Do all cells have a valid (with barcodes) sample_names.yaml? Or none? Or some?
+
+Need to think about all these cases. I think the driver is just going to run the report
+maker regardless with --filter yaml and so we need to anticipate all the options.

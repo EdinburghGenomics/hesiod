@@ -103,10 +103,10 @@ class T(unittest.TestCase):
         self.assertEqual( res2, dict( barcodes =
                               [ { 'bc': 'barcode01',
                                   'int_name': '12345XX0001',
-                                  'ext_name': '12345XX0001' },
+                                  'ext_name': None },
                                 { 'bc': 'barcode02',
                                   'int_name': '12345XX0002',
-                                  'ext_name': '12345XX0002' },
+                                  'ext_name': None },
                                 { 'bc': 'barcode03',
                                   'int_name': '12345XX0003',
                                   'ext_name': 'Sample number three' },
