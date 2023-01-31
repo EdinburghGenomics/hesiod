@@ -7,12 +7,14 @@ import unittest
 import logging
 from glob import glob
 from textwrap import dedent as dd
+import pickle
+from pprint import pprint
 
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, load_yaml,
-                          abspath, escape_md, aggregator, get_cell_summary )
+                          abspath, escape_md, aggregator, get_cell_summary, load_and_resolve_barcodes )
 
 class T(unittest.TestCase):
 
@@ -113,7 +115,6 @@ class T(unittest.TestCase):
     def test_array_slice(self):
         """At present this doesn't test any code. I just want to check my logic.
         """
-
         # Three files (aka cells) with three counts in each
         cell1 = dict( _counts= [ dict( _label = "cat1",
                                        total  = 100 ),
@@ -181,6 +182,15 @@ class T(unittest.TestCase):
         self.assertEqual(stats_table3, stats_table)
 
         # Yeah that's it! I can add any keys I like to the list.
+        # Note this also works but then I can't add other keys than 'total'...
+        stats_table4= [ ( label,
+                          sum( total_counts ),
+                          min( total_counts ),
+                          max( total_counts ) )
+                        for row, label in enumerate(labels)
+                        for total_counts in ([c[row]['total'] for c in all_counts],) ]
+        self.assertEqual(stats_table4, stats_table)
+
 
     def test_get_cell_summary(self):
 
@@ -216,6 +226,35 @@ class T(unittest.TestCase):
                                              "2.58",
                                              "2.23",
                                              "1.36" ])
+
+    def test_load_and_resolve_barcodes(self):
+        # As noted in the code, this function is a bit ugly.
+        # What I need to do is:
+        # 1 - serialise the full all_info from project 20221103_EGS2_25070AT
+        # 2 - keep re-parsing it because this function mutates the info
+        # 3 - patch make_report.load_yaml to force loading from test dir
+        # 4 - then I can test various cases
+
+        # Setup
+        def get_four_cells(cache=[]):
+            if not cache:
+                four_cells = {}
+                for f in glob(DATA_DIR + "/20221103_EGS2_25070AT_cell_yaml/cell_info_?.yaml"):
+                    y = load_cell_yaml(f)
+                    four_cells[y['Cell']] = y
+                cache.append(pickle.dumps(four_cells))
+            return pickle.loads(cache[0])
+
+        four_cells = get_four_cells()
+        self.assertEqual(len(four_cells), 4)
+
+        # pprint(four_cells)
+        # load_and_resolve_barcodes(filter, all_info, cutoff=0.01)
+
+        # Basic tests that don't actually modify the result
+        self.assertEqual( load_and_resolve_barcodes('all', four_cells), 'all')
+        self.assertEqual( load_and_resolve_barcodes('none', four_cells), 'none')
+        self.assertEqual( load_and_resolve_barcodes('wibble', {}), 'none')
 
     def test_escape_md(self):
         # Double backslash is the most confusing.
