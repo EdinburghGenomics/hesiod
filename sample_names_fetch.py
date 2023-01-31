@@ -22,7 +22,11 @@ def main(args):
 
     if args.find:
         # In this case, just find the file and quit
-        tsv_file = find_tsv(experiment, cell, args.tsvdir)
+        if cell.endswith('.tsv'):
+            # Oh, it's a filename not a cell name
+            tsv_file = cell if os.path.exists(cell) else None
+        else:
+            tsv_file = find_tsv(experiment, cell, args.tsvdir)
         if tsv_file:
             print(tsv_file)
             exit(0)
@@ -30,7 +34,13 @@ def main(args):
             exit(1)
 
     # Get the YAML which might be a sample list or might be an error.
-    info_dict = get_info_main(experiment, cell, args.tsvdir, delim)
+    if cell.endswith('.tsv'):
+        # Try to load the file directly. This is really for debugging.
+        tsv_file = cell
+        info_dict = parse_tsv(tsv_file, delim=delim)
+        info_dict['file'] = os.path.abspath(tsv_file)
+    else:
+        info_dict = get_info_main(experiment, cell, args.tsvdir, delim)
 
     if args.print:
         # Print and done

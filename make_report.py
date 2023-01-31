@@ -554,7 +554,7 @@ def load_and_resolve_barcodes(filter, all_info, cutoff=0.01):
         # Load one 'sample_names.yaml' per cell. There must be a file, even
         # if it has no barcodes and we have to revert to cutoff filter.
         for cell, ci in all_info.items():
-            ci['_filter_yaml'] = load_yaml(f"{k}/sample_names.yaml")
+            ci['_filter_yaml'] = load_yaml(f"{cell}/sample_names.yaml")
     elif filter.lower() != 'cutoff':
         # It's a single file to load
         sample_names_yaml = load_yaml(args.filter)
@@ -580,8 +580,11 @@ def load_and_resolve_barcodes(filter, all_info, cutoff=0.01):
     for cell, ci in all_info.items():
 
         if '_filter' not in ci:
-
-            abs_filter = ci['Number of reads'] * (cutoff / 100)
+            # Get the numbers of reads from all counts (pass and fail)
+            cell_total_reads = sum([ c['total_reads']
+                                for c in ci['_counts']
+                                if c['_part'] in ['pass', 'fail'] ])
+            abs_filter = cell_total_reads * (cutoff / 100)
             barcodes_counts = count_up_passing( ci['_counts'],
                                                 cutoff = abs_filter,
                                                 include_unclassified = False)
@@ -602,10 +605,10 @@ def count_up_passing(counts, cutoff=None, include_unclassified=True):
        Optionally discard 'unclassified', even if higher than cutoff.
     """
     # Cutoff is a number not a percentage
-    res = { c['_barcode']: c['_total_reads']
+    res = { c['_barcode']: c['total_reads']
              for c in counts
              if c['_part'] == 'pass'
-             and (not cutoff) or c['_total_reads'] >= cutoff }
+             and (not cutoff) or c['total_reads'] >= cutoff }
 
     if not include_unclassified and 'unclassified' in res:
         del res['unclassified']

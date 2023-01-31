@@ -1,0 +1,5 @@
+barcodes:
+- bc: barcode05
+  ext_name: patient 3
+  int_name: 25070AT0005
+file: /home/tbooth2/workspace/hesiod/test/examples/20221103_EGS2_25070AT_cell_yaml/sample_names_4.tsv

@@ -1,0 +1,11 @@
+barcodes:
+- bc: barcode01
+  ext_name: control 1
+  int_name: 25070AT0001
+- bc: barcode02
+  ext_name: control 2
+  int_name: 25070AT0002
+- bc: barcode03
+  ext_name: patient 1
+  int_name: 25070AT0003
+file: /home/tbooth2/workspace/hesiod/test/examples/20221103_EGS2_25070AT_cell_yaml/sample_names_1.tsv
