@@ -53,8 +53,9 @@ def format_counts_per_cells(cells, heading="Read summary"):
 def get_cell_summary( all_info ):
     """ Make a table of this stuff, one row per cell...
             Experiment Name - upstream name
-            Sample ID - easy. first part of cell ID
-            Run ID - the uuid
+            Pool ID - first part of cell ID which may be a pool or a sample (aka. singleton pool)
+            Barcodes - the number of barcodes in the pool
+            UUID - the run uuid
             Flow Cell ID - PAMXXXX
             Run Length - get from the final summary
             Reads Generated (M) - we have this in cell_info.yaml (pass and fail)
@@ -62,28 +63,43 @@ def get_cell_summary( all_info ):
             Passed Bases (Gb) - ditto (and we can give a percentage)
             Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
     """
+    filter_applied = any([ ci.get('_filter') for ci in all_info.values() ])
+
     # all_info is a dict of cell_name => info_dict as loaded from the info.yml files
     headings = [ "Experiment Name",
-                 "Sample ID",
-                 "Run ID",
+                 "Pool Name",
+                 "Barcodes" if filter_applied else None,
+                 "UUID",
                  "Flow Cell ID",
                  "Run Length",
                  "Reads Generated (M)",
                  "Estimated Bases (Gb)",
                  "Passed Bases (Gb)",
                  "Estimated N50 (kb)" ]
+    headings = list(filter(None, headings))
 
     def _round(n):
         """Standard rounding for the numbers"""
         return str(round(n , 2))
+
+    def barcodes_in_pool(cell_info):
+        """Return the apparent number of barcodes in this pool.
+        """
+        if cell_info.get('_filter'):
+            return len(cell_info['_filter'])
+        else:
+            return len( set( [ c['_barcode'] for c in cell_info['_counts']
+                               if c['_barcode'] not in ['unclassified', '.'] ] ) )
 
     rows = []
     for cell, ci in sorted(all_info.items()):
         row = OrderedDict()
 
         row["Experiment Name"] = ci["UpstreamExpt"]
-        row["Sample ID"] = ci["Library"]
-        row["Run ID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
+        row["Pool Name"] = ci["Library"]
+        if filter_applied:
+            row["Barcodes"] = barcodes_in_pool(ci)
+        row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
         row["Flow Cell ID"] = ci["CellID"]
         row["Run Length"] = ci["_final_summary"]["run_time"]
 
@@ -194,7 +210,7 @@ def format_report( all_info,
                   title="Metadata") )
 
     # Table of stuff used that was being for sign-off so I'm auto-adding it
-    cs_headings, cs_rows = get_cell_summary(all_info)
+    cs_headings, cs_rows = get_cell_summary( all_info )
     P( format_table( cs_headings,
                      cs_rows,
                      title = "Cell summary" ) )
@@ -224,11 +240,20 @@ def format_report( all_info,
         P()
         P( ":::::: {.bs-callout}" )
 
+        # See the number of barcoded samples in a project, by looking at all
+        # the distinct names. If there ar no names, we effectively assume each barcode
+        # is one sample, regfardless of the pools.
+        sample_set = set( [ samplename
+                            for ci in cells
+                            for samplename in ci.get('_filter', {}).values() ] )
+
+
         # Calculate some basic metadata for all cells in project
         # Note that "ci['Files in '+pf]" is set in Snakefile.main and here we assume that all the
         # values are nice integers.
         P( format_dl( [( 'Cell Count', len(cells) ),
-                       ( 'Library Count', len(set([c['Library'] for c in cells])) ),
+                       ( 'Pool Count', len(set([c['Library'] for c in cells])) ),
+                       ( 'Sample Count', len(sample_set) ) if sample_set else None,
                        ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
                        ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
                       title="Metadata") )
@@ -239,12 +264,16 @@ def format_report( all_info,
         # Now for the BLOB tables. These are specified by the blobstats_by_project.yaml file,
         # and will be loaded as a dict by project.
         # Simply print all the tables listed.
+
+        # Disabled for now as they seem fairly useless, especially with barcodes in use.
+        '''
         for blobtable in (blobstats or {}).get(p, []):
 
             # Insert the table as it comes
             P( format_table( blobtable['tsv_data'][0],
                              blobtable['tsv_data'][1:],
                              title = blobtable['title'] ))
+        '''
 
         P( "", "::::::", "" )
 
@@ -295,8 +324,11 @@ def format_report( all_info,
                 assert [ h for h in c if not h.startswith('_') ] == headings
 
             # Reformat the values into rows
+            # If there is a filter, apply it.
             rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
-                     for c in ci['_counts'] ]
+                     for c in ci['_counts']
+                     if '_filter' not in ci or c['_barcode'] in ci['_filter']
+                     ]
 
             P( format_table( ["Part"] + [ fixcase(h) for h in headings ],
                              rows,
@@ -452,7 +484,7 @@ def gen_unfilt_link(filter, cutoff, filename='-'):
     elif filter == 'cutoff':
         # either args.filter is 'cutoff' or there are no barcodes and we've
         # defaulted to filtering on cutoff.
-        return ( f"Only samples with more than {cutoff}% of total reads shown."
+        return ( f"Only samples with more than {cutoff}% of total reads are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
 
     elif filter == 'all':
@@ -476,7 +508,7 @@ def format_dl(data_pairs, title=None):
     P( '<dl class="dl-horizontal">' )
     if title:
         P(f"### {escape_md(title)}\n")
-    for k, pv in data_pairs:
+    for k, pv in filter(None, data_pairs):
         P(f"<dt>{escape_md(k)}</dt> <dd>{escape_md(pv)}</dd>")
     P( '</dl>' )
     P()
