@@ -209,8 +209,8 @@ class T(unittest.TestCase):
         cs_headings, cs_rows = get_cell_summary(all_info)
 
         self.assertEqual(list(cs_headings), [ "Experiment Name",
-                                              "Sample ID",
-                                              "Run ID",
+                                              "Pool Name",
+                                              "UUID",
                                               "Flow Cell ID",
                                               "Run Length",
                                               "Reads Generated (M)",

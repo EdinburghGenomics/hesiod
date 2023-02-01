@@ -8,7 +8,7 @@ from datetime import datetime
 from collections import OrderedDict
 import shutil
 
-from hesiod import hesiod_version, glob, load_yaml, abspath, groupby
+from hesiod import hesiod_version, glob, load_yaml, abspath, groupby, od_key_replace
 
 # Things we don't want to see in the Metadata section (as it's too cluttered)
 METADATA_HIDE = set('''
@@ -63,7 +63,7 @@ def get_cell_summary( all_info ):
             Passed Bases (Gb) - ditto (and we can give a percentage)
             Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
     """
-    filter_applied = any([ ci.get('_filter') for ci in all_info.values() ])
+    filter_applied = any([ '_filter' in ci for ci in all_info.values() ])
 
     # all_info is a dict of cell_name => info_dict as loaded from the info.yml files
     headings = [ "Experiment Name",
@@ -85,7 +85,7 @@ def get_cell_summary( all_info ):
     def barcodes_in_pool(cell_info):
         """Return the apparent number of barcodes in this pool.
         """
-        if cell_info.get('_filter'):
+        if '_filter' in cell_info:
             return len(cell_info['_filter'])
         else:
             return len( set( [ c['_barcode'] for c in cell_info['_counts']
@@ -96,7 +96,7 @@ def get_cell_summary( all_info ):
         row = OrderedDict()
 
         row["Experiment Name"] = ci["UpstreamExpt"]
-        row["Pool Name"] = ci["Library"]
+        row["Pool Name"] = ci["Pool"]
         if filter_applied:
             row["Barcodes"] = barcodes_in_pool(ci)
         row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
@@ -252,7 +252,7 @@ def format_report( all_info,
         # Note that "ci['Files in '+pf]" is set in Snakefile.main and here we assume that all the
         # values are nice integers.
         P( format_dl( [( 'Cell Count', len(cells) ),
-                       ( 'Pool Count', len(set([c['Library'] for c in cells])) ),
+                       ( 'Pool Count', len(set([c['Pool'] for c in cells])) ),
                        ( 'Sample Count', len(sample_set) ) if sample_set else None,
                        ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
                        ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
@@ -432,10 +432,35 @@ def format_report( all_info,
         if '_blobs_data' in ci:
             for ablob in ci['_blobs_data']:
                 for plot_group in ablob:
-                    if plot_group.get('has_data') is False:
+
+                    # Fix up some compatibility with old input files
+                    if 'barcode' not in plot_group:
+                        mo = re.fullmatch(r"Taxonomy for (\w+) (\w+)ed reads \((\d+) sequences\) by (.+)",
+                                          plot_group['title'])
+                        plot_group['barcode'] = mo.group(1)
+                        plot_group['pf'] = mo.group(2)
+                        plot_group['subsample'] = int(mo.group(3))
+                        plot_group['taxlevels'] = mo.group(4)
+                    # End of fix
+
+                    if not plot_group.get('has_data', True):
                         continue
 
-                    P(f"\n### {plot_group['title']}\n")
+                    sample_name = plot_group['barcode']
+                    if '_filter' in ci:
+                        if sample_name not in ci['_filter']:
+                            # Skip this one
+                            continue
+                        else:
+                            # Use the new name
+                            sample_name = ci['_filter'][sample_name]
+                    if sample_name == '.':
+                        sample_name = "all"
+
+                    pg_title = ( f"Taxonomy for {sample_name} {plot_group['pf']}ed reads"
+                                 f" ({plot_group['subsample']} sequences) by {plot_group['taxlevels']}" )
+
+                    P(f"\n### {pg_title}\n")
 
                     # plot_group['files'] will be a a list of lists, so plot
                     # each list a s a row.
@@ -554,6 +579,11 @@ def load_cell_yaml(filename):
     # We sort by cell ID so all YAML must have this.
     assert celldict.get('Cell'), "All yamls must have a Cell ID"
     assert celldict.get('Project'), "All yamls must have a Project (recreate this file with the latest Snakefile)"
+
+    # Old files have a 'Library' but we now call this the 'Pool'
+    # We need to fix the key without changing dict order. For newer files
+    # this will just be a no-op.
+    od_key_replace(celldict, 'Library', 'Pool')
 
     for countsdict in celldict.get('_counts', []):
         if 'read_length' in countsdict:

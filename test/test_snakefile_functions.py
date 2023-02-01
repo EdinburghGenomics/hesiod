@@ -92,7 +92,7 @@ class T(unittest.TestCase):
         """
         expected = { 'Experiment': "20220101_EGS1_12345AA",
                      'Cell': '12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef',
-                     'Library': '12345AA0018',
+                     'Pool': '12345AA0018',
                      'Date': '20220101',
                      'Number': '1234',
                      'Slot': '1-A1-A1',

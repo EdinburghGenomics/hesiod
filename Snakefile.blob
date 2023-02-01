@@ -73,6 +73,11 @@ rule per_cell_blob_plots:
                                                                 c = counts[pf],
                                                                 l = ', '.join(BLOB_LEVELS) ),
 
+                       barcode = wc.barcode,
+                       pf = pf,
+                       subsample = counts[pf],
+                       taxlevels = ', '.join(BLOB_LEVELS),
+
                        has_data = (str(counts[pf]) != '0'),
 
                        files = [ [ "{basebase}_{bc}_{pf}.{taxlevel}.{extn}.png".format(

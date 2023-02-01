@@ -82,10 +82,10 @@ def find_tsv(experiment, cell, dir='.'):
     """
     parsed_cell = parse_cell_name(experiment, cell)
 
-    # For a pooled flowcell the 'Library' will be a pool name.
+    # For a non-pooled flowcell the 'Pool' will be a library name.
     # CellID is the flowcell ID and project is like 12345
     candidate_tsv = [ f"{parsed_cell[x]}_sample_names.tsv" for x in
-                      [ 'Library', 'CellID', 'Project' ] ]
+                      [ 'Pool', 'CellID', 'Project' ] ]
 
     # The rule is that we search dir/*.tsv and dir/*/*.tsv. Precedence is in the
     # order of candidate_tsv. If there are multiple files the one in the top level takes
