@@ -263,7 +263,7 @@ wildcard_constraints:
 # NB - I think we need to run this with -f to ensure all the .yaml files are always created
 # and the report is always refreshed.
 
-localrules: main, one_cell, copy_fast5
+localrules: main, one_cell, copy_fast5, sample_names
 rule main:
     output:
         plist     = f"projects_ready.txt",
@@ -382,6 +382,8 @@ def one_cell_inputs(wc):
         fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
         fin_summary  = f"{cell}/cell_final_summary.yaml",
 
+        sample_names = f"{cell}/sample_names.yaml",
+
         # Previously we added:
         #minionqc     = "minionqc/{cell}/summary.yaml",
         )
@@ -430,6 +432,12 @@ rule one_cell:
                             minknow_report = minknow_report )
 
         dump_yaml(ci, str(output))
+
+# Local rule that fetches the barcode->sample mappings for one cell
+rule sample_names:
+    output: "{cell}/sample_names.yaml"
+    shell:
+        "sample_names_fetch.py {wildcards.cell}"
 
 def find_representative_fast5(wildcards):
     """Looks in SC_DATA for a representative FAST5 for this cell. If there is none,

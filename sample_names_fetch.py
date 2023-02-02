@@ -17,7 +17,7 @@ def main(args):
     # Turns r'\t' into '\t' the fancy way
     delim = ast.literal_eval(f"'{args.delim}'")
 
-    experiment = args.experiment or os.path.dirname(os.path.abspath('.'))
+    experiment = args.experiment or os.path.basename(os.path.abspath('.'))
     cell, = args.cell
 
     if args.find:
