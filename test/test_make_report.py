@@ -15,7 +15,7 @@ DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, load_yaml,
-                          abspath, escape_md, aggregator, get_cell_summary, load_and_resolve_barcodes )
+                          abspath, escape_md, aggregator, get_cell_summary, resolve_filter )
 
 class T(unittest.TestCase):
 
@@ -228,6 +228,7 @@ class T(unittest.TestCase):
                                              "2.23",
                                              "1.36" ])
 
+    @unittest.skip("Function was removed")
     def test_load_and_resolve_barcodes(self):
         # As noted in the code, this function is a bit ugly.
         # What I need to do is:

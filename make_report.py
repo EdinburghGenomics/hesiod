@@ -143,8 +143,7 @@ def format_report( all_info,
                    totalcells = None,
                    project_realnames = None,
                    blobstats = None,
-                   filter = 'none',
-                   cutoff = 'cutoff',
+                   bcfilter = 'none',
                    filename = '-' ):
     """Makes the report as a list of strings (lines)
     """
@@ -191,7 +190,7 @@ def format_report( all_info,
     # Maybe a link to the other report, if we have filtered vs. unfiltered
     #########################################################################
 
-    P( gen_unfilt_link(filter, cutoff, filename) )
+    P( gen_unfilt_link(bcfilter, filename) )
 
     #########################################################################
     # Run metadata
@@ -478,7 +477,7 @@ def format_report( all_info,
     P("*~~~*")
     return P
 
-def gen_unfilt_link(filter, cutoff, filename='-'):
+def gen_unfilt_link(bcfilter='off', filename='-'):
     """Return a link to the other report, if reports are being generated as
        a filtered+unfiltered pair.
     """
@@ -486,7 +485,7 @@ def gen_unfilt_link(filter, cutoff, filename='-'):
     # report.3cells.pan.html
     # report.3cells.all.pan.html
     unfilt_link = None
-    if filter == 'all':
+    if bcfilter == 'all':
         mo = re.fullmatch(r'(.+)\.all\.pan', filename)
         if mo:
             unfilt_link = f"{mo.group(1)}.pan.html"
@@ -499,26 +498,28 @@ def gen_unfilt_link(filter, cutoff, filename='-'):
         # We can't make a link. This includes when output filename is -
         return ''
 
-    if not filter or filter == 'none':
+    if bcfilter == 'off':
         # This is a full report and there is no pair.
         return ''
-    elif filter == 'yaml':
+    elif bcfilter == 'yaml':
         # This report shows specified barcodes
         return ( f"Only samples listed in the sample list files are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
-    elif filter == 'cutoff':
+    elif bcfilter.startswith('cutoff'):
         # either args.filter is 'cutoff' or there are no barcodes and we've
         # defaulted to filtering on cutoff.
-        return ( f"Only samples with more than {cutoff}% of total reads are shown."
+        cutoff_number = bcfilter.split()[-1]
+        return ( f"Only samples with more than {cutoff_number}% of total reads are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
 
-    elif filter == 'all':
+    elif bcfilter == 'all':
         # This is a full report and there is a filtered version
         return ( f"This is the full report showing all barcodes and stats."
                  f" [See the filtered version]({unfilt_link})." )
     else:
         # We have some weird mixture - probably due to a typo in one of the
-        # sample_names.txt files. Need to work out if this looks reasonable
+        # sample_names.txt files.
+        # FIXME - Need to work out if this looks reasonable
         # when all cells are un-barcoded.
         return ( f"Only some samples are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
@@ -595,87 +596,25 @@ def load_cell_yaml(filename):
 
     return celldict
 
-def load_and_resolve_barcodes(filter, all_info, cutoff=0.01):
-    """A rather ugly function.
-       Adds '_filter' (and maybe '_filter_yaml') to each value in all_info.
-       '_filter' will be a dict of {barcode: displayname} for all barcodes
-       to be included in the view, or False if the cell in un-barcoded.
-       Returns a fixed (maybe just lowercase) version of the filter argument.
+def resolve_filter(bcfilter, all_info):
+    """Looks at '_filter_type' (and maybe '_filter_yaml') for each cell to see
+       how 'real' samples are determined.
+       Returns one of ['off', 'all', 'mixed', 'yaml', 'cutoff 0.00'] assuming that the
+       latter two are the only possible values that will be seen in the YAML.
     """
-    if filter.lower() in ['all', 'none']:
-        # Easy. No filter to add
-        return filter.lower()
+    if bcfilter.lower() in ['all', 'off']:
+        # Easy. No filter to add, whatever is in the YAML
+        return bcfilter.lower()
 
-    # empty all_info? I guess we should allow it.
-    if not all_info:
-        return 'none'
-
-    # We need to look at the 'yaml' case first because we may resort to
-    # cutoffs.
-    if filter.lower() == 'yaml':
-        # Load one 'sample_names.yaml' per cell. There must be a file, even
-        # if it has no barcodes and we have to revert to cutoff filter.
-        for cell, ci in all_info.items():
-            ci['_filter_yaml'] = load_yaml(f"{cell}/sample_names.yaml")
-    elif filter.lower() != 'cutoff':
-        # It's a single file to load
-        sample_names_yaml = load_yaml(args.filter)
-        for cell, ci in all_info.items():
-            ci['_filter_yaml'] = sample_names_yaml
-
-    # Convert the '_filter_yaml' into a basic dict.
-    # TODO - add ext_name and check we have fully robust quoting.
-    for cell, ci in all_info.items():
-        if '_filter_yaml' in ci and ci['_filter_yaml'].get('barcodes'):
-            ci['_filter'] = { bc['bc']: bc['int_name']
-                              for bc in ci['_filter_yaml']['barcodes'] }
-
-    cells_with_yaml_barcodes = [cell for cell, ci in all_info.items()
-                                if '_filter' in ci ]
-    if len(cells_with_yaml_barcodes) == len(all_info):
-        # If that put a filter on all cells, we are done
-        return 'yaml'
-
-    # Else, filter was explicitly set to 'cutoff' or we have some cells
-    # with no valid barcodes listed.
-    # We need to look into some numbers.
-    for cell, ci in all_info.items():
-
-        if '_filter' not in ci:
-            # Get the numbers of reads from all counts (pass and fail)
-            cell_total_reads = sum([ c['total_reads']
-                                for c in ci['_counts']
-                                if c['_part'] in ['pass', 'fail'] ])
-            abs_filter = cell_total_reads * (cutoff / 100)
-            barcodes_counts = count_up_passing( ci['_counts'],
-                                                cutoff = abs_filter,
-                                                include_unclassified = False)
-
-            if not barcodes_counts:
-                # Not sure what happened here?
-                ci['_filter'] = False
-            else:
-                ci['_filter'] = { bc: 'Unbarcoded' if bc == '.' else bc
-                                  for bc in barcodes_counts }
-
-    return 'mixed' if cells_with_yaml_barcodes else 'cutoff'
-
-def count_up_passing(counts, cutoff=None, include_unclassified=True):
-    """Takes a _counts list-of-dicts and returns a dict of
-       barcode -> pass_count dict
-       Optionally supply a cutoff.
-       Optionally discard 'unclassified', even if higher than cutoff.
-    """
-    # Cutoff is a number not a percentage
-    res = { c['_barcode']: c['total_reads']
-             for c in counts
-             if c['_part'] == 'pass'
-             and (not cutoff) or c['total_reads'] >= cutoff }
-
-    if not include_unclassified and 'unclassified' in res:
-        del res['unclassified']
-
-    return res
+    ftypes = set(filter( None,
+                         [ci.get('_filter_type') for ci in all_info.values()] ))
+    if not ftypes:
+        # No filtering info is included
+        return 'off'
+    elif len(ftypes) > 1:
+        return 'mixed'
+    else:
+        return ftypes.pop()
 
 def main(args):
 
@@ -715,7 +654,7 @@ def main(args):
         realnames = None
 
     # Load the barcodes file (sample_names.yaml) if supplied
-    bc_filter = load_and_resolve_barcodes(args.filter, all_info, cutoff=args.cutoff)
+    bcfilter = resolve_filter(args.filter, all_info, cutoff=args.cutoff)
 
     # See if we have per-project blob stats. These can't be included in the per-cell YAML
     # files as the combined tables are generated by a separate R script.
@@ -735,7 +674,7 @@ def main(args):
                          totalcells = args.totalcells,
                          project_realnames = realnames,
                          blobstats = blobstats,
-                         filter = bc_filter,
+                         bcfilter = bcfilter,
                          cutoff = args.cutoff,
                          filename = os.path.basename(out_file) )
 
@@ -957,10 +896,8 @@ def parse_args(*args):
                         help="Override the PipelineStatus shown in the report.")
     parser.add_argument("-o", "--out",
                         help="Where to save the report. Defaults to stdout.")
-    parser.add_argument("-F", "--filter", default="none",
-                        help="Filter out unused barcodes based upon a YAML file or heuristic.")
-    parser.add_argument("-C", "--cutoff", type=float, default=0.01,
-                        help="When the filter is in effect, set the cutoff percentage.")
+    parser.add_argument("-F", "--filter", default="off", choices="off all on".split(),
+                        help="Filter out unused barcodes based upon the _filter values in the YAML.")
     parser.add_argument("-d", "--debug", action="store_true",
                         help="Print more verbose debugging messages.")
 

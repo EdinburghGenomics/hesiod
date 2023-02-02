@@ -161,6 +161,8 @@ def label_for_part(part, barcode='.'):
     return pls.get(part, pls['_default'])
 
 def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
+                   sample_names = None,
+                   sample_cutoff = 0.01,
                    blobs = None,
                    nanoplot = None,
                    fast5_meta = None,
@@ -238,7 +240,56 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     if fast5_meta:
         ci.update(fast5_meta)
 
+    # Add in the barcode-based filter. Here we can choose how to deal with internal
+    # and external names, but remember that external names in particular must be
+    # robustly quoted.
+    ci['_filter_type'] = 'none'
+    if sample_names:
+        ci['_filter_yaml'] = sample_names
+    if sample_names and sample_names.get('barcodes'):
+        # At least one barcode is listed
+        ci['_filter_type'] = 'yaml'
+        ci['_filter'] = { bc['bc']: bc['int_name']
+                          for bc in sample_names['barcodes'] }
+    else:
+        # Either there is no filter or it has no barcodes. Resort to
+        # comparing counts to sample_cutoff
+        # FIXME - no filter should be applied for non-barcoded cells
+        barcodes_counts = count_up_passing( ci['_counts'],
+                                            cutoff = sample_cutoff,
+                                            include_unclassified = False)
+        if barcodes_counts and list(barcodes_counts) != ['.']:
+            ci['_filter_type'] = f'cutoff {sample_cutoff}'
+            ci['_filter'] = { bc: 'Unbarcoded' if bc == '.' else bc
+                              for bc in barcodes_counts }
+        # if this fails for some reason, _filter_type will stay as none
+
     return ci
+
+def count_up_passing(counts, cutoff=None, include_unclassified=True):
+    """Takes a _counts list-of-dicts and returns a dict of
+       barcode -> pass_count dict
+       Optionally supply a cutoff as a percentage.
+       Optionally discard 'unclassified', even if higher than cutoff.
+    """
+    if cutoff:
+        cell_total_reads = sum([ c.get('total_reads', 0)
+                                 for c in counts
+                                 if c['_part'] in ['pass', 'fail'] ])
+        abs_cutoff = int(cell_total_reads * (cutoff / 100))
+    else:
+        abs_cutoff = 0
+
+
+    res = { c['_barcode']: c['total_reads']
+             for c in counts
+             if c['_part'] == 'pass'
+             and c['total_reads'] > abs_cutoff }
+
+    if not include_unclassified and 'unclassified' in res:
+        del res['unclassified']
+
+    return res
 
 ## End of functions ## Leave this comment in place to help the unit tests.
 
@@ -311,21 +362,19 @@ rule copy_fast5:
                         for bc in barcodes
                         for pf in ['pass', 'fail'] ]
     run:
+        # Cos sys.stderr gets silenced in sub-jobs:
+        logger.quiet.discard('all')
+
         # Exlicitly verify that all the files are actually present (but don't run 'md5sum -c'
         # that would be silly).
-        try:
-            for ifile in input.all_md5:
-                shell("echo Checking md5 file {ifile:q} >&2")
-                with open(str(ifile)) as ifh:
-                    for md5line in ifh:
-                        fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
-                        cell = os.path.dirname(os.path.dirname(ifile))[len("md5sums/"):]
-                        # Use os.stat to assert the file exists.
-                        os.stat(f"{cell}/{fast5_file}")
-        except Exception as e:
-            # Cos sys.stderr gets silenced in sub-jobs:
-            shell("echo {e!r:q} >&2")
-            raise
+        for ifile in input.all_md5:
+            print("Checking md5 file {ifile}")
+            with open(str(ifile)) as ifh:
+                for md5line in ifh:
+                    fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
+                    cell = os.path.dirname(os.path.dirname(ifile))[len("md5sums/"):]
+                    # Use os.stat to assert the file exists.
+                    os.stat(f"{cell}/{fast5_file}")
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
@@ -402,10 +451,11 @@ rule one_cell:
     params:
         base = lambda wc: cellname_to_base(wc.cell)
     run:
+        # Cos sys.stderr gets silenced in sub-jobs:
+        logger.quiet.discard('all')
+
         # The final summary data has been parsed into YAML
         fin_summary = load_final_summary(None, yamlfile = str(input.fin_summary))
-        # Ditto the FAST5 metadata
-        mdata = load_yaml(str(input.fast5_meta))
         # The counts files have sequence counts (not file counts) per barcode and pass/fail
         cdata = dict()
         for c in input.counts:
@@ -427,9 +477,10 @@ rule one_cell:
                             duplex = duplex_count,
                             fin_summary = fin_summary,
                             blobs = input.blobs,
-                            fast5_meta = mdata,
+                            fast5_meta = load_yaml(input.fast5_meta),
                             nanoplot = input.nanoplot_r[0],
-                            minknow_report = minknow_report )
+                            minknow_report = minknow_report,
+                            sample_names = load_yaml(input.sample_names) )
 
         dump_yaml(ci, str(output))
 

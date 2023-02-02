@@ -112,6 +112,7 @@ class T(unittest.TestCase):
                      '_duplex' : [ ['Duplex pairs',             1],
                                    ['from total passing reads', 200],
                                    ['% of passing reads',       '1.00%'] ],
+                     '_filter_type': 'none',
                      '_final_summary': {'is_rna': False},
                      '_nanoplot': '../../__nanoplot__',
                    }

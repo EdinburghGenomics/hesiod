@@ -84,17 +84,37 @@ So we can run it as a Snakemake rule, and use the result as input to make_report
 We need to make the rule a localrule, and we need to make it always re-run (to pick up
 updates) and we need to have a global setting for SAMPLE_NAMES_PATH.
 
-OK. Decision needed. For most other stuff, the once_cell rule folds all the info from the
+OK. Decision needed. For most other stuff, the one_cell rule folds all the info from the
 various files into cell_info.yaml and then the make_report.py relies on this. Shall I do
 the same for this new stuff of should I keep it as it is, where the cell_info.yaml has
 no sample name stuff and the make_report script handles it all? What are the pros and cons:
 
 pros: Means it works like everything else
-cons: More bloat in Snakefile.main
+cons: More bloat in Snakefile.main (in one_cell and get_cell_info())
 
-erm? OK, plan is to take the code currently in rule one_cell and put it into a separate
+erm? OK, idea is to take the code currently in rule one_cell and put it into a separate
 script one_cell_info.py. This will take YAML on STDIN and print YAML on STDOUT. So it
 should be easy to test. Then I can modify the rule to marshall the input, output and
 parameters as YAML and pipe it to the script.
 
-Then test it. Profit? Or is this just a dumb idea?
+No this is silly. Just add to the code we have. It works. And I have a better way than
+my try/catch to see erors from this part of the code:
+
+Simply add this at the top:
+logger.quiet.discard('all')
+
+---
+
+Again. I'm going round in circles here. I've made the make_report.py script respect barcodes
+but I think I did this wrong. Rather than adding --cutoff and --filter to this script and
+supporting various values for --filter I think I need to...
+
+Move the basic gist of load_and_resolve_barcodes into get_cell_info(). This will only be
+processing one cell at a time so no loop needed. This will require a _filter_yaml element
+(the one_cell rule in turn requires sample_names.yaml) and will add a _filter element
+which is a dict {barcode: name} as before and a '_filter_type' value which will be 'yaml'
+or 'cutoff' or 'none' if _filter is empty (which implies bool(cutoff) is False).
+
+OK this makes more logical sense, I think. Then the --filter for make_report.py will be:
+'off' (ignore filter entirely) or 'all' (show everything and link)  or 'on' (use '_filter')
+as found in the YAML.

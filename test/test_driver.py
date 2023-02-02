@@ -35,7 +35,7 @@ PROGS_TO_MOCK = {
 # Snakemake targets are always the same, unless $MAIN_SNAKE_TARGETS is set
 SNAKE_TARGETS = ("copy_fast5 main -f"
                  " -R per_cell_blob_plots per_project_blob_tables one_cell"
-                 "    nanostats convert_final_summary"
+                 "    nanostats convert_final_summary sample_names_fetch"
                  " --config".split())
 
 
