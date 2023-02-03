@@ -110,6 +110,10 @@ def parse_tsv(filename, delim="\t"):
             tsvreader = csv.reader(csvfile, delimiter=delim)
             for n, row in enumerate(tsvreader):
 
+                # If the row has no tabs, try a basic split on spaces
+                if len(row) == 1:
+                    row = row[0].split()
+
                 # Blank rows are ignored.
                 if not row:
                     continue
@@ -161,7 +165,11 @@ def parse_args(*args):
                      a sample_names.yaml with the information in YAML format,
                      or an error if finding or parsing the file fails.
                   """
-    argparser = ArgumentParser( description=description,
+    epilog =      """The env var SAMPLE_NAMES_DIR can be set to override the default
+                     TSVDIR setting.
+                  """
+    argparser = ArgumentParser( description = description,
+                                epilog = epilog,
                                 formatter_class = ArgumentDefaultsHelpFormatter )
     argparser.add_argument("cell", nargs=1,
                             help="The cell to find samples for.")

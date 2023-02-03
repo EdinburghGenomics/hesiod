@@ -124,7 +124,7 @@ rule merge_fast5_md5_batches:
         lines_written = 0
         with open(str(output), 'x') as ofh:
             out_dir = os.path.dirname(str(output))
-            print("Writing fast5 md5 for {out_dir}")
+            print(f"Writing fast5 md5 for {out_dir}")
             # Could do this with shell("cat ...")
             for c in input:
                 with open(str(c)) as ifh:

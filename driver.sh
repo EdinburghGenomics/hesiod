@@ -309,7 +309,7 @@ action_cell_ready(){
       # and links back to ./rundata.
       # TODO - document the reason for this list of rules to always run...
       _force_rerun="per_cell_blob_plots  per_project_blob_tables  one_cell"
-      _force_rerun+=" nanostats          convert_final_summary    sample_names_fetch"
+      _force_rerun+=" nanostats          convert_final_summary    sample_names"
       ( cd "$RUN_OUTPUT"
 
         scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml

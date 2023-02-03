@@ -320,35 +320,43 @@ rule main:
         plist     = f"projects_ready.txt",
         panrep    = f"all_reports/report.{CELL_COUNT}cells.pan",
         rep       = f"all_reports/report.{CELL_COUNT}cells.pan.html",
+        allpanrep = f"all_reports/report.{CELL_COUNT}cells.all.pan",
+        allrep    = f"all_reports/report.{CELL_COUNT}cells.all.pan.html",
         replink   = f"all_reports/report.html",
     input:
         yaml      = expand("{cell}/cell_info.yaml", cell=SC),
         blobstats = "blob/blobstats_by_project.yaml",
         # minionqc = "minionqc/combinedQC/summary.yaml",
-        realnames = "project_realnames.yaml",
+        projnames = "project_realnames.yaml",
     params:
-        templates = os.environ.get('TEMPLATES', '.')
+        templates = os.environ.get('TEMPLATES', '.'),
+        totalcells = SC_DATA.counts['cells']
     run:
         # After generating all YAML, all projects are ready.
         save_out_plist(input.yaml, str(output.plist))
-        counts = SC_DATA.counts
 
-        shell(r'''
-            make_report.py -o {output.panrep} --totalcells {counts[cells]} \
-                           --blobstats {input.blobstats} --realnames {input.realnames} \
-                           {input.yaml}
-        ''')
+        # At this point I could detect if the only barcode in the whole
+        # experiment is '.' then I don't need allrep but for now lets always do both.
+        for panrep, rep, filt in [ (output.panrep,    output.rep,    'on'),
+                                   (output.allpanrep, output.allrep, 'all') ]:
 
-        shell(r'''
-            {TOOLBOX} pandoc -f markdown \
-                                --template={params.templates}/template.html \
-                                --include-in-header={params.templates}/javascript.js.html \
-                                --include-in-header={params.templates}/easter.js.html \
-                                --include-in-header={params.templates}/local.css.html \
-                                --toc --toc-depth=4 \
-                                -o {output.rep} {output.panrep}
-        ''')
+            shell(r'''
+                make_report.py -o {panrep} --totalcells {params.totalcells} \
+                               --blobstats {input.blobstats} --projnames {input.projnames} \
+                               --filter {filt} {input.yaml}
+            ''')
 
+            shell(r'''
+                {TOOLBOX} pandoc -f markdown \
+                                    --template={params.templates}/template.html \
+                                    --include-in-header={params.templates}/javascript.js.html \
+                                    --include-in-header={params.templates}/easter.js.html \
+                                    --include-in-header={params.templates}/local.css.html \
+                                    --toc --toc-depth=4 \
+                                    -o {rep} {panrep}
+            ''')
+
+        # Link just the main one
         shell("ln -snr {output.rep} {output.replink}")
 
 # I've split out the fast5 md5summing in order to allow me to re-run everything else without
@@ -368,7 +376,7 @@ rule copy_fast5:
         # Exlicitly verify that all the files are actually present (but don't run 'md5sum -c'
         # that would be silly).
         for ifile in input.all_md5:
-            print("Checking md5 file {ifile}")
+            print(f"Checking md5 file {ifile}")
             with open(str(ifile)) as ifh:
                 for md5line in ifh:
                     fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
@@ -485,6 +493,7 @@ rule one_cell:
         dump_yaml(ci, str(output))
 
 # Local rule that fetches the barcode->sample mappings for one cell
+# The Python script will see $SAMPLE_NAMES_DIR
 rule sample_names:
     output: "{cell}/sample_names.yaml"
     shell:

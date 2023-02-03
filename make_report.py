@@ -6,6 +6,7 @@ from pprint import pformat
 from math import modf
 from datetime import datetime
 from collections import OrderedDict
+from contextlib import suppress
 import shutil
 
 from hesiod import hesiod_version, glob, load_yaml, abspath, groupby, od_key_replace
@@ -68,8 +69,7 @@ def get_cell_summary( all_info ):
     # all_info is a dict of cell_name => info_dict as loaded from the info.yml files
     headings = [ "Experiment Name",
                  "Pool Name",
-                 "Barcodes" if filter_applied else None,
-                 "UUID",
+                 "Barcodes" if filter_applied else "UUID",
                  "Flow Cell ID",
                  "Run Length",
                  "Reads Generated (M)",
@@ -99,7 +99,8 @@ def get_cell_summary( all_info ):
         row["Pool Name"] = ci["Pool"]
         if filter_applied:
             row["Barcodes"] = barcodes_in_pool(ci)
-        row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
+        else:
+            row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
         row["Flow Cell ID"] = ci["CellID"]
         row["Run Length"] = ci["_final_summary"]["run_time"]
 
@@ -240,7 +241,7 @@ def format_report( all_info,
         P( ":::::: {.bs-callout}" )
 
         # See the number of barcoded samples in a project, by looking at all
-        # the distinct names. If there ar no names, we effectively assume each barcode
+        # the distinct names. If there are no names, we effectively assume each barcode
         # is one sample, regfardless of the pools.
         sample_set = set( [ samplename
                             for ci in cells
@@ -316,18 +317,39 @@ def format_report( all_info,
         # Stuff from the .count files that's been embedded in the YAML.
         # Make a single table
         if ci.get('_counts'):
-            headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
 
-            # Confirm that all dicts have the same labels
-            for c in ci['_counts'][1:]:
-                assert [ h for h in c if not h.startswith('_') ] == headings
+            if '_filter' in ci:
+                # We want to make some changes to the display, but I'm not going to mess
+                # around with the format of cell_info.yaml so fix it here.
+                headings = "sample total_reads passing_reads passing_bases min_length max_length"
 
-            # Reformat the values into rows
-            # If there is a filter, apply it.
-            rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
-                     for c in ci['_counts']
-                     if '_filter' not in ci or c['_barcode'] in ci['_filter']
-                     ]
+                rowsdict = {}
+                for c in ci['_counts']:
+                    if c['_barcode'] in ci['_filter'] and c['_part'] == 'pass':
+                        rowsdict[c['_barcode']] = [ ci['_filter'][c['_barcode']],
+                                                    c['total_reads'],
+                                                    c['total_reads'],
+                                                    c['total_bases'],
+                                                    c['min_length'],
+                                                    c['max_length'] ]
+                # Go again and add the fails
+                for c in ci['_counts']:
+                    if c['_barcode'] in rowsdict and c['_part'] == 'fail':
+                        # Anything else? Or just add to total_reads?
+                        rowsdict[c['_barcode']][1] += c['total_reads']
+                rows = rowsdict.values()
+            else:
+                # Old version displays what's in the file
+                headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
+
+                # Confirm that all dicts have the same labels
+                for c in ci['_counts'][1:]:
+                    assert [ h for h in c if not h.startswith('_') ] == headings
+
+                # Reformat the values into rows
+                # If there is a filter, apply it.
+                rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
+                         for c in ci['_counts'] ]
 
             P( format_table( ["Part"] + [ fixcase(h) for h in headings ],
                              rows,
@@ -640,29 +662,23 @@ def main(args):
         all_info[yaml_info['Cell']] = yaml_info
 
     # Glean some pipeline metadata
-    if args.pipeline:
-        pipedata = get_pipeline_metadata(args.pipeline)
-    else:
-        pipedata = dict(version=hesiod_version)
+    pipedata = get_pipeline_metadata(args.pipeline) if args.pipeline else dict(version=hesiod_version)
 
     # See if we have some info from the LIMS regarding the projects
-    # FIXME- really this should be combined with load_and_resolve_barcodes() because really
-    # the project AND barcode onfo should come from the LIMS.
-    if args.realnames:
-        realnames = load_yaml(args.realnames)
-    else:
-        realnames = None
+    projnames = load_yaml(args.projnames) if args.projnames else None
 
     # See what's the real filter (list of valid barcodes) we are applying here
     bcfilter = resolve_filter(args.filter, all_info)
+    if bcfilter in ['all', 'off']:
+        # Strip the _filter from all the cells
+        for ci in all_info.values():
+            with suppress(KeyError):
+                del ci['_filter']
 
     # See if we have per-project blob stats. These can't be included in the per-cell YAML
     # files as the combined tables are generated by a separate R script.
     # I've decided to use a single combined metadata file rather than one per project.
-    if args.blobstats:
-        blobstats = load_blobstats(args.blobstats)
-    else:
-        blobstats  = None
+    blobstats = load_blobstats(args.blobstats) if args.blobstats else None
 
     out_file = args.out or '-'
 
@@ -672,10 +688,9 @@ def main(args):
                          aborted_list = [],
                          minionqc = args.minionqc,
                          totalcells = args.totalcells,
-                         project_realnames = realnames,
+                         project_realnames = projnames,
                          blobstats = blobstats,
                          bcfilter = bcfilter,
-                         cutoff = args.cutoff,
                          filename = os.path.basename(out_file) )
 
     if out_file == '-':
@@ -888,7 +903,7 @@ def parse_args(*args):
                         help="Manually set the total number of cells, in case not all are yet reported.")
     parser.add_argument("-p", "--pipeline", default="rundata/pipeline",
                         help="Directory to scan for pipeline meta-data.")
-    parser.add_argument("-r", "--realnames",
+    parser.add_argument("-n", "--projnames",
                         help="YAML file containing real names for projects.")
     parser.add_argument("-b", "--blobstats",
                         help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")
