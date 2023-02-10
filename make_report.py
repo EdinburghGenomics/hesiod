@@ -207,13 +207,15 @@ def format_report( all_info,
                    ( 'Pool Count',          len(pools) ),
                    ( 'Start Time',          strftime(start_time) ),
                    ( 'Last Run End',        strftime(end_time) )],
-                  title="Metadata") )
+                  title = "Metadata",
+                  format_vals = False ) )
 
     # Table of stuff used that was being for sign-off so I'm auto-adding it
     cs_headings, cs_rows = get_cell_summary( all_info )
     P( format_table( cs_headings,
                      cs_rows,
-                     title = "Cell summary" ) )
+                     title = "Cell summary",
+                     format_vals = False ) )
 
     # Overview plots from minionqc/combinedQC
     if minionqc:
@@ -242,8 +244,8 @@ def format_report( all_info,
 
         # See the number of barcoded samples in a project, by looking at all
         # the distinct names. If there are no names, we effectively assume each barcode
-        # is one sample, regfardless of the pools.
-        sample_set = set( [ samplename
+        # is one sample, regardless of the pools.
+        sample_set = set( [ samplename.split()[0]
                             for ci in cells
                             for samplename in ci.get('_filter', {}).values() ] )
 
@@ -302,14 +304,8 @@ def format_report( all_info,
         # We'll need this shortly. See copy_files
         cell_uid = ci['Base'].split('/')[-1]
 
-        def _format(_k, _v):
-            """Handle special case for dates"""
-            if _k == "Date" and re.match(r'[0-9]{8}', _v):
-                _v = strfdate(datetime.strptime(_v, '%Y%m%d'))
-            return (_k, _v)
-
         # Now the metadata section
-        P( format_dl( [ _format( k, v ) for k, v in ci.items()
+        P( format_dl( [ (k, v) for k, v in ci.items()
                         if not ( k.startswith("_")
                                  or k in METADATA_HIDE ) ],
                       title = "Metadata") )
@@ -321,7 +317,8 @@ def format_report( all_info,
             if '_filter' in ci:
                 # We want to make some changes to the display, but I'm not going to mess
                 # around with the format of cell_info.yaml so fix it here.
-                headings = "sample total_reads passing_reads passing_bases min_length max_length"
+                headings = ("sample total_reads passing_reads passing_bases"
+                            " min_length max_length").split()
 
                 rowsdict = {}
                 for c in ci['_counts']:
@@ -339,19 +336,23 @@ def format_report( all_info,
                         rowsdict[c['_barcode']][1] += c['total_reads']
                 rows = rowsdict.values()
             else:
-                # Old version displays what's in the file
+                # Old version just tabulates what's in the file
                 headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
 
                 # Confirm that all dicts have the same labels
                 for c in ci['_counts'][1:]:
                     assert [ h for h in c if not h.startswith('_') ] == headings
 
-                # Reformat the values into rows
+                # Reformat the values into rows and add the extra first column
                 # If there is a filter, apply it.
-                rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
+                rows = [ [ c['_label'], *[ c[h] for h in headings ] ]
                          for c in ci['_counts'] ]
 
-            P( format_table( ["Part"] + [ fixcase(h) for h in headings ],
+                # Add the extra first column label
+                headings = ["part", *headings]
+
+
+            P( format_table( [ fixcase(h) for h in headings ],
                              rows,
                              title = "Read counts" ) )
             P()
@@ -372,14 +373,6 @@ def format_report( all_info,
             P()
             ns = ci['_nanoplot_data']
 
-            def _format(_k, _v):
-                """Coerce some floats to ints but not all of them"""
-                if not( _k.startswith("Mean") or _k.startswith("Median") ):
-                    # We believe the float is really an int in disguise
-                    if not modf(_v)[0]:
-                        _v = int(_v)
-                return (_k, _v)
-
             if ns:
                 # So we just want the General summary. But do we want it as a table or a
                 # DL or a rotated table or what? Let's have all three.
@@ -397,14 +390,14 @@ def format_report( all_info,
                 '''
 
                 # As a rotated table
-                P( format_table( ['Item', 'Printable', 'Value'],
-                                 [ [k, pv, _format(k, nv)[1] ] for k, pv, nv, *_ in nsgs ],
+                P( format_table( ['Item', 'Value'],
+                                 [ (k, nv) for k, pv, nv, *__ in nsgs ],
                                  title = "Nanoplot general summary" ) )
 
             else:
                 # Here we have an empty report (as opposed to a missing report)
-                P( format_table( ['Item', 'Printable', 'Value'],
-                                 [ ('Passing reads', '0', '0') ],
+                P( format_table( ['Item', 'Value'],
+                                 [ ('Passing reads', '0') ],
                               title = "Nanoplot general summary" ) )
 
             # Version that prints everything...
@@ -499,6 +492,30 @@ def format_report( all_info,
     P("*~~~*")
     return P
 
+def omni_format(k, v):
+    """Handle special case for dates
+       and coerce some floats to ints but not all of them
+    """
+    if type(v) is str:
+        if k == "Date" and re.fullmatch(r'[0-9]{8}', v):
+            v = strfdate(datetime.strptime(v, '%Y%m%d'))
+
+    elif type(v) is float:
+        if not( k.startswith("Mean") or k.startswith("Median") ):
+            # We suspect the float is really an int in disguise.
+            # modf() gives the fractional and whole parts
+            if not modf(v)[0]:
+                v = int(v)
+
+    # Add commas to big numbers.
+    if type(v) is int:
+       v = "{:,d}".format(v)
+    elif type(v) is float:
+        v = "{:,.2f}".format(v)
+
+    return v
+
+
 def gen_unfilt_link(bcfilter='off', filename='-'):
     """Return a link to the other report, if reports are being generated as
        a filtered+unfiltered pair.
@@ -547,7 +564,7 @@ def gen_unfilt_link(bcfilter='off', filename='-'):
                  f" [See report with all barcodes]({unfilt_link})." )
 
 
-def format_dl(data_pairs, title=None):
+def format_dl(data_pairs, title=None, format_vals=True):
     """Formats a table of values with headings in the first column.
        Currently we do this as a <dl>, but this may change.
     """
@@ -557,13 +574,15 @@ def format_dl(data_pairs, title=None):
     if title:
         P(f"### {escape_md(title)}\n")
     for k, pv in filter(None, data_pairs):
+        if format_vals:
+            pv = omni_format(k, pv)
         P(f"<dt>{escape_md(k)}</dt> <dd>{escape_md(pv)}</dd>")
     P( '</dl>' )
     P()
 
     return "\n".join(P)
 
-def format_table(headings, data, title=None):
+def format_table(headings, data, title=None, format_vals=True):
     """Another markdown table formatter. Values will be escaped.
        Presumably the table is destined to be a DataTable.
        Returns a single string.
@@ -584,8 +603,13 @@ def format_table(headings, data, title=None):
 
     # Add the data.
     for drow in data:
-        P('| {} |'.format( ' | '.join([ escape_md(d)
-                                        for d in drow ]) ))
+        assert len(drow) == len(headings)
+        if format_vals:
+            escrow = [ escape_md(omni_format(h, d))
+                       for h, d in zip(headings, drow) ]
+        else:
+            escrow = [ escape_md(d) for d in drow ]
+        P('| {} |'.format( ' | '.join(escrow) ))
     P()
 
     return "\n".join(P)
@@ -810,7 +834,6 @@ def copy_files(all_info, base_path, minionqc=None):
                 copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_minknow_report' in ci:
-            rep_base = os.path.dirname(ci['_minknow_report'])
             copy_file( ci['_minknow_report'],
                        os.path.join(base_path, "minknow", os.path.basename(ci['_minknow_report'])) )
 
@@ -901,9 +924,9 @@ def parse_args(*args):
                         help="Add minionqc combined stats")
     parser.add_argument("--totalcells",
                         help="Manually set the total number of cells, in case not all are yet reported.")
-    parser.add_argument("-p", "--pipeline", default="rundata/pipeline",
+    parser.add_argument("-p", "--pipeline", metavar="DIR", default="rundata/pipeline",
                         help="Directory to scan for pipeline meta-data.")
-    parser.add_argument("-n", "--projnames",
+    parser.add_argument("-n", "--projnames", metavar="YAMLFILE",
                         help="YAML file containing real names for projects.")
     parser.add_argument("-b", "--blobstats",
                         help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")

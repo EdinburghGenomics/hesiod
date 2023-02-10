@@ -15,7 +15,8 @@ DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from make_report import ( list_projects, format_counts_per_cells, load_cell_yaml, load_yaml,
-                          abspath, escape_md, aggregator, get_cell_summary, resolve_filter )
+                          abspath, escape_md, aggregator, get_cell_summary, resolve_filter,
+                          omni_format )
 
 class T(unittest.TestCase):
 
@@ -94,9 +95,9 @@ class T(unittest.TestCase):
 
                                 | Part | Total Reads | Total Bases | Max Length |
                                 |------|-------------|-------------|------------|
-                                | All passed reads | 15488849 | 198731265339 | 217472 |
-                                | Lambda\-filtered passed reads | 12266134 | 187067423308 | 217472 |
-                                | All failed reads | 8181438 | 28788689895 | 240324 |
+                                | All passed reads | 15\,488\,849 | 198\,731\,265\,339 | 217\,472 |
+                                | Lambda\-filtered passed reads | 12\,266\,134 | 187\,067\,423\,308 | 217\,472 |
+                                | All failed reads | 8\,181\,438 | 28\,788\,689\,895 | 240\,324 |
                              """) )
 
         # For a new run with one cell, several barcodes
@@ -108,9 +109,9 @@ class T(unittest.TestCase):
 
                                 | Part | Total Reads | Total Bases | Max Length |
                                 |------|-------------|-------------|------------|
-                                | All passed reads | 120134 | 130966011 | 11541 |
-                                | Passed and lambda\-filtered reads | 120134 | 130966011 | 11541 |
-                                | All failed reads | 120106 | 123147574 | 354311 |
+                                | All passed reads | 120\,134 | 130\,966\,011 | 11\,541 |
+                                | Passed and lambda\-filtered reads | 120\,134 | 130\,966\,011 | 11\,541 |
+                                | All failed reads | 120\,106 | 123\,147\,574 | 354\,311 |
                              """) )
 
     def test_array_slice(self):
@@ -228,6 +229,19 @@ class T(unittest.TestCase):
                                              "2.23",
                                              "1.36" ])
 
+    def test_omni_format(self):
+        self.assertEqual( omni_format('foo', 'bar'), 'bar' )
+
+        self.assertEqual( omni_format('foo', 123456), '123,456' )
+
+        # float becomes int
+        self.assertEqual( omni_format('foo', 123456.0), '123,456' )
+
+        # But not if there is an actual floating component
+        self.assertEqual( omni_format('foo', 123456.0001), '123,456.00' )
+
+        # Auto date. Also depends on the strfdate() function
+        self.assertEqual( omni_format('Date', '19800211'), '11 Feb 1980' )
 
     def test_escape_md(self):
         # Double backslash is the most confusing.

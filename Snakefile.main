@@ -249,7 +249,8 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     if sample_names and sample_names.get('barcodes'):
         # At least one barcode is listed
         ci['_filter_type'] = 'yaml'
-        ci['_filter'] = { bc['bc']: bc['int_name']
+        ci['_filter'] = { bc['bc']:
+                            (bc['int_name'] + ' ' + bc.get('ext_name', '')).strip()
                           for bc in sample_names['barcodes'] }
     else:
         # Either there is no filter or it has no barcodes. Resort to
