@@ -371,8 +371,10 @@ rule copy_fast5:
                         for bc in barcodes
                         for pf in ['pass', 'fail'] ]
     run:
-        # Cos sys.stderr gets silenced in sub-jobs:
+        # Un-silence sys.stderr in sub-jobs:
         logger.quiet.discard('all')
+
+        ldcache = {}
 
         # Exlicitly verify that all the files are actually present (but don't run 'md5sum -c'
         # that would be silly).
@@ -382,8 +384,13 @@ rule copy_fast5:
                 for md5line in ifh:
                     fast5_file = md5line.rstrip('\n').split(maxsplit=1)[1]
                     cell = os.path.dirname(os.path.dirname(ifile))[len("md5sums/"):]
-                    # Use os.stat to assert the file exists.
-                    os.stat(f"{cell}/{fast5_file}")
+                    # I could use os.stat() to assert the file exists, but stat is
+                    # expensive on Lustre, so use listdir instead:
+                    dname, fname = os.path.split(f"{cell}/{fast5_file}")
+
+                    if dname not in ldcache:
+                        ldcache[dname] = set(os.listdir(dname))
+                    assert fname in ldcache[dname], f"{cell}/{fast5_file} is missing"
 
 # Per-cell driver rule. In short:
 #  All fast5 files get individually compressed
