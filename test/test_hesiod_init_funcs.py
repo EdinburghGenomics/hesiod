@@ -2,8 +2,6 @@
 
 """Test stuff in hesiod/__init__.py"""
 
-# Note this will get discovered and run as a no-op test. This is fine.
-
 import sys, os, re
 import unittest
 import logging

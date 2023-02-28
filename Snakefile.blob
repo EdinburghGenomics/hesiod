@@ -254,7 +254,7 @@ rule blob_db:
         blast_results = "blob/{{foo}}+sub{}.blast".format(BLOB_SUBSAMPLE),
         reads_sample  = "blob/{{foo}}+sub{}.fasta".format(BLOB_SUBSAMPLE),
         cov           = "blob/{{foo}}+sub{}.complexity".format(BLOB_SUBSAMPLE)
-    shadow: 'shallow'
+    shadow: 'minimal'
     resources:
         mem_mb = 12000,
         n_cpus = 2,
@@ -280,7 +280,7 @@ rule blob_plot_png:
     params:
         maxsize = "1750x1750",
         thumbsize = "320x320"
-    shadow: 'shallow'
+    shadow: 'minimal'
     resources:
         mem_bb = 12000,
         n_cpus = 2,
