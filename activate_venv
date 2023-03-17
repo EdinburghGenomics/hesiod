@@ -15,7 +15,7 @@ fi
 
 activate_venv() {
     #We need to ensure -u is not set but then put the old value back.
-    reset=`set +o | grep -w nounset` ; set +o nounset
+    local reset=$(set +o | grep -w nounset) ; set +o nounset
     source ./_hesiod_venv/bin/activate
     eval $reset
 }
@@ -53,7 +53,7 @@ else
 
         pip_install wheel
         pip_install pyyaml==6.0
-        pip_install yamlloader==1.1.0
+        pip_install 'yamlloader<2'
         pip_install rt==2.2.2
         pip_install python-dateutil==2.8.2
 
@@ -107,13 +107,14 @@ else
         # Helpful for running the unit tests
         pip_install pyflakes
     )
+
     if [ $? = 0 ] ; then
-        # We need this since we quit the subshell
         echo "VEnv provisioned OK"
+        # We need this since we quit the subshell
         activate_venv
     else
-        echo "Provisioning VEnv Failed!"
         unset -f pip_install
+        echo "Provisioning VEnv Failed!"
         false
     fi
 fi
