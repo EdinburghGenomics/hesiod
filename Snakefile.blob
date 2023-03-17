@@ -73,6 +73,11 @@ rule per_cell_blob_plots:
                                                                 c = counts[pf],
                                                                 l = ', '.join(BLOB_LEVELS) ),
 
+                       barcode = wc.barcode,
+                       pf = pf,
+                       subsample = counts[pf],
+                       taxlevels = ', '.join(BLOB_LEVELS),
+
                        has_data = (str(counts[pf]) != '0'),
 
                        files = [ [ "{basebase}_{bc}_{pf}.{taxlevel}.{extn}.png".format(
@@ -179,8 +184,8 @@ rule fasta_to_complexity:
 # an empty output.parts.
 checkpoint split_fasta_in_chunks:
     output:
+        list  = "blob/{foo}.fasta_parts_list",
         parts = temp(directory("blob/{foo}.fasta_parts")),
-        list = "blob/{foo}.fasta_parts_list"
     input: "blob/{foo}.fasta"
     params:
         chunksize = BLOB_SUBSAMPLE // BLOB_CHUNKS
@@ -206,9 +211,10 @@ def i_merge_blast_reports(wildcards):
     with open(chunks_list_file) as fh:
         fasta_chunks = [ l.rstrip('\n') for l in fh ]
     # Munge the list of FASTA chunks to get the list of required BLAST chunks
-    return [ re.sub(r'\.fasta_parts/', '.blast_parts/',
-                    re.sub(r'\.fasta$', '.bpart', c))
-             for c in fasta_chunks ]
+    return dict( bparts =
+                    [ re.sub(r'\.fasta_parts/', '.blast_parts/',
+                             re.sub(r'\.fasta$', '.bpart', c))
+                      for c in fasta_chunks ] )
 
 # Combine all the 100 (or however many) blast reports into one
 # I'm filtering out repeated rows to reduce the size of the BLOB DB - there can
@@ -216,9 +222,9 @@ def i_merge_blast_reports(wildcards):
 # The input may also be empty but that's OK it still works!
 rule merge_blast_reports:
     output: "blob/{foo}.blast"
-    input: i_merge_blast_reports
+    input: unpack(i_merge_blast_reports)
     shell:
-        'LC_ALL=C ; ( for i in {input} ; do sort -u -k1,2 "$i" ; done ) > {output}'
+        'LC_ALL=C ; ( for i in {input.bparts} ; do sort -u -k1,2 "$i" ; done ) > {output}'
 
 # BLAST a chunk. Note the 'blast_nt' wrapper determines the actual database to search,
 # but you can specify an alternate wrapper, which need not be in the TOOLBOX,
@@ -249,7 +255,7 @@ rule blob_db:
         blast_results = "blob/{{foo}}+sub{}.blast".format(BLOB_SUBSAMPLE),
         reads_sample  = "blob/{{foo}}+sub{}.fasta".format(BLOB_SUBSAMPLE),
         cov           = "blob/{{foo}}+sub{}.complexity".format(BLOB_SUBSAMPLE)
-    shadow: 'shallow'
+    shadow: 'minimal'
     resources:
         mem_mb = 12000,
         n_cpus = 2,
@@ -275,7 +281,7 @@ rule blob_plot_png:
     params:
         maxsize = "1750x1750",
         thumbsize = "320x320"
-    shadow: 'shallow'
+    shadow: 'minimal'
     resources:
         mem_bb = 12000,
         n_cpus = 2,

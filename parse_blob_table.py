@@ -351,14 +351,14 @@ def parse_args(*args):
                             help="Where to save the result. Defaults to stdout.")
     argparser.add_argument("-c", "--cutoff", type=float, default="1.0",
                             help="Taxa found at less than cutoff%% in all samples will not be shown.")
-    argparser.add_argument("-l", "--label", default="Library ID",
+    argparser.add_argument("-l", "--label", default="Library",
                             help="Label to put on the first column")
     argparser.add_argument("-t", "--total_reads", action="store_true",
                             help="Add a 'Total Reads' column.")
     argparser.add_argument("-r", "--round", type=int, default=2,
                             help="Number of decimals to keep in floats.")
     argparser.add_argument("-n", "--name_extractor", default='hesiod',
-                            help="Method to extract Library ID names from the header lines. May be regular or hesiod.")
+                            help="Method to extract Library names from the header lines. May be regular or hesiod.")
     argparser.add_argument("statstxt", nargs="+",
                             help="One or more input files to scan.")
     argparser.add_argument("-d", "--debug", action="store_true",

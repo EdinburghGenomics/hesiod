@@ -55,6 +55,7 @@ if [ -e "$ENVIRON_SH" ] ; then
     export VERBOSE \
            TOOLBOX            CLUSTER_PARTITION   EXTRA_SLURM_FLAGS \
            PROM_RUNS          FASTQDATA           REPORT_DESTINATION \
+           SAMPLE_NAMES_DIR \
            PROJECT_PAGE_URL   GENOLOGICSRC        REPORT_LINK \
            RSYNC_CMD          RT_SYSTEM           STALL_TIME \
            DEL_REMOTE_CELLS   PROJECT_NAME_LIST   PROM_RUNS_BATCH \
@@ -307,7 +308,8 @@ action_cell_ready(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       # TODO - document the reason for this list of rules to always run...
-      _force_rerun="per_cell_blob_plots per_project_blob_tables one_cell nanostats convert_final_summary"
+      _force_rerun="per_cell_blob_plots  per_project_blob_tables  one_cell"
+      _force_rerun+=" nanostats          convert_final_summary    sample_names"
       ( cd "$RUN_OUTPUT"
 
         scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml

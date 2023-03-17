@@ -9,6 +9,7 @@ from datetime import timedelta
 from collections import namedtuple
 
 from .YAMLHelpers import load_yaml, dump_yaml, abspath
+from .CollectionHelpers import groupby, od_key_replace
 
 def _glob():
     """Regular glob() is useful but we want consistent sort order, including
@@ -94,16 +95,16 @@ def parse_cell_name(experiment, cell):
     # Now shred the filename.
     mo = re.match(r'([^/]+)/(\d{8})_(\d+)_([0-9A-Z-]+)_([0-9A-Z]+)_([0-9a-f]{8})$', cell)
     if mo:
-        for n, x in enumerate("Library Date Number Slot CellID Checksum".split()):
+        for n, x in enumerate("Pool Date Number Slot CellID Checksum".split()):
             res[x] = mo.group(n+1)
     else:
         # Not good, but we'll try
-        res['Library'] = cell.split('/')[0]
+        res['Pool'] = cell.split('/')[0]
         res['CellID'] = cell.split('_')[-2] if '_' in cell else 'UNKNOWN'
         res['Checksum'] = cell.split('_')[-1] if '_' in cell else 'UNKNOWN'
 
     # Get the project number out of the library name
-    mo =  re.match(r"([0-9]{5})[A-Z]{2}", res['Library'])
+    mo =  re.match(r"([0-9]{5})[A-Z]{2}", res['Pool'])
     if mo:
         res['Project'] = mo.group(1)
     else:
@@ -113,11 +114,11 @@ def parse_cell_name(experiment, cell):
             res['Project'] = mo.group(1)
         else:
             # I guess, this?
-            res['Project'] = res['Library']
+            res['Project'] = res['Pool']
 
     # Given all this, what do we call output files releting to this cell?
     # See doc/naming_convention.txt
-    res['Base'] = "{Cell}/{Experiment}_{Library}_{CellID}_{Checksum}".format(**res)
+    res['Base'] = "{Cell}/{Experiment}_{Pool}_{CellID}_{Checksum}".format(**res)
 
     return res
 
@@ -223,7 +224,7 @@ def find_summary(pattern, rundir, cell, allow_missing=False):
 def empty_sc_data():
     """Return an empty data structure in the same format as scan_cells.py
     """
-    res = dict( cells_per_lib = {},
+    res = dict( cells_per_pool = {},
                 cells_per_project = {},
                 counts = dict( cells = 0,
                                cellsaborted = 0,
@@ -233,28 +234,6 @@ def empty_sc_data():
                 scanned_cells = {} )
 
     return namedtuple("empty_sc_data", res)(**res)
-
-# Another generic and useful function
-def groupby(iterable, keyfunc, sort_by_key=True):
-    """A bit like itertools.groupby() but returns a dict (or rather an OrderedDict)
-       of lists, rather than an iterable of iterables.
-       There is no need for the input list to be sorted.
-       If sort_by_key is False the order of the returned dict will be in the order
-       that keys are seen in the iterable.
-       If sort_by_key is callable then the order of the returned dict will be sorted
-       by this key function, else it will be sorted in the default ordering. Yeah.
-       The lists themselves will always be in the order of the original iterable.
-    """
-    res = OrderedDict()
-    for i in iterable:
-        res.setdefault(keyfunc(i), list()).append(i)
-
-    if not sort_by_key:
-        return res
-    elif sort_by_key is True:
-        return OrderedDict(sorted(res.items()))
-    else:
-        return OrderedDict(sorted(res.items(), key=lambda t: sort_by_key(t[0])))
 
 def slurp_file(filename):
     """Standard file slurper. Returns a list of lines.

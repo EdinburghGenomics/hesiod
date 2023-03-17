@@ -88,6 +88,7 @@ else
         pip_install pod5_format pod5_format_tools
 
         # Here’s the big one
+        pip_install numpy==1.23.2     # upgrade with NanoPlot
         pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0
         pip_install pyarrow==8.0.0

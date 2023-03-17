@@ -38,6 +38,7 @@ def load_yaml(filename, relative_to=None, as_tuple=None):
     """Load YAML from a file (not a file handle).
        If specified, relative paths are resolved relative to os.path.dirname(relative_to)
     """
+    filename = str(filename) # Allow for directly passing Snakemake inputs
     with open(abspath(filename, relative_to)) as yfh:
         res = yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 

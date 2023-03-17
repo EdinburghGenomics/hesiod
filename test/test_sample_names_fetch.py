@@ -112,7 +112,7 @@ class T(unittest.TestCase):
                                   'ext_name': 'Sample number three' },
                                 { 'bc': 'barcode04',
                                   'int_name': '12345XX0004',
-                                  'ext_name': 'Another lovely  sample' },
+                                  'ext_name': 'Another lovely sample' },
                                 { 'bc': 'barcode12',
                                   'int_name': '12345XX0005',
                                   'ext_name': 'Another lovely  sample' } ] ) )

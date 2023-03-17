@@ -26,8 +26,11 @@ PROM_RUNS_BATCH=year
 PROM_RUNS=~/test_promethion/runs
 FASTQDATA=~/test_promethion/fastqdata
 
-# We can also have a regex which is applied to upstream and locla runs
+# We can also have a regex which is applied to upstream and local runs
 #RUN_NAME_REGEX='.+_.+_11608GE0009_Megaruptor_test'
+
+# Where to look for sample names
+SAMPLE_NAMES_DIR=~/test_promethion/sample_names
 
 # For testing, bypass RT and use the global partition on SLURM
 RT_SYSTEM=none

@@ -69,7 +69,7 @@ class T(unittest.TestCase):
 
     def test_silly_run_name(self):
         """If there is a space in the run name it should be sanitized. Not sure if it's
-           possible to put funny characters in a Library name, but we should really avoid that.
+           possible to put funny characters in a Library/Pool name, but we should really avoid that.
         """
         bm = self.bm
         self.environment['UPSTREAM_LOC'] = EXAMPLES + '/upstream_silly_names'

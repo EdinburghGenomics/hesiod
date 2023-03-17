@@ -62,17 +62,7 @@ def main(args):
         else:
             ci['Status'] = "sync"
 
-    '''
-    for cellname, ci in cell_infos:
-        rep.append("Slot ~{}~:".format(ci.get('Slot', '???')))
-        # "Library Date Number Slot CellID Checksum"
-        for k, v in ci.items():
-            if k != 'Slot':
-                rep.append("  {:8s}: {}".format(k, v))
-        rep.append("")
-    '''
-
-    # Since there ae many slots, lets make a table.
+    # Since there are many slots, lets make a table.
     rep.extend(format_table( "Slot CellID Status Cell".split(),
                              [ [ ci.get('Slot', '???'),
                                  ci.get('CellID'),

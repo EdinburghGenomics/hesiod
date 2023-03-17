@@ -26,10 +26,11 @@ sample_names.tsv which maps the barcodes to the actual sample names. Like:
 
 barcodeNN  internal_name  external_name
 
-I'll want a script that fetches the file from somewhere. Ideally this should be a LIMS
+I'll want a script that fetches the file from somewhere. Ideally this should be in LIMS
 but for now it will have to copy from a shared location, and I'll need to apply some
-checks to it. The coding will not affect the processing, only the report. We'll have two
-reports - one with all codes and no names, one with only the named codes.
+checks to it. The coding will not affect the processing, only the report (and later the
+delivery). We'll have two
+reports - one with all codes and no names (as now), one with only the named codes.
 
 How to do this? In most cases the sample names will be fixed by project, but sometimes
 by pool, so for a run/cell like:
@@ -64,7 +65,7 @@ Tasks:
     --filter cutoff
 * Have a hyperlink between the two
 * Apply the cutoff (as per --filter cutoff) if sample_names.yaml has no barcodes
-  (I thought about doing this at the driver level I think, rather than trying to
+  (I thought about doing this at the driver level, rather than trying to
   have make_report.py be clever, but I think it needs to be clever).
 
 OK this is trickier than I thought, because the report could potentially have a mixture
@@ -74,3 +75,46 @@ Do all cells have a valid (with barcodes) sample_names.yaml? Or none? Or some?
 
 Need to think about all these cases. I think the driver is just going to run the report
 maker regardless with --filter yaml and so we need to anticipate all the options.
+OK I did this bit now what about the driver.
+
+sample_names_fetch.py needs to be run once per cell, and it outputs {cell}/sample_names.yaml
+It's forgiving of most errors, aside from malformed cell name, and permissions issues.
+So we can run it as a Snakemake rule, and use the result as input to make_report.txt.
+
+We need to make the rule a localrule, and we need to make it always re-run (to pick up
+updates) and we need to have a global setting for SAMPLE_NAMES_PATH.
+
+OK. Decision needed. For most other stuff, the one_cell rule folds all the info from the
+various files into cell_info.yaml and then the make_report.py relies on this. Shall I do
+the same for this new stuff of should I keep it as it is, where the cell_info.yaml has
+no sample name stuff and the make_report script handles it all? What are the pros and cons:
+
+pros: Means it works like everything else
+cons: More bloat in Snakefile.main (in one_cell and get_cell_info())
+
+erm? OK, idea is to take the code currently in rule one_cell and put it into a separate
+script one_cell_info.py. This will take YAML on STDIN and print YAML on STDOUT. So it
+should be easy to test. Then I can modify the rule to marshall the input, output and
+parameters as YAML and pipe it to the script.
+
+No this is silly. Just add to the code we have. It works. And I have a better way than
+my try/catch to see erors from this part of the code:
+
+Simply add this at the top:
+logger.quiet.discard('all')
+
+---
+
+Again. I'm going round in circles here. I've made the make_report.py script respect barcodes
+but I think I did this wrong. Rather than adding --cutoff and --filter to this script and
+supporting various values for --filter I think I need to...
+
+Move the basic gist of load_and_resolve_barcodes into get_cell_info(). This will only be
+processing one cell at a time so no loop needed. This will require a _filter_yaml element
+(the one_cell rule in turn requires sample_names.yaml) and will add a _filter element
+which is a dict {barcode: name} as before and a '_filter_type' value which will be 'yaml'
+or 'cutoff' or 'none' if _filter is empty (which implies bool(cutoff) is False).
+
+OK this makes more logical sense, I think. Then the --filter for make_report.py will be:
+'off' (ignore filter entirely) or 'all' (show everything and link)  or 'on' (use '_filter')
+as found in the YAML.

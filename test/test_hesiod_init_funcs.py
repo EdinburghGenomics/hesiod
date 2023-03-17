@@ -2,8 +2,6 @@
 
 """Test stuff in hesiod/__init__.py"""
 
-# Note this will get discovered and run as a no-op test. This is fine.
-
 import sys, os, re
 import unittest
 import logging
@@ -18,7 +16,7 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
                      find_sequencing_summary, find_summary, load_yaml, dump_yaml,
-                     empty_sc_data )
+                     empty_sc_data, od_key_replace )
 
 class T(unittest.TestCase):
 
@@ -42,7 +40,7 @@ class T(unittest.TestCase):
         self.assertEqual(dict(res), dict(
                     Experiment = '20210520_EGS1_16031BA',
                     Cell       = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f',
-                    Library    = '16031BApool01',
+                    Pool       = '16031BApool01',
                     Date       = '20210520',
                     Number     = '1105',
                     Slot       = '2-E1-H1',
@@ -136,6 +134,25 @@ class T(unittest.TestCase):
 
         self.assertEqual( list(groupby(fruits, lambda f: f[0], sort_by_key=some_sort_func)),
                           list("badc") )
+
+    def test_od_key_replace(self):
+        """Test this function which modifies dictionaries in-place
+        """
+        dict1 = OrderedDict([ ( 'apple', 1 ),
+                              ( 'banana', 2 ),
+                              ( 'blueberry', 3 ),
+                              ( 'cherry', 4 ) ])
+
+        self.assertFalse( od_key_replace(dict1, 'plum', 'prune') )
+        self.assertTrue( od_key_replace(dict1, 'banana', 'xbanana') )
+        self.assertTrue( od_key_replace(dict1, 'cherry', 'xcherry') )
+        self.assertTrue( od_key_replace(dict1, 'apple', 'xapple') )
+
+        # After those moves, we should have this result...
+        self.assertEqual( dict1, OrderedDict([ ( 'xapple', 1 ),
+                                               ( 'xbanana', 2 ),
+                                               ( 'blueberry', 3 ),
+                                               ( 'xcherry', 4 ) ]) )
 
     def test_glob(self):
         # Sort order in glob() results is important for consistency, but the numbered files produced

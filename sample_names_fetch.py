@@ -17,7 +17,7 @@ def main(args):
     # Turns r'\t' into '\t' the fancy way
     delim = ast.literal_eval(f"'{args.delim}'")
 
-    experiment = args.experiment or os.path.dirname(os.path.abspath('.'))
+    experiment = args.experiment or os.path.basename(os.path.abspath('.'))
     cell, = args.cell
 
     if args.find:
@@ -82,10 +82,10 @@ def find_tsv(experiment, cell, dir='.'):
     """
     parsed_cell = parse_cell_name(experiment, cell)
 
-    # For a pooled flowcell the 'Library' will be a pool name.
+    # For a non-pooled flowcell the 'Pool' will be a library name.
     # CellID is the flowcell ID and project is like 12345
     candidate_tsv = [ f"{parsed_cell[x]}_sample_names.tsv" for x in
-                      [ 'Library', 'CellID', 'Project' ] ]
+                      [ 'Pool', 'CellID', 'Project' ] ]
 
     # The rule is that we search dir/*.tsv and dir/*/*.tsv. Precedence is in the
     # order of candidate_tsv. If there are multiple files the one in the top level takes
@@ -109,6 +109,10 @@ def parse_tsv(filename, delim="\t"):
         with open(filename, newline='') as csvfile:
             tsvreader = csv.reader(csvfile, delimiter=delim)
             for n, row in enumerate(tsvreader):
+
+                # If the row has no tabs, try a basic split on spaces
+                if len(row) == 1:
+                    row = row[0].split()
 
                 # Blank rows are ignored.
                 if not row:
@@ -161,7 +165,11 @@ def parse_args(*args):
                      a sample_names.yaml with the information in YAML format,
                      or an error if finding or parsing the file fails.
                   """
-    argparser = ArgumentParser( description=description,
+    epilog =      """The env var SAMPLE_NAMES_DIR can be set to override the default
+                     TSVDIR setting.
+                  """
+    argparser = ArgumentParser( description = description,
+                                epilog = epilog,
                                 formatter_class = ArgumentDefaultsHelpFormatter )
     argparser.add_argument("cell", nargs=1,
                             help="The cell to find samples for.")

@@ -48,9 +48,9 @@ def scan_main(args):
     res['cells_per_project'] = groupby( sc_sorted,
                                         keyfunc = lambda c: parse_cell_name('-', c)['Project'],
                                         sort_by_key = True )
-    res['cells_per_lib']     = groupby( sc_sorted,
-                                        keyfunc = lambda c: parse_cell_name('-', c)['Library'],
-                                        sort_by_key = True)
+    res['cells_per_pool']     = groupby( sc_sorted,
+                                         keyfunc = lambda c: parse_cell_name('-', c)['Pool'],
+                                         sort_by_key = True)
 
     return res
 

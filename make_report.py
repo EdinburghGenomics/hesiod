@@ -6,9 +6,10 @@ from pprint import pformat
 from math import modf
 from datetime import datetime
 from collections import OrderedDict
+from contextlib import suppress
 import shutil
 
-from hesiod import hesiod_version, glob, load_yaml, abspath, groupby
+from hesiod import hesiod_version, glob, load_yaml, abspath, groupby, od_key_replace
 
 # Things we don't want to see in the Metadata section (as it's too cluttered)
 METADATA_HIDE = set('''
@@ -53,8 +54,9 @@ def format_counts_per_cells(cells, heading="Read summary"):
 def get_cell_summary( all_info ):
     """ Make a table of this stuff, one row per cell...
             Experiment Name - upstream name
-            Sample ID - easy. first part of cell ID
-            Run ID - the uuid
+            Pool ID - first part of cell ID which may be a pool or a sample (aka. singleton pool)
+            Barcodes - the number of barcodes in the pool
+            UUID - the run uuid
             Flow Cell ID - PAMXXXX
             Run Length - get from the final summary
             Reads Generated (M) - we have this in cell_info.yaml (pass and fail)
@@ -62,28 +64,43 @@ def get_cell_summary( all_info ):
             Passed Bases (Gb) - ditto (and we can give a percentage)
             Estimated N50 (kb) - NanoStats.yaml has this (or NanoStats.txt)
     """
+    filter_applied = any([ '_filter' in ci for ci in all_info.values() ])
+
     # all_info is a dict of cell_name => info_dict as loaded from the info.yml files
     headings = [ "Experiment Name",
-                 "Sample ID",
-                 "Run ID",
+                 "Pool Name",
+                 "Barcodes" if filter_applied else "UUID",
                  "Flow Cell ID",
                  "Run Length",
                  "Reads Generated (M)",
                  "Estimated Bases (Gb)",
                  "Passed Bases (Gb)",
                  "Estimated N50 (kb)" ]
+    headings = list(filter(None, headings))
 
     def _round(n):
         """Standard rounding for the numbers"""
         return str(round(n , 2))
+
+    def barcodes_in_pool(cell_info):
+        """Return the apparent number of barcodes in this pool.
+        """
+        if '_filter' in cell_info:
+            return len(cell_info['_filter'])
+        else:
+            return len( set( [ c['_barcode'] for c in cell_info['_counts']
+                               if c['_barcode'] not in ['unclassified', '.'] ] ) )
 
     rows = []
     for cell, ci in sorted(all_info.items()):
         row = OrderedDict()
 
         row["Experiment Name"] = ci["UpstreamExpt"]
-        row["Sample ID"] = ci["Library"]
-        row["Run ID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
+        row["Pool Name"] = ci["Pool"]
+        if filter_applied:
+            row["Barcodes"] = barcodes_in_pool(ci)
+        else:
+            row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
         row["Flow Cell ID"] = ci["CellID"]
         row["Run Length"] = ci["_final_summary"]["run_time"]
 
@@ -127,8 +144,7 @@ def format_report( all_info,
                    totalcells = None,
                    project_realnames = None,
                    blobstats = None,
-                   filter = 'none',
-                   cutoff = 'cutoff',
+                   bcfilter = 'none',
                    filename = '-' ):
     """Makes the report as a list of strings (lines)
     """
@@ -175,7 +191,7 @@ def format_report( all_info,
     # Maybe a link to the other report, if we have filtered vs. unfiltered
     #########################################################################
 
-    P( gen_unfilt_link(filter, cutoff, filename) )
+    P( gen_unfilt_link(bcfilter, filename) )
 
     #########################################################################
     # Run metadata
@@ -191,13 +207,15 @@ def format_report( all_info,
                    ( 'Pool Count',          len(pools) ),
                    ( 'Start Time',          strftime(start_time) ),
                    ( 'Last Run End',        strftime(end_time) )],
-                  title="Metadata") )
+                  title = "Metadata",
+                  format_vals = False ) )
 
     # Table of stuff used that was being for sign-off so I'm auto-adding it
-    cs_headings, cs_rows = get_cell_summary(all_info)
+    cs_headings, cs_rows = get_cell_summary( all_info )
     P( format_table( cs_headings,
                      cs_rows,
-                     title = "Cell summary" ) )
+                     title = "Cell summary",
+                     format_vals = False ) )
 
     # Overview plots from minionqc/combinedQC
     if minionqc:
@@ -224,11 +242,20 @@ def format_report( all_info,
         P()
         P( ":::::: {.bs-callout}" )
 
+        # See the number of barcoded samples in a project, by looking at all
+        # the distinct names. If there are no names, we effectively assume each barcode
+        # is one sample, regardless of the pools.
+        sample_set = set( [ samplename.split()[0]
+                            for ci in cells
+                            for samplename in ci.get('_filter', {}).values() ] )
+
+
         # Calculate some basic metadata for all cells in project
         # Note that "ci['Files in '+pf]" is set in Snakefile.main and here we assume that all the
         # values are nice integers.
         P( format_dl( [( 'Cell Count', len(cells) ),
-                       ( 'Library Count', len(set([c['Library'] for c in cells])) ),
+                       ( 'Pool Count', len(set([c['Pool'] for c in cells])) ),
+                       ( 'Sample Count', len(sample_set) ) if sample_set else None,
                        ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
                        ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
                       title="Metadata") )
@@ -239,12 +266,16 @@ def format_report( all_info,
         # Now for the BLOB tables. These are specified by the blobstats_by_project.yaml file,
         # and will be loaded as a dict by project.
         # Simply print all the tables listed.
+
+        # Disabled for now as they seem fairly useless, especially with barcodes in use.
+        '''
         for blobtable in (blobstats or {}).get(p, []):
 
             # Insert the table as it comes
             P( format_table( blobtable['tsv_data'][0],
                              blobtable['tsv_data'][1:],
                              title = blobtable['title'] ))
+        '''
 
         P( "", "::::::", "" )
 
@@ -273,14 +304,8 @@ def format_report( all_info,
         # We'll need this shortly. See copy_files
         cell_uid = ci['Base'].split('/')[-1]
 
-        def _format(_k, _v):
-            """Handle special case for dates"""
-            if _k == "Date" and re.match(r'[0-9]{8}', _v):
-                _v = strfdate(datetime.strptime(_v, '%Y%m%d'))
-            return (_k, _v)
-
         # Now the metadata section
-        P( format_dl( [ _format( k, v ) for k, v in ci.items()
+        P( format_dl( [ (k, v) for k, v in ci.items()
                         if not ( k.startswith("_")
                                  or k in METADATA_HIDE ) ],
                       title = "Metadata") )
@@ -288,17 +313,46 @@ def format_report( all_info,
         # Stuff from the .count files that's been embedded in the YAML.
         # Make a single table
         if ci.get('_counts'):
-            headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
 
-            # Confirm that all dicts have the same labels
-            for c in ci['_counts'][1:]:
-                assert [ h for h in c if not h.startswith('_') ] == headings
+            if '_filter' in ci:
+                # We want to make some changes to the display, but I'm not going to mess
+                # around with the format of cell_info.yaml so fix it here.
+                headings = ("sample total_reads passing_reads passing_bases"
+                            " min_length max_length").split()
 
-            # Reformat the values into rows
-            rows = [ [ c['_label'] ] + [ c[h] for h in headings ]
-                     for c in ci['_counts'] ]
+                rowsdict = {}
+                for c in ci['_counts']:
+                    if c['_barcode'] in ci['_filter'] and c['_part'] == 'pass':
+                        rowsdict[c['_barcode']] = [ ci['_filter'][c['_barcode']],
+                                                    c['total_reads'],
+                                                    c['total_reads'],
+                                                    c['total_bases'],
+                                                    c['min_length'],
+                                                    c['max_length'] ]
+                # Go again and add the fails
+                for c in ci['_counts']:
+                    if c['_barcode'] in rowsdict and c['_part'] == 'fail':
+                        # Anything else? Or just add to total_reads?
+                        rowsdict[c['_barcode']][1] += c['total_reads']
+                rows = rowsdict.values()
+            else:
+                # Old version just tabulates what's in the file
+                headings = [ h for h in ci['_counts'][0] if not h.startswith('_') ]
 
-            P( format_table( ["Part"] + [ fixcase(h) for h in headings ],
+                # Confirm that all dicts have the same labels
+                for c in ci['_counts'][1:]:
+                    assert [ h for h in c if not h.startswith('_') ] == headings
+
+                # Reformat the values into rows and add the extra first column
+                # If there is a filter, apply it.
+                rows = [ [ c['_label'], *[ c[h] for h in headings ] ]
+                         for c in ci['_counts'] ]
+
+                # Add the extra first column label
+                headings = ["part", *headings]
+
+
+            P( format_table( [ fixcase(h) for h in headings ],
                              rows,
                              title = "Read counts" ) )
             P()
@@ -319,14 +373,6 @@ def format_report( all_info,
             P()
             ns = ci['_nanoplot_data']
 
-            def _format(_k, _v):
-                """Coerce some floats to ints but not all of them"""
-                if not( _k.startswith("Mean") or _k.startswith("Median") ):
-                    # We believe the float is really an int in disguise
-                    if not modf(_v)[0]:
-                        _v = int(_v)
-                return (_k, _v)
-
             if ns:
                 # So we just want the General summary. But do we want it as a table or a
                 # DL or a rotated table or what? Let's have all three.
@@ -344,14 +390,14 @@ def format_report( all_info,
                 '''
 
                 # As a rotated table
-                P( format_table( ['Item', 'Printable', 'Value'],
-                                 [ [k, pv, _format(k, nv)[1] ] for k, pv, nv, *_ in nsgs ],
+                P( format_table( ['Item', 'Value'],
+                                 [ (k, nv) for k, pv, nv, *__ in nsgs ],
                                  title = "Nanoplot general summary" ) )
 
             else:
                 # Here we have an empty report (as opposed to a missing report)
-                P( format_table( ['Item', 'Printable', 'Value'],
-                                 [ ('Passing reads', '0', '0') ],
+                P( format_table( ['Item', 'Value'],
+                                 [ ('Passing reads', '0') ],
                               title = "Nanoplot general summary" ) )
 
             # Version that prints everything...
@@ -400,10 +446,35 @@ def format_report( all_info,
         if '_blobs_data' in ci:
             for ablob in ci['_blobs_data']:
                 for plot_group in ablob:
-                    if plot_group.get('has_data') is False:
+
+                    # Fix up some compatibility with old input files
+                    if 'barcode' not in plot_group:
+                        mo = re.fullmatch(r"Taxonomy for (\w+) (\w+)ed reads \((\d+) sequences\) by (.+)",
+                                          plot_group['title'])
+                        plot_group['barcode'] = mo.group(1)
+                        plot_group['pf'] = mo.group(2)
+                        plot_group['subsample'] = int(mo.group(3))
+                        plot_group['taxlevels'] = mo.group(4)
+                    # End of fix
+
+                    if not plot_group.get('has_data', True):
                         continue
 
-                    P(f"\n### {plot_group['title']}\n")
+                    sample_name = plot_group['barcode']
+                    if '_filter' in ci:
+                        if sample_name not in ci['_filter']:
+                            # Skip this one
+                            continue
+                        else:
+                            # Use the new name
+                            sample_name = ci['_filter'][sample_name]
+                    if sample_name == '.':
+                        sample_name = "all"
+
+                    pg_title = ( f"Taxonomy for {sample_name} {plot_group['pf']}ed reads"
+                                 f" ({plot_group['subsample']} sequences) by {plot_group['taxlevels']}" )
+
+                    P(f"\n### {pg_title}\n")
 
                     # plot_group['files'] will be a a list of lists, so plot
                     # each list a s a row.
@@ -421,7 +492,31 @@ def format_report( all_info,
     P("*~~~*")
     return P
 
-def gen_unfilt_link(filter, cutoff, filename='-'):
+def omni_format(k, v):
+    """Handle special case for dates
+       and coerce some floats to ints but not all of them
+    """
+    if type(v) is str:
+        if k == "Date" and re.fullmatch(r'[0-9]{8}', v):
+            v = strfdate(datetime.strptime(v, '%Y%m%d'))
+
+    elif type(v) is float:
+        if not( k.startswith("Mean") or k.startswith("Median") ):
+            # We suspect the float is really an int in disguise.
+            # modf() gives the fractional and whole parts
+            if not modf(v)[0]:
+                v = int(v)
+
+    # Add commas to big numbers.
+    if type(v) is int:
+       v = "{:,d}".format(v)
+    elif type(v) is float:
+        v = "{:,.2f}".format(v)
+
+    return v
+
+
+def gen_unfilt_link(bcfilter='off', filename='-'):
     """Return a link to the other report, if reports are being generated as
        a filtered+unfiltered pair.
     """
@@ -429,7 +524,7 @@ def gen_unfilt_link(filter, cutoff, filename='-'):
     # report.3cells.pan.html
     # report.3cells.all.pan.html
     unfilt_link = None
-    if filter == 'all':
+    if bcfilter == 'all':
         mo = re.fullmatch(r'(.+)\.all\.pan', filename)
         if mo:
             unfilt_link = f"{mo.group(1)}.pan.html"
@@ -442,32 +537,34 @@ def gen_unfilt_link(filter, cutoff, filename='-'):
         # We can't make a link. This includes when output filename is -
         return ''
 
-    if not filter or filter == 'none':
+    if bcfilter == 'off':
         # This is a full report and there is no pair.
         return ''
-    elif filter == 'yaml':
+    elif bcfilter == 'yaml':
         # This report shows specified barcodes
         return ( f"Only samples listed in the sample list files are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
-    elif filter == 'cutoff':
+    elif bcfilter.startswith('cutoff'):
         # either args.filter is 'cutoff' or there are no barcodes and we've
         # defaulted to filtering on cutoff.
-        return ( f"Only samples with more than {cutoff}% of total reads shown."
+        cutoff_number = bcfilter.split()[-1]
+        return ( f"Only samples with more than {cutoff_number}% of total reads are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
 
-    elif filter == 'all':
+    elif bcfilter == 'all':
         # This is a full report and there is a filtered version
         return ( f"This is the full report showing all barcodes and stats."
                  f" [See the filtered version]({unfilt_link})." )
     else:
         # We have some weird mixture - probably due to a typo in one of the
-        # sample_names.txt files. Need to work out if this looks reasonable
+        # sample_names.txt files.
+        # FIXME - Need to work out if this looks reasonable
         # when all cells are un-barcoded.
         return ( f"Only some samples are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
 
 
-def format_dl(data_pairs, title=None):
+def format_dl(data_pairs, title=None, format_vals=True):
     """Formats a table of values with headings in the first column.
        Currently we do this as a <dl>, but this may change.
     """
@@ -476,14 +573,16 @@ def format_dl(data_pairs, title=None):
     P( '<dl class="dl-horizontal">' )
     if title:
         P(f"### {escape_md(title)}\n")
-    for k, pv in data_pairs:
+    for k, pv in filter(None, data_pairs):
+        if format_vals:
+            pv = omni_format(k, pv)
         P(f"<dt>{escape_md(k)}</dt> <dd>{escape_md(pv)}</dd>")
     P( '</dl>' )
     P()
 
     return "\n".join(P)
 
-def format_table(headings, data, title=None):
+def format_table(headings, data, title=None, format_vals=True):
     """Another markdown table formatter. Values will be escaped.
        Presumably the table is destined to be a DataTable.
        Returns a single string.
@@ -504,8 +603,13 @@ def format_table(headings, data, title=None):
 
     # Add the data.
     for drow in data:
-        P('| {} |'.format( ' | '.join([ escape_md(d)
-                                        for d in drow ]) ))
+        assert len(drow) == len(headings)
+        if format_vals:
+            escrow = [ escape_md(omni_format(h, d))
+                       for h, d in zip(headings, drow) ]
+        else:
+            escrow = [ escape_md(d) for d in drow ]
+        P('| {} |'.format( ' | '.join(escrow) ))
     P()
 
     return "\n".join(P)
@@ -523,6 +627,11 @@ def load_cell_yaml(filename):
     assert celldict.get('Cell'), "All yamls must have a Cell ID"
     assert celldict.get('Project'), "All yamls must have a Project (recreate this file with the latest Snakefile)"
 
+    # Old files have a 'Library' but we now call this the 'Pool'
+    # We need to fix the key without changing dict order. For newer files
+    # this will just be a no-op.
+    od_key_replace(celldict, 'Library', 'Pool')
+
     for countsdict in celldict.get('_counts', []):
         if 'read_length' in countsdict:
             # This works if the read length is already an int or a single string
@@ -533,87 +642,25 @@ def load_cell_yaml(filename):
 
     return celldict
 
-def load_and_resolve_barcodes(filter, all_info, cutoff=0.01):
-    """A rather ugly function.
-       Adds '_filter' (and maybe '_filter_yaml') to each value in all_info.
-       '_filter' will be a dict of {barcode: displayname} for all barcodes
-       to be included in the view, or False if the cell in un-barcoded.
-       Returns a fixed (maybe just lowercase) version of the filter argument.
+def resolve_filter(bcfilter, all_info):
+    """Looks at '_filter_type' (and maybe '_filter_yaml') for each cell to see
+       how 'real' samples are determined.
+       Returns one of ['off', 'all', 'mixed', 'yaml', 'cutoff 0.00'] assuming that the
+       latter two are the only possible values that will be seen in the YAML.
     """
-    if filter.lower() in ['all', 'none']:
-        # Easy. No filter to add
-        return filter.lower()
+    if bcfilter.lower() in ['all', 'off']:
+        # Easy. No filter to add, whatever is in the YAML
+        return bcfilter.lower()
 
-    # empty all_info? I guess we should allow it.
-    if not all_info:
-        return 'none'
-
-    # We need to look at the 'yaml' case first because we may resort to
-    # cutoffs.
-    if filter.lower() == 'yaml':
-        # Load one 'sample_names.yaml' per cell. There must be a file, even
-        # if it has no barcodes and we have to revert to cutoff filter.
-        for cell, ci in all_info.items():
-            ci['_filter_yaml'] = load_yaml(f"{cell}/sample_names.yaml")
-    elif filter.lower() != 'cutoff':
-        # It's a single file to load
-        sample_names_yaml = load_yaml(args.filter)
-        for cell, ci in all_info.items():
-            ci['_filter_yaml'] = sample_names_yaml
-
-    # Convert the '_filter_yaml' into a basic dict.
-    # TODO - add ext_name and check we have fully robust quoting.
-    for cell, ci in all_info.items():
-        if '_filter_yaml' in ci and ci['_filter_yaml'].get('barcodes'):
-            ci['_filter'] = { bc['bc']: bc['int_name']
-                              for bc in ci['_filter_yaml']['barcodes'] }
-
-    cells_with_yaml_barcodes = [cell for cell, ci in all_info.items()
-                                if '_filter' in ci ]
-    if len(cells_with_yaml_barcodes) == len(all_info):
-        # If that put a filter on all cells, we are done
-        return 'yaml'
-
-    # Else, filter was explicitly set to 'cutoff' or we have some cells
-    # with no valid barcodes listed.
-    # We need to look into some numbers.
-    for cell, ci in all_info.items():
-
-        if '_filter' not in ci:
-            # Get the numbers of reads from all counts (pass and fail)
-            cell_total_reads = sum([ c['total_reads']
-                                for c in ci['_counts']
-                                if c['_part'] in ['pass', 'fail'] ])
-            abs_filter = cell_total_reads * (cutoff / 100)
-            barcodes_counts = count_up_passing( ci['_counts'],
-                                                cutoff = abs_filter,
-                                                include_unclassified = False)
-
-            if not barcodes_counts:
-                # Not sure what happened here?
-                ci['_filter'] = False
-            else:
-                ci['_filter'] = { bc: 'Unbarcoded' if bc == '.' else bc
-                                  for bc in barcodes_counts }
-
-    return 'mixed' if cells_with_yaml_barcodes else 'cutoff'
-
-def count_up_passing(counts, cutoff=None, include_unclassified=True):
-    """Takes a _counts list-of-dicts and returns a dict of
-       barcode -> pass_count dict
-       Optionally supply a cutoff.
-       Optionally discard 'unclassified', even if higher than cutoff.
-    """
-    # Cutoff is a number not a percentage
-    res = { c['_barcode']: c['total_reads']
-             for c in counts
-             if c['_part'] == 'pass'
-             and (not cutoff) or c['total_reads'] >= cutoff }
-
-    if not include_unclassified and 'unclassified' in res:
-        del res['unclassified']
-
-    return res
+    ftypes = set(filter( None,
+                         [ci.get('_filter_type') for ci in all_info.values()] ))
+    if not ftypes:
+        # No filtering info is included
+        return 'off'
+    elif len(ftypes) > 1:
+        return 'mixed'
+    else:
+        return ftypes.pop()
 
 def main(args):
 
@@ -639,29 +686,23 @@ def main(args):
         all_info[yaml_info['Cell']] = yaml_info
 
     # Glean some pipeline metadata
-    if args.pipeline:
-        pipedata = get_pipeline_metadata(args.pipeline)
-    else:
-        pipedata = dict(version=hesiod_version)
+    pipedata = get_pipeline_metadata(args.pipeline) if args.pipeline else dict(version=hesiod_version)
 
     # See if we have some info from the LIMS regarding the projects
-    # FIXME- really this should be combined with load_and_resolve_barcodes() because really
-    # the project AND barcode onfo should come from the LIMS.
-    if args.realnames:
-        realnames = load_yaml(args.realnames)
-    else:
-        realnames = None
+    projnames = load_yaml(args.projnames) if args.projnames else None
 
-    # Load the barcodes file (sample_names.yaml) if supplied
-    bc_filter = load_and_resolve_barcodes(args.filter, all_info, cutoff=args.cutoff)
+    # See what's the real filter (list of valid barcodes) we are applying here
+    bcfilter = resolve_filter(args.filter, all_info)
+    if bcfilter in ['all', 'off']:
+        # Strip the _filter from all the cells
+        for ci in all_info.values():
+            with suppress(KeyError):
+                del ci['_filter']
 
     # See if we have per-project blob stats. These can't be included in the per-cell YAML
     # files as the combined tables are generated by a separate R script.
     # I've decided to use a single combined metadata file rather than one per project.
-    if args.blobstats:
-        blobstats = load_blobstats(args.blobstats)
-    else:
-        blobstats  = None
+    blobstats = load_blobstats(args.blobstats) if args.blobstats else None
 
     out_file = args.out or '-'
 
@@ -671,10 +712,9 @@ def main(args):
                          aborted_list = [],
                          minionqc = args.minionqc,
                          totalcells = args.totalcells,
-                         project_realnames = realnames,
+                         project_realnames = projnames,
                          blobstats = blobstats,
-                         filter = bc_filter,
-                         cutoff = args.cutoff,
+                         bcfilter = bcfilter,
                          filename = os.path.basename(out_file) )
 
     if out_file == '-':
@@ -794,7 +834,6 @@ def copy_files(all_info, base_path, minionqc=None):
                 copy_file(png, os.path.join(base_path, "img", dest_png))
 
         if '_minknow_report' in ci:
-            rep_base = os.path.dirname(ci['_minknow_report'])
             copy_file( ci['_minknow_report'],
                        os.path.join(base_path, "minknow", os.path.basename(ci['_minknow_report'])) )
 
@@ -885,9 +924,9 @@ def parse_args(*args):
                         help="Add minionqc combined stats")
     parser.add_argument("--totalcells",
                         help="Manually set the total number of cells, in case not all are yet reported.")
-    parser.add_argument("-p", "--pipeline", default="rundata/pipeline",
+    parser.add_argument("-p", "--pipeline", metavar="DIR", default="rundata/pipeline",
                         help="Directory to scan for pipeline meta-data.")
-    parser.add_argument("-r", "--realnames",
+    parser.add_argument("-n", "--projnames", metavar="YAMLFILE",
                         help="YAML file containing real names for projects.")
     parser.add_argument("-b", "--blobstats",
                         help="YAML file containing BLOB stats links - normally blobstats_by_project.yaml.")
@@ -895,10 +934,8 @@ def parse_args(*args):
                         help="Override the PipelineStatus shown in the report.")
     parser.add_argument("-o", "--out",
                         help="Where to save the report. Defaults to stdout.")
-    parser.add_argument("-F", "--filter", default="none",
-                        help="Filter out unused barcodes based upon a YAML file or heuristic.")
-    parser.add_argument("-C", "--cutoff", type=float, default=0.01,
-                        help="When the filter is in effect, set the cutoff percentage.")
+    parser.add_argument("-F", "--filter", default="off", choices="off all on".split(),
+                        help="Filter out unused barcodes based upon the _filter values in the YAML.")
     parser.add_argument("-d", "--debug", action="store_true",
                         help="Print more verbose debugging messages.")
 
