@@ -45,8 +45,8 @@ def main(args):
     rep.append( f"Experiment {expid} ({upstream or 'LOCAL'}) with {len(cells)} cells" )
     rep.append( "" )
 
-    # Now for each cell. Report them in slot order (how does one correctly sort that?)
-    cell_infos = sorted([ (c, parse_cell_name(expid, c)) for c in cells ], key=lambda i: i[1].get('Slot', ''))
+    # Now for each cell. Report them in cell order (which sorts by sample and date)
+    cell_infos = [ (c, parse_cell_name(expid, c)) for c in sorted(cells) ]
 
     # Could also get this from the caller??
     for cellname, ci in cell_infos:
