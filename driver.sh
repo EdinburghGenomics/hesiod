@@ -103,9 +103,10 @@ debug(){ if [ "${VERBOSE:-0}" != 0 ] ; then log "$@" ; else [ $# = 0 ] && cat >/
 # Per-experiment log for more detailed progress messages, goes into the output
 # directory. Obvously this can't be used in action_new until the directory is made.
 # Main log on FD5, per-experiment log on FD6
+per_expt_logname=pipeline.log
 plog() {
     if [ -z "${per_expt_log:-}" ] ; then
-        per_expt_log="$RUN_OUTPUT/pipeline.log"
+        per_expt_log="$RUN_OUTPUT/$per_expt_logname"
         # In LOG_SPEW mode, log to the terminal too
         if [ "${LOG_SPEW:-0}" != 0 ] ; then
             exec 6> >(tee -a "$per_expt_log" >&5)
@@ -123,7 +124,16 @@ plog_start() {
     # Unset $per_expt_log or else all the logs go to the first experiment seen,
     # which is horribly wrong.
     unset per_expt_log
+    per_expt_logname=pipeline.log
     plog $'>>>\n>>>\n>>>'" $0 starting action_$STATUS at `date`"
+}
+
+sync_plog_start() {
+    # Unset $per_expt_log or else all the logs go to the first experiment seen,
+    # which is horribly wrong.
+    unset per_expt_log
+    per_expt_logname="sync_from_upstream.log"
+    plog $'>>>\n>>>\n>>>'" $0 starting sync (status=$STATUS) at `date`"
 }
 
 # Print a message at the top of the log, and trigger one to print at the end.
@@ -456,7 +466,7 @@ do_sync(){
     fi
 
     log "\_DO_SYNC $EXPERIMENT"
-    plog ">>> $0 starting sync (status=$STATUS) at `date`."
+    sync_plog_start
 
     # assertion - status should have been set already
     if ! [[ "$STATUS" =~ syncing ]] ; then
@@ -915,7 +925,6 @@ if [ "${#SYNC_QUEUE[@]}" != 0 ] ; then
         get_run_status "$run_dir_full"
 
         pushd "$run_dir_full" >/dev/null
-        unset per_expt_log
         eval do_sync
         # Should never actually get an error here unless do_sync calls "set +e"
         [ $? = 0 ] || log "Error while trying to run Rsync on $run_dir"

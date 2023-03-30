@@ -484,9 +484,12 @@ class T(unittest.TestCase):
         self.assertInStdout("INCOMPLETE 201907010_LOCALTEST_missingfile")
         self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
 
-        # A plog should now appear in both
-        lines_in_log1 = slurp_file(os.path.join(run_path_1, "pipeline", "output", "pipeline.log"))
+        # A correctly-named plog should now appear in both
+        lines_in_log1 = slurp_file(os.path.join(run_path_1, "pipeline", "output", "sync_from_upstream.log"))
+        self.assertFalse(os.path.exists(os.path.join(run_path_1, "pipeline", "output", "pipeline.log")))
+
         lines_in_log2 = slurp_file(os.path.join(run_path_2, "pipeline", "output", "pipeline.log"))
+        self.assertFalse(os.path.exists(os.path.join(run_path_2, "pipeline", "output", "sync_from_upstream.log")))
 
         # Neither should be empty
         self.assertTrue(lines_in_log1)
