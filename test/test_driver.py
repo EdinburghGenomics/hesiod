@@ -591,7 +591,7 @@ class T(unittest.TestCase):
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
-                                                     "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split()]
+                                                     "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --reply @???".split()]
         expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2", "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa" ]]
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -747,7 +747,7 @@ class T(unittest.TestCase):
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
-                                                      "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --comment @???".split(),
+                                                      "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --reply @???".split(),
                                                       [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
                                                         "--subject", "failed", "--reply",
                                                         "Failed at Reporting for cells [\n"

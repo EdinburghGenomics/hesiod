@@ -288,11 +288,11 @@ action_cell_ready(){
     _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
 
     # This will be a no-op if the experiment isn't really complete, and will return 3
-    # If contacting RT fails it will return 1
+    # If contacting RT fails it will return 1, which we count as success
     ( notify_experiment_complete ) |&plog || _res=$?
     if [ ${_res:-0} = 3 ] ; then
         _report_status="incomplete"
-        _report_level=comment
+        _report_level=reply
     else
         _report_status="Finished pipeline"
         _report_level=reply
@@ -335,7 +335,7 @@ action_cell_ready(){
 
     set +e ; ( set -e
       # Now we can make the report, which may be interim or final. We should only
-      # ever have one of these running at a time.
+      # ever have one of these running at a time on a given experiment.
       if ! upload_report | plog ; then
         log "Processing completed but failed to upload the report. See $per_expt_log"
         false
