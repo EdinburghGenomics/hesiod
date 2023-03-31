@@ -12,10 +12,9 @@ from glob import glob
 """Here we're using a Python script to test a shell script (driver.sh).  The shell
    script calls various programs.  Ideally we want to have a cunning way of catching
    and detecting the calls to those programs, similar to the way that unittest.mock.patch works.
-   To this end, see the BinMocker class, which does just this.
+   To this end, see the BashMocker class, which does just this.
 """
-# TODO - use BashMocker from PyPi
-from test.binmocker import BinMocker
+from bashmocker import BashMocker
 
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 EXAMPLES = os.path.dirname(__file__) + '/examples'
@@ -43,14 +42,14 @@ class T(unittest.TestCase):
 
     def setUp(self):
         """Make a shadow folder, and in it have subdirs runs and fastqdata and log.
-           Initialize BinMocker.
+           Initialize BashMocker.
            Calculate the test environment needed to run the driver.sh script.
         """
         self.temp_dir = mkdtemp()
         for d in ['runs', 'fastqdata', 'log']:
             os.mkdir(os.path.join(self.temp_dir, d))
 
-        self.bm = BinMocker()
+        self.bm = BashMocker()
         for p, s in PROGS_TO_MOCK.items(): self.bm.add_mock(p, side_effect=s)
 
         # Set the driver to run in our test harness. Note I can set
@@ -79,7 +78,7 @@ class T(unittest.TestCase):
         self.maxDiff = None
 
     def tearDown(self):
-        """Remove the shadow folder and clean up the BinMocker
+        """Remove the shadow folder and clean up the BashMocker
         """
         rmtree(self.temp_dir)
 

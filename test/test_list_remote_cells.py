@@ -9,10 +9,10 @@ from tempfile import mkdtemp
 from shutil import rmtree, copytree
 from glob import glob
 
-"""BinMocker is really overkill for testing this script, but I'll still use it as my
+"""BashMocker is really overkill for testing this script, but I'll still use it as my
    standard way for testing shell scripts.
 """
-from test.binmocker import BinMocker
+from bashmocker import BashMocker
 
 
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
@@ -24,7 +24,7 @@ PROGS_TO_MOCK = {'ssh': None}
 class T(unittest.TestCase):
 
     def setUp(self):
-        self.bm = BinMocker()
+        self.bm = BashMocker()
         for p, s in PROGS_TO_MOCK.items(): self.bm.add_mock(p, side_effect=s)
 
         self.environment = dict()
@@ -33,7 +33,7 @@ class T(unittest.TestCase):
         self.maxDiff = None
 
     def tearDown(self):
-        """Clean up the BinMocker
+        """Clean up the BashMocker
         """
         self.bm.cleanup()
 
