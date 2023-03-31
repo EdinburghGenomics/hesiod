@@ -210,7 +210,7 @@ def format_report( all_info,
                   title = "Metadata",
                   format_vals = False ) )
 
-    # Table of stuff used that was being for sign-off so I'm auto-adding it
+    # Table of stuff that was being manually compiled for sign-off so I'm auto-adding it
     cs_headings, cs_rows = get_cell_summary( all_info )
     P( format_table( cs_headings,
                      cs_rows,
@@ -537,7 +537,12 @@ def gen_unfilt_link(bcfilter='off', filename='-'):
         # We can't make a link. This includes when output filename is -
         return ''
 
-    if bcfilter == 'off':
+    if bcfilter == 'none':
+        # This is what we see when all cells are un-barcoded and the --filter
+        # is set to 'on'. At present this means the reports are identical so
+        # there's no point having a link
+        return ''
+    elif bcfilter == 'off':
         # This is a full report and there is no pair.
         return ''
     elif bcfilter == 'yaml':
@@ -557,9 +562,7 @@ def gen_unfilt_link(bcfilter='off', filename='-'):
                  f" [See the filtered version]({unfilt_link})." )
     else:
         # We have some weird mixture - probably due to a typo in one of the
-        # sample_names.txt files.
-        # FIXME - Need to work out if this looks reasonable
-        # when all cells are un-barcoded.
+        # sample_names.txt files, or maybe only some cells are barcoded.
         return ( f"Only some samples are shown."
                  f" [See report with all barcodes]({unfilt_link})." )
 
@@ -923,7 +926,8 @@ def parse_args(*args):
     parser.add_argument("--minionqc",
                         help="Add minionqc combined stats")
     parser.add_argument("--totalcells",
-                        help="Manually set the total number of cells, in case not all are yet reported.")
+                        help="Manually set the total number of cells to report in the experiment summary,"
+                             " in case not all are yet reported.")
     parser.add_argument("-p", "--pipeline", metavar="DIR", default="rundata/pipeline",
                         help="Directory to scan for pipeline meta-data.")
     parser.add_argument("-n", "--projnames", metavar="YAMLFILE",

@@ -333,6 +333,9 @@ rule main:
         templates = os.environ.get('TEMPLATES', '.'),
         totalcells = SC_DATA.counts['cells']
     run:
+        # Un-silence sys.stderr in sub-jobs:
+        logger.quiet.discard('all')
+
         # After generating all YAML, all projects are ready.
         save_out_plist(input.yaml, str(output.plist))
 
