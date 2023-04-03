@@ -113,6 +113,7 @@ class T(unittest.TestCase):
         """Utility function to add a run from examples/runs into temp_dir/runs.
            Returns the path to the run copied.
         """
+        self.run_name = run
         run_dir = os.path.join(EXAMPLES, 'runs', run)
 
         # We want to know the desired output location
@@ -129,6 +130,11 @@ class T(unittest.TestCase):
             return copytree(run_dir,
                             self.run_path,
                             symlinks = True )
+
+    def rt_cmd(self, *args):
+        """Get the expected args to rt_runticket_manager.py
+        """
+        return [*f"-r {self.run_name} -Q promrun -P Experiment --subject".split(), *args]
 
     def assertInStdout(self, *words):
         """Assert that there is at least one line in stdout containing all these strings
@@ -246,20 +252,21 @@ class T(unittest.TestCase):
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
-        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/20190226_TEST_testrun/pipeline"))
-        self.assertTrue(os.path.isdir(self.temp_dir + "/fastqdata/20190226_TEST_testrun"))
-        self.assertEqual( os.path.realpath(self.temp_dir + "/runs/20190226_TEST_testrun/pipeline/output"),
-                          os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun") )
-        self.assertEqual( os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun/rundata"),
-                          os.path.realpath(self.temp_dir + "/runs/20190226_TEST_testrun") )
+        self.run_name = "20190226_TEST_testrun"
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{self.run_name}/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{self.run_name}"))
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}/pipeline/output"),
+                          os.path.realpath(f"{self.temp_dir}/fastqdata/{self.run_name}") )
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/fastqdata/{self.run_name}/rundata"),
+                          os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}") )
 
-        with open(self.temp_dir + "/runs/20190226_TEST_testrun/pipeline/upstream") as fh:
+        with open(f"{self.temp_dir}/runs/{self.run_name}/pipeline/upstream") as fh:
             self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun\n')
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
         expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/20190226_TEST_testrun", './pipeline']]
-        expected_calls['rt_runticket_manager.py'] = ['-r 20190226_TEST_testrun -Q promrun -P Experiment --subject new --comment @???'.split()]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd('new', '--comment', '@???')]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0][-1] = re.sub(
@@ -269,7 +276,7 @@ class T(unittest.TestCase):
 
         # The STDERR from upload_report.sh and rt_runticket_manager.py should end
         # up in the per-run log.
-        log_lines = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testrun/pipeline.log")
+        log_lines = slurp_file(f"{self.temp_dir}/fastqdata/{self.run_name}/pipeline.log")
         self.assertTrue('STDERR rt_runticket_manager.py') in log_lines
         self.assertTrue('STDERR upload_report.sh') in log_lines
         self.assertTrue('cat: pipeline/report_upload_url.txt: No such file or directory') in log_lines
@@ -360,7 +367,7 @@ class T(unittest.TestCase):
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
         expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/201907010_LOCALTEST_newrun", './pipeline']]
-        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun -P Experiment --subject new --comment @???'.split()]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("new", "--comment", "@???")]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
         self.bm.last_calls['rt_runticket_manager.py'][0][-1] = re.sub(
@@ -410,8 +417,8 @@ class T(unittest.TestCase):
 
         # A new ticket should have been made, but with an error
         expected_calls = self.bm.empty_calls()
-        expected_calls['rt_runticket_manager.py'] = ['-r 201907010_LOCALTEST_newrun -Q promrun -P Experiment --subject failed'.split() +
-                                                     ['--reply', 'Failed at New_Run_Setup.\nSee log in /dev/stdout']]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("failed", "--reply",
+                                                                 "Failed at New_Run_Setup.\nSee log in /dev/stdout")]
 
         # And nothing should be written to the fastqdata dir
         self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
@@ -552,13 +559,10 @@ class T(unittest.TestCase):
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--reply",
-                                                       "All 2 cells have run on the instrument. Full report will follow soon."],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "Finished pipeline", "--reply", "@???" ]]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--reply",
+                                                                 "All 2 cells have run on the instrument. Full report will follow soon."),
+                                                     self.rt_cmd("processing", "--comment", "@???"),
+                                                     self.rt_cmd("Finished all cells", "--reply", "@???" )]
         expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2",
                                                    "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
@@ -589,8 +593,8 @@ class T(unittest.TestCase):
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = ["-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
-                                                     "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --reply @???".split()]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--comment", "@???"),
+                                                     self.rt_cmd("Finished cell", "--reply", "@???")]
         expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2", "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa" ]]
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -636,20 +640,17 @@ class T(unittest.TestCase):
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
         # report the error to STDERR. I gues it's OK.
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--reply",
-                                                       "All 2 cells have run on the instrument. Full report will follow soon." ],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "Finished pipeline", "--reply", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "failed", "--reply",
-                                                       "Failed at Reporting for cells [\n"
-                                                       "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
-                                                       "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
-                                                       "].\n"
-                                                       "See log in " + self.run_path + "/pipeline/output/pipeline.log" ]]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--reply",
+                                                                 "All 2 cells have run on the instrument."
+                                                                 " Full report will follow soon."),
+                                                     self.rt_cmd("processing", "--comment", "@???"),
+                                                     self.rt_cmd("Finished all cells", "--reply", "@???"),
+                                                     self.rt_cmd("failed", "--reply",
+                                                                 "Failed at Reporting for cells [\n"
+                                                                 "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
+                                                                 "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
+                                                                 "].\n"
+                                                                 f"See log in {self.run_path}/pipeline/output/pipeline.log")]
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -690,18 +691,16 @@ class T(unittest.TestCase):
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [[ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--reply",
-                                                       "All 2 cells have run on the instrument. Full report will follow soon." ],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "processing", "--comment", "@???"],
-                                                     [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                       "--subject", "failed", "--reply",
-                                                       "Failed at Reporting for cells [\n"
-                                                       "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
-                                                       "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
-                                                       "].\n"
-                                                       "See log in " + self.run_path + "/pipeline/output/pipeline.log" ]]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--reply",
+                                                                 "All 2 cells have run on the instrument."
+                                                                 " Full report will follow soon."),
+                                                     self.rt_cmd("processing", "--comment", "@???"),
+                                                     self.rt_cmd("failed", "--reply",
+                                                                 "Failed at Reporting for cells [\n"
+                                                                 "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa,\n"
+                                                                 "\ta test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb\n"
+                                                                 "].\n"
+                                                                 f"See log in {self.run_path}/pipeline/output/pipeline.log")]
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
@@ -745,14 +744,13 @@ class T(unittest.TestCase):
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
         expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
-        expected_calls['rt_runticket_manager.py'] = [ "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject processing --comment @???".split(),
-                                                      "-r 20000101_TEST_testrun2 -Q promrun -P Experiment --subject incomplete --reply @???".split(),
-                                                      [ "-r", "20000101_TEST_testrun2", "-Q", "promrun", "-P", "Experiment",
-                                                        "--subject", "failed", "--reply",
-                                                        "Failed at Reporting for cells [\n"
-                                                        "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\n"
-                                                        "].\n"
-                                                        "See log in " + self.run_path + "/pipeline/output/pipeline.log" ]]
+        expected_calls['rt_runticket_manager.py'] = [ self.rt_cmd("processing", "--comment", "@???"),
+                                                      self.rt_cmd("Finished cell", "--reply", "@???"),
+                                                      self.rt_cmd("failed", "--reply",
+                                                                  "Failed at Reporting for cells [\n"
+                                                                  "\ta test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa\n"
+                                                                  "].\n"
+                                                                  f"See log in {self.run_path}/pipeline/output/pipeline.log") ]
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
