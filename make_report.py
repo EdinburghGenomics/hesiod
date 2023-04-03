@@ -11,11 +11,41 @@ import shutil
 
 from hesiod import hesiod_version, glob, load_yaml, abspath, groupby, od_key_replace
 
-# Things we don't want to see in the Metadata section (as it's too cluttered)
-METADATA_HIDE = set('''
-    Run       Experiment   Cell            Base            Date
-    Number    Checksum     Fast5Version    BaseCallerTime  UpstreamExpt
-'''.split())
+def get_cell_metadata(ci):
+    """Takes a cellinfo dict and returns an OrderedDict for display in the
+       Metadata section.
+       Originally I displayed everything but this gets too cluttered.
+    """
+    res = OrderedDict()
+
+    for x in [ ('Project',),
+               ('Pool',),
+               ('StartTime',        'Start Time'),
+               (None,               'End Time'),
+               (None,               'Run Time'),
+               ('Files in pass',),
+               ('Files in fail',),
+               ('SequencingKit',    'Sequencing Kit'),
+               ('GuppyVersion',     'Guppy Version'),
+               ('BasecallConfig',   'Guppy Config'),
+               ('ExperimentType',   'Input Type'),
+               ('Slot',),
+               ('CellID',           'Cell ID'),
+               ('RunID', 'Run UUID') ]:
+        if len(x) == 1:
+            res[x[0]] = ci.get(x[0], 'unknown')
+        elif x[0]:
+            res[x[1]] = ci.get(x[0], 'unknown')
+        else:
+            res[x[1]] = 'unknown'
+
+    if '_final_summary' in ci:
+        fs = ci['_final_summary']
+        res['Start Time'] = strftime(fs['started'])
+        res['End Time'] = strftime(fs['processing_stopped'])
+        res['Run Time'] = fs['run_time']
+
+    return res
 
 def format_counts_per_cells(cells, heading="Read summary"):
     """I broke this out of format_report(). It takes counts for a bunch of cells and adds
@@ -71,7 +101,7 @@ def get_cell_summary( all_info ):
                  "Pool Name",
                  "Barcodes" if filter_applied else "UUID",
                  "Flow Cell ID",
-                 "Run Length",
+                 "Run Time",
                  "Reads Generated (M)",
                  "Estimated Bases (Gb)",
                  "Passed Bases (Gb)",
@@ -102,7 +132,7 @@ def get_cell_summary( all_info ):
         else:
             row["UUID"] = ci["_final_summary"].get("protocol_run_id", "unknown")
         row["Flow Cell ID"] = ci["CellID"]
-        row["Run Length"] = ci["_final_summary"]["run_time"]
+        row["Run Time"] = ci["_final_summary"]["run_time"]
 
         # We'll get these all from NanoPlot. Extract the 'General summary'
         # section as a dict of floats.
@@ -258,7 +288,7 @@ def format_report( all_info,
                        ( 'Sample Count', len(sample_set) ) if sample_set else None,
                        ( 'Files in pass', sum(c['Files in pass'] for c in cells) ),
                        ( 'Files in fail', sum(c['Files in fail'] for c in cells) )],
-                      title="Metadata") )
+                      title="Cell Summary") )
 
         # Number of sequences/bases in passed/failed
         P( format_counts_per_cells(cells) )
@@ -305,9 +335,7 @@ def format_report( all_info,
         cell_uid = ci['Base'].split('/')[-1]
 
         # Now the metadata section
-        P( format_dl( [ (k, v) for k, v in ci.items()
-                        if not ( k.startswith("_")
-                                 or k in METADATA_HIDE ) ],
+        P( format_dl( get_cell_metadata(ci).items(),
                       title = "Metadata") )
 
         # Stuff from the .count files that's been embedded in the YAML.

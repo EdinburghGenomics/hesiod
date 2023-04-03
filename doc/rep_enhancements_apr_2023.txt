@@ -1,0 +1,9 @@
+Having implemented the filtered/unfiltered reports I'd like to make a few more imporvements:
+
+1) Show EndTime in the cell metadata as well as StartTime
+2) Show Run Length as in the Cell summary table
+
+How is Run Length worked out presently?
+
+Oh, it's just ci['_final_summary']['run_time']
+

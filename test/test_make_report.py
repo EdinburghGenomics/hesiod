@@ -213,7 +213,7 @@ class T(unittest.TestCase):
                                               "Pool Name",
                                               "UUID",
                                               "Flow Cell ID",
-                                              "Run Length",
+                                              "Run Time",
                                               "Reads Generated (M)",
                                               "Estimated Bases (Gb)",
                                               "Passed Bases (Gb)",
