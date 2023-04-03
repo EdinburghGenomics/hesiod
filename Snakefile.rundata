@@ -171,10 +171,10 @@ rule concat_gzip_md5sum_bam:
         md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.bam.md5",
     input:
         fofn    = "{cell}/{fullid}_{barcode}_{pf}_bam.list",
-    threads: 8
+    threads: 18
     resources:
-        mem_mb = 24000,
-        n_cpus = 8,
+        mem_mb = 100000,
+        n_cpus = 18,
     run:
         # Samtools can accept a list of files to merge so we don't need xargs
         if os.stat(str(input.fofn)).st_size:
