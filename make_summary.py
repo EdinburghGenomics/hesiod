@@ -62,6 +62,9 @@ def main(args):
         else:
             ci['Status'] = "sync"
 
+    if args.noaborted:
+        cell_infos = [ i for i in cell_infos if i[1]['Status'] != "aborted" ]
+
     # Since there are many slots, lets make a table.
     rep.extend(format_table( "Slot CellID Status Cell".split(),
                              [ [ ci.get('Slot', '???'),
@@ -133,6 +136,8 @@ def parse_args(*args):
                             help="Hint what we expect the cells to be.")
     argparser.add_argument("--fudge", action="store_true",
                             help="Convert all 'in qc' cells to 'done' for final summary.")
+    argparser.add_argument("--noaborted", action="store_true",
+                            help="Exclude aborted cells in the summary table.")
     argparser.add_argument("-d", "--debug", action="store_true",
                             help="Print more verbose debugging messages.")
 
