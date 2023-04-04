@@ -18,3 +18,11 @@ with samtools instead. To make the equivalent command:
 --CREATE_INDEX : --write-index (leave this out)
 --ASSUME_SORTED : -n (I think?)
 
+--
+
+OK, so it seems that I missed that samtools has a fast 'samtools cat' mode that combines BAM files without
+recompressing them, and takes minutes instead of hours on large inputs. So we'll deffo switch to this.
+
+I did look at the idea of re-packing all the individual BAM files prior to running samtools cat
+to really save on space, and it looks like that could save around 10% (original file of size
+12644884 re-packed to 11653856) but the extra time and complexity to do this is just not worth it.
