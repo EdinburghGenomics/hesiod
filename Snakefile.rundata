@@ -171,14 +171,15 @@ rule concat_gzip_md5sum_bam:
         md5    = "md5sums/{cell}/{fullid}_{barcode}_{pf}.bam.md5",
     input:
         fofn    = "{cell}/{fullid}_{barcode}_{pf}_bam.list",
-    threads: 18
+    threads: 4
     resources:
-        mem_mb = 100000,
-        n_cpus = 18,
+        mem_mb = 12000,
+        n_cpus = 4,
     run:
-        # Samtools can accept a list of files to merge so we don't need xargs
+        # Samtools 'cat' is a *lot* faster than merging the BAM files.
+        # Also samtools can accept a file of filenames to merge so we don't need xargs
         if os.stat(str(input.fofn)).st_size:
-            shell(r"{TOOLBOX} samtools merge -@ {threads} -n -l9 -b {input.fofn} {output.bam}")
+            shell(r"{TOOLBOX} samtools cat -@ {threads} -b {input.fofn} -o {output.bam}")
         else:
             # We're merging nothing. But Snakemake must have her output file.
             shell("touch {output.bam}")
