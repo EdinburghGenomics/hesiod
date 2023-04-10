@@ -31,7 +31,7 @@ def get_cell_metadata(ci):
                ('ExperimentType',   'Input Type'),
                ('Slot',),
                ('CellID',           'Cell ID'),
-               ('RunID', 'Run UUID') ]:
+               ('RunID',            'Run UUID') ]:
         if len(x) == 1:
             res[x[0]] = ci.get(x[0], 'unknown')
         elif x[0]:

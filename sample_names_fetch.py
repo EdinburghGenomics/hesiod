@@ -81,16 +81,20 @@ def find_tsv(experiment, cell, dir='.'):
     """Locate a sample names TSV file to use for this cell.
     """
     parsed_cell = parse_cell_name(experiment, cell)
+    parsed_cell['CellBase'] = os.path.basename(parsed_cell['Cell'])
 
     # For a non-pooled flowcell the 'Pool' will be a library name.
     # CellID is the flowcell ID and project is like 12345
     candidate_tsv = [ f"{parsed_cell[x]}_sample_names.tsv" for x in
-                      [ 'Pool', 'CellID', 'Project' ] ]
+                      [ 'Pool', 'CellID', 'Project', 'CellBase' ] ]
 
     # The rule is that we search dir/*.tsv and dir/*/*.tsv. Precedence is in the
     # order of candidate_tsv. If there are multiple files the one in the top level takes
     # precedence, then in alphabetical order. So...
     all_tsv = glob(f"{dir}/*.tsv") + glob(f"{dir}/*/*.tsv")
+
+    L.debug(f"candidate tsv: {candidate_tsv}")
+    L.debug(f"all tsv: {all_tsv}")
 
     for cand in candidate_tsv:
         for f in all_tsv:
@@ -110,8 +114,8 @@ def parse_tsv(filename, delim="\t"):
             tsvreader = csv.reader(csvfile, delimiter=delim)
             for n, row in enumerate(tsvreader):
 
-                # If the row has no tabs, try a basic split on spaces
-                if len(row) == 1:
+                # If the row does not split neatly, try a basic split on spaces
+                if len(row) < 3:
                     row = row[0].split()
 
                 # Blank rows are ignored.
@@ -129,7 +133,7 @@ def parse_tsv(filename, delim="\t"):
                     error = f"Missing internal name for {row[0]}"
                     break
                 if not re.fullmatch(r'\d{5}[A-Z]{2}\w*', row[1]):
-                    error = f"Invalid internal name for {row[0]}"
+                    error = f"Invalid internal name for {row[0]}: {row[1]!r}"
                     break
 
                 codes.append( dict( bc = row[0],
