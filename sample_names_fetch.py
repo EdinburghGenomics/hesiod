@@ -116,7 +116,7 @@ def parse_tsv(filename, delim="\t"):
 
                 # If the row does not split neatly, try a basic split on spaces
                 if len(row) < 3:
-                    row = row[0].split()
+                    row = ' '.join(row).split()
 
                 # Blank rows are ignored.
                 if not row:
