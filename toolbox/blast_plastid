@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# BLAST on the refseq plastid database.
+# I did this specifically to check for plastid sequences in 24130TA
+# Note that, due to the way I made the BLAST DB, everything that
+# looks like plastid sequence comes out as 'Meles meles'
+
+exec /lustre-gseg/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
+    -db /lustre-gseg/references/refseq_plastid/refseq_plastid "$@"
