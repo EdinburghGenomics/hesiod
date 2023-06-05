@@ -549,8 +549,8 @@ rule pairs_from_summary:
     input:
         summary    = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz"
     resources:
-        mem_mb = 128000,
-        n_cpus = 18,
+        mem_mb = 256000,
+        n_cpus = 36,
     shell:
         "duplex_tools pairs_from_summary {input.summary} {output.out_dir}"
 
@@ -570,8 +570,8 @@ rule filter_pairs:
     params:
         fastq_dir = "duplex_scan/{cell}/"
     resources:
-        mem_mb = 128000,
-        n_cpus = 18,
+        mem_mb = 256000,
+        n_cpus = 36,
     shell:
        r"""ln -sfrvt {params.fastq_dir} {input.passfastq}
            if [ -s {input.pair_ids} ] ; then
