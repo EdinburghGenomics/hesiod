@@ -541,6 +541,7 @@ if EXPDIR:
     include: "Snakefile.rundata"
 
 # https://github.com/nanoporetech/duplex-tools
+# FIXME - this is using a lot of memory. Can we do better?
 rule pairs_from_summary:
     output:
         out_dir    = directory("duplex_scan/{cell}"),
@@ -601,8 +602,9 @@ rule nanoplot:
     params:
         thumbsize = "320x320"
     resources:
-        mem_mb = 36000,
-        n_cpus = 6,
+        mem_mb = 52000,
+        n_cpus = 9,
+    threads: 9
     run:
         summary_ap = os.path.realpath(str(input.summary))
         shell(r'cd nanoplot/{wildcards.cell} ; rm -f *.png *.html *.log')
