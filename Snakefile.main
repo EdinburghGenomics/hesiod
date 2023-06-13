@@ -226,6 +226,8 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
         ci['_duplex'] = [ [ 'Duplex pairs',             duplex ],
                           [ 'from total passing reads', total_passing ],
                           [ '% of passing reads',       f"{perc_duplex:.2f}%" ] ]
+    else:
+        ci['_duplex'] = [ [ 'Duplex pairs',             "No duplex estimate available" ] ]
 
     # Link to other reports. I'm now using paths relative to the file rather than the
     # root of the run dir.
@@ -445,7 +447,7 @@ def one_cell_inputs(wc):
         nanoplot_p   = xxpand("nanoplot/{cell}/{p}.png", p = NANOPLOT_PLOT_LIST),
         nanoplot_t   = xxpand("nanoplot/{cell}/{p}.__thumb.png", p = NANOPLOT_PLOT_LIST),
 
-        duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
+        # duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
 
         fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
         fin_summary  = f"{cell}/cell_final_summary.yaml",
@@ -485,15 +487,17 @@ rule one_cell:
         minknow_report = str(input.minknow_rept)
         if not os.path.getsize(minknow_report):
             minknow_report = None
-        # For duplex reads we just need the count of lines in input.duplex_list
-        with open(str(input.duplex_list)) as dlfh:
-            duplex_count = sum(1 for _ in dlfh)
+
+        # FIXME - disabled duplex count as it's broken
+        # # For duplex reads we just need the count of lines in input.duplex_list
+        # with open(str(input.duplex_list)) as dlfh:
+        #     duplex_count = sum(1 for _ in dlfh)
 
         ci = get_cell_info( experiment = EXPERIMENT,
                             cell = wildcards.cell,
                             cell_content = SC[wildcards.cell],
                             counts = cdata,
-                            duplex = duplex_count,
+                            # duplex = duplex_count,
                             fin_summary = fin_summary,
                             blobs = input.blobs,
                             fast5_meta = load_yaml(input.fast5_meta),
