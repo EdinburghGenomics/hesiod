@@ -15,6 +15,7 @@ jobs: 200
 cores: 400
 local-cores: 4
 latency-wait: 10
+max-jobs-per-second: 1
 default-resources:
     - tmpdir='/lustre-gseg/tmp'
     - time_h=24

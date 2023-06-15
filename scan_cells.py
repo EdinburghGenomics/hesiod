@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
 
+"""This script generates sc_data.yaml.
+
+   It does not modify anything - you can run it in any prom_runs
+   directory like:
+
+   $ scan_cells.py --cells 27051AT0005/20230608_0921_1C_PAQ21042_2a207d10 .
+"""
+
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import logging as L
 from itertools import product

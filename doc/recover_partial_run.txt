@@ -1,0 +1,25 @@
+I thought I had a recipe for recovering a partial run, but all I can find is:
+
+scripts/patch_in_re_basecall.sh
+
+And this is no good as it relies on re-using some reports from the original
+run, but we don't have these as the run failed.
+
+In particular I remember generating a stub final_report.txt from scratch. Can
+I find the command I was using? Nope.
+
+So I'll work it out again, and automate what I do in scripts/patch_in_recovered.sh
+
+What's the absolute minimum stuff I need in final_summary.txt?
+
+is_rna: true/false (for get_cell_info - but that comes from 'protocol')
+protocol_group_id: 27051AT (ditto)
+
+res['Start Time'] = strftime(fs['started'])
+res['End Time'] = strftime(fs['processing_stopped'])
+res['Run Time'] = fs['run_time']
+
+OK. I can auto generate this stuff, but it's not trivial.
+But for now, needing to get the Tim Aitman run sorted, I'll just add it all manually.
+
+
