@@ -97,7 +97,7 @@ def read_fast5(fobj):
         res['RunID'] = read0.attrs['run_id']
 
         # Stuff from 'context_tags'
-        for x in ['ExperimentType', 'SequencingKit', 'BasecallConfig']:
+        for x in ['ExperimentType', 'SequencingKit', 'BasecallConfig', 'SamplingFrequency']:
             res[x] = 'unknown'
         # Sometimes keys are missing, I guess.
         with suppress(KeyError):
@@ -106,6 +106,12 @@ def read_fast5(fobj):
             res['SequencingKit']  = read0['context_tags'].attrs['sequencing_kit']
         with suppress(KeyError):
             res['BasecallConfig']   = read0['context_tags'].attrs['basecall_config_filename']
+
+        with suppress(KeyError):
+            res['SamplingFrequency'] = read0['context_tags'].attrs['sample_frequency'].decode()
+            mo = re.match(r'(.*)000$', res['SamplingFrequency'])
+            if mo:
+                res['SamplingFrequency'] = f"{mo.group(1)} kHz"
 
         # Stuff from 'tracking_id'
         res['StartTime']    = read0['tracking_id'].attrs['exp_start_time']

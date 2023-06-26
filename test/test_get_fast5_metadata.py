@@ -45,12 +45,15 @@ class T(unittest.TestCase):
                     ('RunID',             '94ab673ad12e5cc35f7110d9d285723b4aafdb68'),
                     ('ExperimentType',    'genomic_dna'),
                     ('SequencingKit',     'sqk-lsk109'),
-                    ('BasecallConfig',    'dna_r9.4.1_450bps_prom.cfg'), ])
+                    ('BasecallConfig',    'dna_r9.4.1_450bps_prom.cfg'),
+                    ('SamplingFrequency', '4 kHz'), ])
 
         # Note a standard equality test will pass if md is a regular dict, even in Python 3.5 where
         # dict order is arbitrary. So check the keys explicitly.
+        # And comparing two OrderedDicts does not yield a readable diff, so compare the two
+        # as dictionaies.
         self.assertEqual(list(md), list(expected))
-        self.assertEqual(md, expected)
+        self.assertEqual(dict(md), dict(expected))
 
     def test_v2_3(self):
         """Try a newer FAST5 file
@@ -58,15 +61,17 @@ class T(unittest.TestCase):
 
         md = md_from_fast5_file(DATA_DIR + '/PAK00002_fail_barcode07_b7f7032d_0.fast5.gz')
 
-        expected = dict( Fast5Version   = '2.3',
-                         StartTime      = 'Tuesday, 01 Mar 2022 15:38:47',
-                         GuppyVersion   = '5.1.13+b292f4d',
-                         RunID          = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
-                         ExperimentType = 'genomic_dna',
-                         SequencingKit  = 'sqk-lsk109',
-                         BasecallConfig = 'dna_r9.4.1_450bps_hac_prom.cfg' )
+        expected = dict( Fast5Version      = '2.3',
+                         StartTime         = 'Tuesday, 01 Mar 2022 15:38:47',
+                         GuppyVersion      = '5.1.13+b292f4d',
+                         RunID             = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
+                         ExperimentType    = 'genomic_dna',
+                         SequencingKit     = 'sqk-lsk109',
+                         BasecallConfig    = 'dna_r9.4.1_450bps_hac_prom.cfg',
+                         SamplingFrequency = '4 kHz', )
 
-        self.assertEqual(md, expected)
+        self.assertEqual(list(md), list(expected))
+        self.assertEqual(dict(md), dict(expected))
 
 if __name__ == '__main__':
     unittest.main()
