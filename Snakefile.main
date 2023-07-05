@@ -217,7 +217,6 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
 
     # Do we have an estimated count of the duplex reads?
     if duplex is not None:
-        # total_passing = sum(c['total_reads'] for c in ci['_counts'] if c['_part'] == 'pass')
         total_passing = sum( v['total_reads'] for k, v in counts.items() if k[1] == 'pass' )
         # Avoid div by zero if there are no passing reads
         perc_duplex = 0
@@ -488,16 +487,19 @@ rule one_cell:
         if not os.path.getsize(minknow_report):
             minknow_report = None
 
-        # FIXME - disabled duplex count as it's broken
-        # # For duplex reads we just need the count of lines in input.duplex_list
-        # with open(str(input.duplex_list)) as dlfh:
-        #     duplex_count = sum(1 for _ in dlfh)
+        # For duplex reads we just need the count of lines in input.duplex_list
+        try:
+            with open(str(input.duplex_list)) as dlfh:
+                duplex_count = sum(1 for __ in dlfh)
+        except AttributeError:
+            # No duplex today
+            duplex_count = None
 
         ci = get_cell_info( experiment = EXPERIMENT,
                             cell = wildcards.cell,
                             cell_content = SC[wildcards.cell],
                             counts = cdata,
-                            # duplex = duplex_count,
+                            duplex = duplex_count,
                             fin_summary = fin_summary,
                             blobs = input.blobs,
                             fast5_meta = load_yaml(input.fast5_meta),

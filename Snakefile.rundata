@@ -158,7 +158,7 @@ rule list_fastq_or_bam:
             try:
                 if not input.infiles:
                     # Some Snakemake versions still add an empty list
-                    raise AttributeError("input.listfiles is empty")
+                    raise AttributeError("input.infiles is empty")
                 for fname in input.infiles: print(fname, file=fh)
             except AttributeError:
                 # So there are no files. Make an empty list then.
