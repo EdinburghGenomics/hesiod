@@ -2,7 +2,7 @@ bashmocker==0.3.0
 pyyaml==6.0
 yamlloader==1.1.0
 rt==2.2.2
-h5py==3.7.0
+h5py==3.8.0
 pod5==0.2.3
 python-dateutil==2.8.2
 snakemake==7.18.2
