@@ -46,7 +46,7 @@ class T(unittest.TestCase):
                     ('ExperimentType',    'genomic_dna'),
                     ('SequencingKit',     'sqk-lsk109'),
                     ('BasecallConfig',    'dna_r9.4.1_450bps_prom.cfg'),
-                    ('SamplingFrequency', '4 kHz'), ])
+                    ('SamplingFrequency', '4.0 kHz'), ])
 
         # Note a standard equality test will pass if md is a regular dict, even in Python 3.5 where
         # dict order is arbitrary. So check the keys explicitly.
@@ -68,7 +68,7 @@ class T(unittest.TestCase):
                          ExperimentType    = 'genomic_dna',
                          SequencingKit     = 'sqk-lsk109',
                          BasecallConfig    = 'dna_r9.4.1_450bps_hac_prom.cfg',
-                         SamplingFrequency = '4 kHz', )
+                         SamplingFrequency = '4.0 kHz', )
 
         self.assertEqual(list(md), list(expected))
         self.assertEqual(dict(md), dict(expected))
