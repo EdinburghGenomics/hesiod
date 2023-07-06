@@ -5,6 +5,7 @@ drmaa: >-
     -p {CLUSTER_PARTITION}
     --time={{resources.time_h}}:00:00
     --mem={{resources.mem_mb}} --mincpus={{resources.n_cpus}}
+    {{resources.extra_slurm_flags}}
     -e slurm_output/{{rule}}.%A.err
     -o slurm_output/{{rule}}.%A.out
     {EXTRA_SLURM_FLAGS}
@@ -16,8 +17,11 @@ cores: 400
 local-cores: 4
 latency-wait: 10
 max-jobs-per-second: 1
+set-resource-scopes:
+    - extra_slurm_flags=local
 default-resources:
     - tmpdir='/lustre-gseg/tmp'
     - time_h=24
     - mem_mb=6000
     - n_cpus=1
+    - extra_slurm_flags=''

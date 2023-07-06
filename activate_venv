@@ -106,7 +106,7 @@ else
         pip_install NanoPlot==1.33.1
 
         # For counting likely duplex reads
-        pip_install duplex_tools==0.2.11
+        pip_install duplex_tools==0.3.3
 
         # Helpful for running the unit tests
         pip_install pyflakes

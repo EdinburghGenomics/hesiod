@@ -446,7 +446,7 @@ def one_cell_inputs(wc):
         nanoplot_p   = xxpand("nanoplot/{cell}/{p}.png", p = NANOPLOT_PLOT_LIST),
         nanoplot_t   = xxpand("nanoplot/{cell}/{p}.__thumb.png", p = NANOPLOT_PLOT_LIST),
 
-        # duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
+        duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
 
         fast5_meta   = f"{cell}/cell_fast5_metadata.yaml",
         fin_summary  = f"{cell}/cell_final_summary.yaml",
@@ -555,11 +555,13 @@ rule pairs_from_summary:
         pair_stats = "duplex_scan/{cell}/pair_stats.txt",
     input:
         summary    = lambda wc: f"{cellname_to_base(wc.cell)}_sequencing_summary.txt.gz"
+    params:
+        min_qscore = "9.0"
     resources:
-        mem_mb = 256000,
-        n_cpus = 36,
+        mem_mb = 0,
+        extra_slurm_flags = '--exclusive',
     shell:
-        "duplex_tools pairs_from_summary {input.summary} {output.out_dir}"
+        "duplex_tools pairs_from_summary --min_qscore {params.min_qscore} {input.summary} {output.out_dir}"
 
 # Slightly tricky:
 # - Symlink input.passfastq files here to be explicit about which to scan
@@ -571,16 +573,17 @@ rule filter_pairs:
         segments  = "duplex_scan/{cell}/read_segments.pkl",
     input:
         pair_ids  = "duplex_scan/{cell}/pair_ids.txt",
-        passfastq = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_pass.fastq.gz"
-                                 for bc in SC[wc.cell] ],
+        pf_fastq  = lambda wc: [ f"{cellname_to_base(wc.cell)}_{bc}_{pf}.fastq.gz"
+                                 for bc in SC[wc.cell]
+                                 for pf in ["pass", "fail"] ],
     log: "duplex_scan/{cell}/filter_pairs.log"
     params:
         fastq_dir = "duplex_scan/{cell}/"
     resources:
-        mem_mb = 256000,
-        n_cpus = 36,
+        mem_mb = 0,
+        extra_slurm_flags = '--exclusive',
     shell:
-       r"""ln -sfrvt {params.fastq_dir} {input.passfastq}
+       r"""ln -sfrvt {params.fastq_dir} {input.pf_fastq}
            if [ -s {input.pair_ids} ] ; then
              duplex_tools filter_pairs {input.pair_ids} {params.fastq_dir} 2>&1 | tee {log}
              grep -Fq "Found 100.0% of required reads" {log}
