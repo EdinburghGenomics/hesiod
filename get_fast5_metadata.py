@@ -111,7 +111,7 @@ def read_fast5(fobj):
             res['SamplingFrequency'] = read0['context_tags'].attrs['sample_frequency'].decode()
             mo = re.match(r'(.*)000$', res['SamplingFrequency'])
             if mo:
-                res['SamplingFrequency'] = f"{mo.group(1)} kHz"
+                res['SamplingFrequency'] = f"{mo.group(1)}.0 kHz"
 
         # Stuff from 'tracking_id'
         res['StartTime']    = read0['tracking_id'].attrs['exp_start_time']
