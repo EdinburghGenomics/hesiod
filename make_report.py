@@ -20,18 +20,19 @@ def get_cell_metadata(ci):
 
     for x in [ ('Project',),
                ('Pool',),
-               ('StartTime',        'Start Time'),
-               (None,               'End Time'),
-               (None,               'Run Time'),
+               ('StartTime',         'Start Time'),
+               (None,                'End Time'),
+               (None,                'Run Time'),
                ('Files in pass',),
                ('Files in fail',),
-               ('SequencingKit',    'Sequencing Kit'),
-               ('GuppyVersion',     'Guppy Version'),
-               ('BasecallConfig',   'Guppy Config'),
-               ('ExperimentType',   'Input Type'),
+               ('SequencingKit',     'Sequencing Kit'),
+               ('GuppyVersion',      'Guppy Version'),
+               ('BasecallConfig',    'Guppy Config'),
+               ('SamplingFrequency', 'Sampling Freq'),
+               ('ExperimentType',    'Input Type'),
                ('Slot',),
-               ('CellID',           'Cell ID'),
-               ('RunID',            'Run UUID') ]:
+               ('CellID',            'Cell ID'),
+               ('RunID',             'Run UUID') ]:
         if len(x) == 1:
             res[x[0]] = ci.get(x[0], 'unknown')
         elif x[0]:

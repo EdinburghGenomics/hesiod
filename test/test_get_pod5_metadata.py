@@ -37,20 +37,21 @@ class T(unittest.TestCase):
     # anticipated soon.
     # see https://github.com/nanoporetech/pod5-file-format/issues/11#issuecomment-1326676660
 
-    @unittest.expectedFailure
     def test_converted_pod5(self):
         """Try my test file. It's zipped, but the function will unzip it automatically.
         """
         md = md_from_pod5_file(DATA_DIR + '/PAK00002_fail_barcode07_b7f7032d_0.pod5.gz')
 
         # This is identical to the FAST5 aside from the file version tag.
-        expected = dict( POD5Version    = '0.0.15',
-                         StartTime      = 'Tuesday, 01 Mar 2022 15:38:47',
-                         GuppyVersion   = '5.1.13+b292f4d',
-                         RunID          = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
-                         ExperimentType = 'genomic_dna',
-                         SequencingKit  = 'sqk-lsk109',
-                         BasecallConfig = 'dna_r9.4.1_450bps_hac_prom.cfg' )
+        expected = dict( POD5Version       = '0.0.15',
+                         StartTime         = 'Tuesday, 01 Mar 2022 15:38:47',
+                         GuppyVersion      = '5.1.13+b292f4d',
+                         Software          = 'python-pod5-converter',
+                         RunID             = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
+                         SamplingFrequency = '4.0 kHz',
+                         ExperimentType    = 'genomic_dna',
+                         SequencingKit     = 'sqk-lsk109',
+                         BasecallConfig    = 'dna_r9.4.1_450bps_hac_prom.cfg' )
 
         self.assertEqual(dict(md), expected)
 

@@ -25,7 +25,7 @@ from pathlib import Path
 from dateutil.parser import isoparse
 
 # For reading teh pod5...
-import pod5_format
+import pod5
 
 from hesiod import dump_yaml, glob
 
@@ -84,11 +84,11 @@ def read_pod5(p5_filename):
     for x in ['POD5Version', 'StartTime', 'GuppyVersion']:
         res[x] = 'unknown'
 
-    p5_handle = pod5_format.Reader(Path(p5_filename))
+    p5_handle = pod5.Reader(Path(p5_filename))
     try:
-        # Version of the POD5 file. But this seems to change with the library not the file?
-        # Presumably a bug in the 0.0.41 library.
-        res['POD5Version'] = p5_handle.file_version.public
+        # Version of the POD5 file. See
+        # https://github.com/nanoporetech/pod5-file-format/issues/11
+        res['POD5Version'] = p5_handle.file_version_pre_migration.public
 
         # Just as the metadata is the same for each file, it's the same for each
         # read, so just get the first one, and dict-ify it.
@@ -96,12 +96,20 @@ def read_pod5(p5_filename):
 
         # Run ID (should be in the filename anyway!)
         res['RunID'] = read0['acquisition_id']
+        res['Software'] = read0['software']
 
         # Stuff from 'context_tags'
         context_tags = dict(read0['context_tags'])
         res['ExperimentType'] = context_tags.get('experiment_type', 'unknown')
         res['SequencingKit']  = context_tags.get('sequencing_kit', 'unknown')
         res['BasecallConfig'] = context_tags.get('basecall_config_filename', 'unknown')
+
+        res['SamplingFrequency'] = read0.get('sample_rate', 'unknown')
+        try:
+            res['SamplingFrequency'] = f"{res['SamplingFrequency']/1000} kHz"
+        except TypeError:
+            # Leave it as-is
+            pass
 
         # Stuff from 'tracking_id'
         tracking_id = dict(read0['tracking_id'])
