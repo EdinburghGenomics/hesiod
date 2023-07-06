@@ -3,6 +3,6 @@ pyyaml==6.0
 yamlloader==1.1.0
 rt==2.2.2
 h5py==3.7.0
-pod5_format==0.0.41
+pod5==0.2.3
 python-dateutil==2.8.2
 snakemake==7.18.2
