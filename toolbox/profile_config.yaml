@@ -11,6 +11,7 @@ drmaa: >-
     {EXTRA_SLURM_FLAGS}
 jobname: '{{rulename}}.snakejob.{{jobid}}.sh'
 jobscript: '{TOOLBOX}/snakemake_jobscript.sh'
+printshellcmds: true
 keep-going: true
 jobs: 200
 cores: 400
