@@ -4,6 +4,7 @@ from glob import glob
 import sys
 import logging as L
 import datetime
+from hesiod import load_yaml
 
 class RunStatus:
     """This Class provides information about a Promethion run, given a run folder.
@@ -289,10 +290,26 @@ class RunStatus:
         except Exception:
             return 'unknown'
 
+    def get_expt_type(self):
+        """Find the expt type. Abuse the _exists_cache to store the actual type,
+           rather than a number of matches.
+        """
+        exists_cache = self._exists_cache
+        f = os.path.join(self.run_path, "pipeline/type.yaml")
+        if f not in exists_cache:
+            try:
+                y = load_yaml(f)
+                exists_cache[f] = y['type']
+            except Exception:
+                exists_cache[f] = 'unknown'
+
+        return exists_cache[f]
+
     def get_yaml(self, debug=True):
         try:
             return '\n'.join([ 'Experiment: '   + self.get_experiment(),
                                'Instrument: '   + self.get_instrument(),
+                               'Type: '         + self.get_expt_type(),
                                'Upstream: '     + (self.remote_loc or 'LOCAL'),
                                'Cells: '        + '\t'.join(sorted(self.get_cells())),
                                'CellsPending: ' + '\t'.join(self.get_cells_in_state(self.CELL_NEW,
@@ -310,6 +327,7 @@ class RunStatus:
 
             return '\n'.join([ 'Experiment: ' + self.get_experiment(),
                                'Instrument: unknown',
+                               'Type: unknown',
                                'Upstream: unknown',
                                'Cells: ',
                                'CellsToSync: ',
@@ -360,3 +378,4 @@ if __name__ == '__main__':
                              upstream = remote_info,
                              stall_time  = os.environ.get('STALL_TIME') or None)
         print ( run_info.get_yaml( debug=os.environ.get('DEBUG', '0') != '0' ) )
+

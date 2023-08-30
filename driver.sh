@@ -762,7 +762,7 @@ get_run_status() {
         run_status.py -I "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
   # Capture the various parts into variables (see test/grs.sh)
-  for _v in EXPERIMENT/Experiment INSTRUMENT/Instrument \
+  for _v in EXPERIMENT/Experiment INSTRUMENT/Instrument EXPT_TYPE/Type \
             CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellsDone CELLSABORTED/CellsAborted \
             STATUS/PipelineStatus RUNUPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"

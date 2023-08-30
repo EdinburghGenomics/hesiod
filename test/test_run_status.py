@@ -247,7 +247,7 @@ class T(unittest.TestCase):
         """If a sample is manually renamed in PROM_RUNS but not in upstream then the sync logic
            gets in a tizz.
            Probably this is not an entirely sensible thing to do, but we can make the
-           behaviour consistent pretty easily.
+           behaviour consistent pretty easily if the cell name is unchanged.
         """
         run_info = self.use_run('20000101_TEST_testrun2', copy=True)
 
@@ -276,6 +276,18 @@ class T(unittest.TestCase):
                                 'a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb' ] )
         self.assertEqual( run_info.get_cells_in_state(run_info.CELL_NEW), [] )
         self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
+
+    def test_show_type(self):
+        """If pipeline/type.yaml is present it should be queried for the type
+        """
+        # This one has type.yaml
+        run_info = self.use_run('20000101_TEST_testrun2', copy=False)
+        self.assertEqual( dictify(run_info.get_yaml())['Type:'], 'internal' )
+
+        # This does not
+        run_info = self.use_run('201907010_LOCALTEST_newrun', copy=False)
+        self.assertEqual( dictify(run_info.get_yaml())['Type:'], 'unknown' )
+
 
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
