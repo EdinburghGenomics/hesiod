@@ -1,0 +1,83 @@
+Proposal for ONT experiment naming.
+
+The aim is to differentiate our internal flowcells from lab visitor flowcells and process them accordingly.
+
+* For internal flowcells, we will continue to assign them to projects and samples based on the
+  library/pool ID (eg. 23456XX0001) and make a Hesiod report and RT ticket.
+* For visitor flowcells, we want to allow people to freely use their own sample/pool names.
+  And their own preferred instrument settings in general.
+
+At the moment, all experiments are regarded as internal and processed accordingly by the pipeline, regardless of the
+name. Proposal is to use the experiment name to differentiate the types, with the rules as follows:
+
+* Any experiment beginning with a number is regarded as internal and processed as now
+* Any experiment beginning with v_xxxx is regarded as a visitor experiment, and xxxx should
+  be the UUID of the visitor (eg. "v_marno" or "v_tbooth2_topups")
+* Anything not matching either pattern will be regarded as a test run
+
+Ultimately, this should make it really simple for me to automate it such that visitor data gets punted directly onto
+our transfer server and the UUID receives a notification mail, with no intervention from us, and we don't have to try
+and untangle situations like the other week where the pipeline started trying to process visitor data and got upset
+and then stopped doing rsync.
+
+Specific thoughts:
+
+1. Why have the "v_" prefix at all?
+   The idea is to make these experiments really obvious when listing the data directory, and also in future
+   if we decide we want to make internal experiments that don't start with numbers (eg. K1234) we can do that more easily.
+2. What if the user mis-types their UUID or uses a different naming scheme?
+   I'll make it so the default behaviour can be overridden, so we can always correct that in some quick and reasonable way.
+3. How soon can this be implemented?
+   It's a fair bit of work to get to fully automatic delivery but there is no reason not to adopt the new naming
+   scheme immediately.
+4. What if the visitor is resequencing samples from an existing project, like with 14211AT?
+   The use of the "v_uuid" naming scheme would still apply, if we were to do this again, but they could use "v_uuid_14211"
+   to indicate that the samples relate to the old project (but Hesiod will not try to merge the samples with what we
+   have as internal project data, even if the samples/pools have the same names).
+5. What if the user does not have a UUID?
+   I'm assuming every user will, but in case one does not they could use one of ours, or "edgenom1", and whoever
+   gets the delivery e-mail with the transfer download token would just have to forward it.
+
+Specific differentiation logic on run name:
+
+if /v[_-]+([a-z0-9]+).*/i:
+    type = "visitor"
+    uuid = $1
+elif /[0-9].*/:
+    type = "internal"
+else:
+    type = "test"
+
+I'll make a tiny script that saves this as pipeline/type.yaml. This will be regenerated if missing, but may be edited.
+The pipeline will use it to work out how to process the expt. run_status.py will report the contents and I'll capture
+this in driver.sh in the usual way.
+
+Then in terms of implementation, the first step is to say that visitor and test runs get no further processing.
+Then the pipeline probably wants to md5sum all files in the visitor runs. This can be a bit tricky as I don't want
+to run all md5sums as one job (too long) but I also don't want to run as tiny separate jobs (too many jobs).
+What can I do? Some files are small and some are big so bunching up 100 files seems a bit meh. But looking up
+the size of all files requires too many stat() calls. So....
+
+Maybe make a script that takes the list of files to be md5summed and makes:
+
+md5sums_000.fofn
+md5sums_001.fofn
+md5sums_002.fofn
+...
+
+Or I could use a single YAML file and just have a list of lists. I could scramble the order of files to try and get a
+mix of sizes in my blocks. If that fails I could add whatever checks on size or heuristics or whatever.
+
+ANyyyway - then Snakemake makes the md5sums_000.txt [...] and then merges them all, with a rule like:
+
+xargs md5sum -- < md5sums_000.fofn
+
+I'd have to put the md5sums somewhere. Probably we can just work in the pipeline/ directory but I don't want to
+run Snakemake in there, so maybe we do need an output directory for these runs. Yeah, I think I do. Then the
+delivery involves moving the cell directory to the transfer server and copying the final md5sums file to a
+suitable location. Probably best to make it obvious, so put it at the top level.
+
+Then trigger my delivery logic to make a token, and send an e-mail. But I don't think this belongs in Hesiod,
+so I think we may end up calling some qc_tools_python logic here. But this is fine. All fine. Then we can keep
+the e-mail template in with disseminate_results.py with the other stuff. Do we ask for an acknowledgement in the
+same way? TODO - check that.

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-"""Given a list of short project names, get the real names from the
+"""EdGe business logic - the LIMS is used to look up project numbers and
+   see the full name.
+   Given a list of short project names, get the real names from the
    LIMS and print the result.
 """
 
@@ -78,7 +80,7 @@ def parse_args(*args):
     argparser.add_argument("-o", "--out",
                             help="Where to save the report. If there is an error nothing will be written. Report is always printed.")
     argparser.add_argument("-t", "--take5", action="store_true",
-                            help="Just use the first five chars of the project names given.")
+                            help="Just use the first five chars of the project names given. Allows me to pass a list of library/cell names.")
     argparser.add_argument("-d", "--debug", action="store_true",
                             help="Print more verbose debugging messages.")
 
