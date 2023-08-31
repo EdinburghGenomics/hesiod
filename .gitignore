@@ -9,6 +9,7 @@ __pycache__
 
 tmp/
 .snakemake
+/snakemake_profile/
 sge_output
 _*_venv*/
 doc/*.ps

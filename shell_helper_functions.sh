@@ -10,7 +10,7 @@ LOCAL_CORES=${LOCAL_CORES:-4}
 
 ## Dump out the right Snakemake profile for this cluster
 function gen_profile(){
-    env TOOLBOX=$(find_toolbox) gen_profile.py --clobber
+    env TOOLBOX=$(find_toolbox) PATH="$(dirname "$0"):$PATH" gen_profile.py --clobber
 }
 
 function gen_local_profile(){

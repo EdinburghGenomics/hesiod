@@ -1,0 +1,106 @@
+#!/bin/bash
+# vim: ft=python
+
+# This workflow expects to be run in an output directory and will
+# produce {foo}_md5sums.txt by checksumming all the regular files
+# in config['input_dir']. As with rsync, if there is a /./ in the input
+# path it will be used to split the input into a base path and a prefix.
+#
+# A checkpoint rule will be used to batch the files and save the output
+# into {foo}_batches.json.
+
+"""true" ### Begin shell script part
+set -u
+
+source "`dirname $0`"/shell_helper_functions.sh
+
+snakerun_drmaa "$0" "$@"
+
+"exit""" ### End of shell script part
+#!/usr/bin/env snakemake
+
+from pprint import pprint, pformat
+
+def split_input_dir(idir=config['input_dir']):
+    """Return config['input_dir'], split if necessary.
+    """
+    idir = idir.rstrip("/")
+    path_bits = idir.split("/")
+    path_bits.reverse()
+
+    try:
+        dot_pos = path_bits.index(".")
+    except ValueError:
+        # No /./ in the path
+        return (idir, "")
+
+    # Re-reverse list in-place!
+    return ( "/".join(path_bits[:dot_pos:-1]),
+             "/".join(path_bits[dot_pos-1::-1]) )
+
+def scan_for_batches(base_p, prefix_p, batch_size=config.get('batch_size', 100)):
+    """The main part of the whole thing. Find all the files in the
+       input directory and return them as a dict of lists of size 100.
+
+       The order and content of the lists should be stable as long as the
+       file names and batch size are the same.
+
+       The list sizes should be balanced, so if there are 101 files we should
+       get 51+50 not 100+1.
+
+       The files in the lists should be mixed up in an attempt to get a range of sizes
+       per list. Filling the lists in a round-robin manner satisfies this and the
+       previous criterion.
+    """
+    # 1 - Get a list of all files with paths starting prefix_p/
+    # 2 - Make sure it's sorted
+    # 3 - call batchlist
+
+def batchlist(l, batch_size, min_pad=2):
+    """Helper function for the above
+    """
+    # 1 - Work out the keys and make a base dict (use 00 01 02, or
+    #      00001 00002 00003 depending on how many batches)
+    # 2 - Fill the list
+    # 3 - profit
+    batches_needed = ( (len(l) - 1) // batch_size ) + 1
+
+    # Round robin fill (lol = list of lists)
+    lol = [ [] for __ in range(batches_needed) ]
+    for i, x in enumerate(l):
+        lol[i % batches_needed].append(x)
+
+    pad_size = min(len(str(batches_needed - 1)), min_pad)
+    return { f"{k:0{pad_size}d}": v for k, v in enumerate(lol) }
+
+# Determine the output prefix.
+BASE_PATH, PREFIX_PATH = split_input_dir()
+OUTPUT_PREFIX = PREFIX_PATH and f"{PREFIX_PATH.replace('/','_')}_"
+
+rule main:
+    input: f"{OUTPUT_PREFIX}md5sums.txt"
+
+checkpoint gen_batches:
+    output:
+        json = f"{OUTPUT_PREFIX}_batches.json"
+    run:
+        batches = scan_for_batches(BASE_PATH, PREFIX_PATH)
+
+        with open(str(output.json), "w") as jfh:
+            json.dump(batches, jfh)
+
+def i_combine_batches(wildcards=None):
+    batches_file = checkpoints.gen_batches.get().output.json
+
+    with open(batches_file) as bffh:
+        batches = json.load(bffh)
+
+    # One file per batch, names based on keys.
+    batch_keys = sorted(batches)
+    return [ f"{OUTPUT_PREFIX}md5sums_{b}.txt" for b in batch_keys ]
+
+rule combine_batches:
+    output: f"{OUTPUT_PREFIX}md5sums.txt"
+    input:  i_combine_batches
+    shell:
+        "cat {input} > {output}"
