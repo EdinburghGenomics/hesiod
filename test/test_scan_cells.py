@@ -37,7 +37,7 @@ class T(unittest.TestCase):
         """ Test that scanning cells works with the new more complex logic.
               cell -> '.' -> 'fastX_pass' : [ list of files ]
         """
-        res = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun") )
+        res = scan_cells(f"{DATA_DIR}/runs/20190710_LOCALTEST_00newrun")
         sc = res['scanned_cells']
 
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
@@ -67,10 +67,10 @@ class T(unittest.TestCase):
             Also this calls the main function so we expect a full output as if called
             on the command line.
         """
-        args = parse_args([os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT")])
+        args = parse_args([f"{DATA_DIR}/runs/20221103_EGS2_25070AT"])
         sc = scan_main( args )
 
-        with open(os.path.join(DATA_DIR, "runs/20221103_EGS2_25070AT/sc_data.yaml")) as yfh:
+        with open(f"{DATA_DIR}/runs/20221103_EGS2_25070AT/sc_data.yaml") as yfh:
             expected = yaml.safe_load(yfh)
 
         self.assertEqual(sc, expected)
@@ -79,7 +79,7 @@ class T(unittest.TestCase):
         """ A missing fast5 file should raise an exception
         """
         with self.assertRaises(RuntimeError):
-            scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_missingfile"),
+            scan_cells( f"{DATA_DIR}/runs/20190710_LOCALTEST_00missingfile",
                         cellsready=['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'] )
 
     def test_scan_cells_bc(self):
@@ -87,7 +87,7 @@ class T(unittest.TestCase):
               cell -> barcode -> 'fastX_pass' : [ list of files ]
         """
         # 20210520_EGS1_16031BA/16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f
-        res1 = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA"),
+        res1 = scan_cells( f"{DATA_DIR}/runs/20210520_EGS1_16031BA",
                            cellsready=['16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'] )
         sc1 = res1['scanned_cells']
 
@@ -97,7 +97,7 @@ class T(unittest.TestCase):
         self.assertEqual(res1['counts'], dict( cells=1, cellsaborted=0, cellsready=1 ))
 
         # Auto detecting the cells ready should produce the same result.
-        res2 = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA") )
+        res2 = scan_cells(f"{DATA_DIR}/runs/20210520_EGS1_16031BA")
 
         self.assertEqual(res1, res2)
 
@@ -105,20 +105,20 @@ class T(unittest.TestCase):
         """ Test the function that picks a fast5 file to probe for metadata
         """
         cell_name = '16031BApool01/20210520_1105_2-E1-H1_PAG23119_76e7e00f'
-        sc = scan_cells( os.path.join(DATA_DIR, "runs/20210520_EGS1_16031BA"),
+        sc = scan_cells( f"{DATA_DIR}/runs/20210520_EGS1_16031BA",
                          cellsready=[cell_name] )['scanned_cells']
 
         if VERBOSE:
             pprint(sc)
 
         self.assertEqual( find_representative_fast5(cell_name, sc[cell_name], try_glob=False),
-                          cell_name + "/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5" )
+                          f"{cell_name}/fast5_barcode01_pass/PAG23119_pass_barcode01_0eaeb70c_1.fast5" )
 
     def test_find_representative_fast5_nobc(self):
         """ And for the barcodeless version
         """
         cell_name = 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'
-        sc = scan_cells( os.path.join(DATA_DIR, "runs/201907010_LOCALTEST_newrun"),
+        sc = scan_cells( f"{DATA_DIR}/runs/20190710_LOCALTEST_00newrun",
                          cellsready=[cell_name] )['scanned_cells']
 
         self.assertEqual( find_representative_fast5(cell_name, sc[cell_name], try_glob=False),

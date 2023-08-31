@@ -203,7 +203,7 @@ export HESIOD_VERSION=$(hesiod_version.py)
 action_new(){
     # Create an input directory with a pipeline subdir and send an initial notification to RT
     # Have a 'from' file containing the upstream location
-    # Also a matching output directory and back/forth symlinks
+    # Also make a matching output directory and back/forth symlinks
     _cc=`twc $CELLS`
     _exp_dir="$(dir_for_run "$EXPERIMENT")"
     _exp_dir_dir="$(dirname "$PROM_RUNS/$_exp_dir")"
@@ -260,6 +260,9 @@ action_new(){
         return
     fi
 
+    # Now see if the experiment is internal/visitor/test
+    classify_expt
+
     # Now detect if any cells are already complete, so we can skip the sync on the
     # next run-through. This will only be the case for local experiments - ie. those
     # copied in directly.
@@ -274,7 +277,38 @@ action_new(){
     log "DONE"
 }
 
+
 action_cell_ready(){
+    # Re-dispatch based on $EXPT_TYPE
+    if [[ $(type -t action_cell_ready_"$EXPT_TYPE") == function ]] ; then
+        eval action_cell_ready_"$EXPT_TYPE"
+    else
+        # This will also do for EXPT_TYPE=test
+        action_cell_ready_unknown
+    fi
+}
+
+action_cell_ready_unknown(){
+    log "\_CELL_READY $EXPERIMENT. But EXPT_TYPE is $EXPT_TYPE. Taking no action."
+}
+
+action_cell_ready_visitor(){
+    log "\_CELL_READY $EXPERIMENT. Auto-delivering `twc $CELLSREADY` visitor cells."
+    plog_start
+
+    for _c in $CELLSREADY ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
+    done
+
+    BREAK=1
+
+
+    ###
+    And so on to checksum and deliver the cells
+}
+
+
+action_cell_ready_internal(){
     # This is the main event. Start processing and then report.
     log "\_CELL_READY $EXPERIMENT. Time to process `twc $CELLSREADY` cells (`twc $CELLSDONE` already done)."
     plog_start
@@ -284,6 +318,7 @@ action_cell_ready(){
     done
 
     BREAK=1
+
     # Printable version of CELLSREADY
     _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
 
@@ -291,10 +326,8 @@ action_cell_ready(){
     # If contacting RT fails it will return 1, which we count as success
     ( notify_experiment_complete ) |&plog || _exp_complete_res=$?
 
-
-    # We'd like to have some project info from the LIMS.
-    # TODO - maybe get this earlier, if we want to put the info in RT?
-    project_realnames |& plog
+    # We'd like to have some project info from the LIMS (saves project_realnames.yaml)
+    project_realnames
 
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment \
@@ -661,6 +694,14 @@ send_summary_to_rt() {
     _preamble="${3:-Run report is at}"
     _fudge="${4:-}"   # Set status complete after processing?
 
+    # We need to short-circuit this if the experiment is not an internal experiment
+    debug "EXPT_TYPE is ${EXPT_TYPE:-UNSET!!}"
+    if [[ "$EXPT_TYPE" != internal ]] ; then
+        debug "Skipping RT report as the experiment is of type: $EXPT_TYPE"
+        echo "Skipping RT report as the experiment is of type: $EXPT_TYPE"
+        return
+    fi
+
     # Quoting of a subject with spaces requires use of arrays but beware this:
     # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
     if [ -n "$_run_status" ] ; then
@@ -750,7 +791,17 @@ project_realnames() {
     # Save info about the projects into $RUN_OUTPUT/project_realnames.yaml
     # This is done on a best-effort basis, so if we can't contact the LIMS no file is written.
     plog "Asking LIMS for the real project names..."
-    project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t $CELLS || true
+    project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t $CELLS |& plog || true
+}
+
+classify_expt() {
+    # Decide what type of experiment this is
+    # Function must be called in the run directory
+    plog "Deciding if this is a visitor run or what..."
+    classify_expt.py "$EXPERIMENT" > "pipeline/type.yaml"
+
+    # Set/reset $EXPT_TYPE as a side effect
+    EXPT_TYPE="$(tyq.py '{0[type]}' pipeline/type.yaml)"
 }
 
 get_run_status() {

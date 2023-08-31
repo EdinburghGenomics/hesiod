@@ -63,9 +63,9 @@ class T(unittest.TestCase):
 
         self.assertEqual(retval, 0)
         self.assertEqual(bm.last_stderr, '')
-        self.assertEqual(bm.last_stdout.split('\t'), [ '20190226_TEST_testrun',
-                                                       EXAMPLES + '/upstream1/testrun',
-                                                       'testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n' ])
+        self.assertEqual(bm.last_stdout.split('\t'), [ "20190226_TEST_00testrun",
+                                                       f"{EXAMPLES}/upstream1/00testrun",
+                                                       "testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n" ])
 
     def test_silly_run_name(self):
         """If there is a space in the run name it should be sanitized. Not sure if it's
@@ -79,9 +79,9 @@ class T(unittest.TestCase):
 
         self.assertEqual(retval, 0)
         self.assertEqual(bm.last_stderr, '')
-        self.assertEqual(bm.last_stdout.split('\t'), [ '20190226_TEST_name_with_spaces',
-                                                       EXAMPLES + '/upstream_silly_names/name  with___spaces',
-                                                       'testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n' ])
+        self.assertEqual(bm.last_stdout.split('\t'), [ "20190226_TEST_name_with_spaces",
+                                                       f"{EXAMPLES}/upstream_silly_names/name  with___spaces",
+                                                       "testlib/20190226_1723_2-A5-D5_PAD38578_c6ded78b\n" ])
 
 
     def test_ssh(self):

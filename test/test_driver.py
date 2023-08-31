@@ -244,15 +244,16 @@ class T(unittest.TestCase):
            creation of a new run in PROM_RUNS and a corresponding directory in FASTQDATA
            and a new run ticket in preparation for sync.
         """
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream1'
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream1"
 
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
+            subprocess.call(["head", "-v", f"{self.temp_dir}/runs/20190226_TEST_00testrun/pipeline/type.yaml"])
 
-        # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
-        self.run_name = "20190226_TEST_testrun"
+        # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
+        self.run_name = "20190226_TEST_00testrun"
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{self.run_name}/pipeline"))
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{self.run_name}"))
         self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}/pipeline/output"),
@@ -261,11 +262,11 @@ class T(unittest.TestCase):
                           os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}") )
 
         with open(f"{self.temp_dir}/runs/{self.run_name}/pipeline/upstream") as fh:
-            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun\n')
+            self.assertEqual(fh.read(), f"{self.environment['UPSTREAM_TEST']}/00testrun\n")
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/20190226_TEST_testrun", './pipeline']]
+        expected_calls['chgrp'] = [["-c", f"--reference={self.temp_dir}/fastqdata/{self.run_name}", "./pipeline"]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd('new', '--comment', '@???')]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
@@ -284,62 +285,63 @@ class T(unittest.TestCase):
     def test_new_upstream_withbatch(self):
         """Check that setting PROM_RUNS_BATCH works.
         """
-        self.environment['PROM_RUNS_BATCH'] = 'month'
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream1'
+        run_name = "20190226_TEST_00testrun"
+        self.environment['PROM_RUNS_BATCH'] = "month"
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream1"
 
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
-        # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
-        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun/pipeline"))
-        self.assertTrue(os.path.isdir(self.temp_dir + "/fastqdata/20190226_TEST_testrun"))
-        self.assertEqual( os.path.realpath(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun/pipeline/output"),
-                          os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun") )
-        self.assertEqual( os.path.realpath(self.temp_dir + "/fastqdata/20190226_TEST_testrun/rundata"),
-                          os.path.realpath(self.temp_dir + "/runs/2019-02/20190226_TEST_testrun") )
+        # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/2019-02/{run_name}/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{run_name}"))
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/2019-02/{run_name}/pipeline/output"),
+                          os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}") )
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}/rundata"),
+                          os.path.realpath(f"{self.temp_dir}/runs/2019-02/{run_name}") )
 
 
     def test_new_upstream2(self):
         """A slightly more complex run with spaces in the lib name.
            Note that the spaces may well break downstream parts.
         """
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream2"
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
-        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/20000101_TEST_00testrun2/pipeline"))
 
         # Did we correctly see the three cells?
-        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells")
+        self.assertInStdout("NEW 20000101_TEST_00testrun2 with 3 cells")
 
         # Is the upstream written correctly?
-        with open(self.temp_dir + "/runs/20000101_TEST_testrun2/pipeline/upstream") as fh:
-            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun2\n')
+        with open(self.temp_dir + "/runs/20000101_TEST_00testrun2/pipeline/upstream") as fh:
+            self.assertEqual(fh.read(), f"{self.environment['UPSTREAM_TEST']}/00testrun2\n")
 
     def test_new_upstream2_withbatch(self):
         """Same with PROM_RUNS_BATCH=year
         """
         self.environment['PROM_RUNS_BATCH'] = 'year'
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream2"
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
-        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/2000/20000101_TEST_testrun2/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/2000/20000101_TEST_00testrun2/pipeline"))
 
         # Did we correctly see the three cells?
-        self.assertInStdout("NEW 20000101_TEST_testrun2 with 3 cells")
+        self.assertInStdout("NEW 20000101_TEST_00testrun2 with 3 cells")
         self.assertInStdout(self.environment['UPSTREAM_TEST'])
-        self.assertInStdout(self.temp_dir + "/runs/2000/20000101_TEST_testrun2")
+        self.assertInStdout(self.temp_dir + "/runs/2000/20000101_TEST_00testrun2")
 
         # Is the upstream written correctly?
-        with open(self.temp_dir + "/runs/2000/20000101_TEST_testrun2/pipeline/upstream") as fh:
-            self.assertEqual(fh.read(), self.environment['UPSTREAM_TEST'] + '/testrun2\n')
+        with open(self.temp_dir + "/runs/2000/20000101_TEST_00testrun2/pipeline/upstream") as fh:
+            self.assertEqual(fh.read(), f"{self.environment['UPSTREAM_TEST']}/00testrun2\n")
 
     def test_new_without_upstream(self):
         """With a new run in PROM_RUNS that isn't found in the UPSTREAM this should trigger
@@ -347,26 +349,27 @@ class T(unittest.TestCase):
            above, but no sync as there is nothing to sync - our assumption is that this run
            should be ready for processing right away.
         """
-        self.copy_run("201907010_LOCALTEST_newrun")
+        run_name = "20190710_LOCALTEST_00newrun"
+        self.copy_run(run_name)
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # Check for dirs and symlinks as above
-        self.assertTrue(os.path.isdir(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline"))
-        self.assertTrue(os.path.isdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"))
-        self.assertEqual( os.path.realpath(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/output"),
-                          os.path.realpath(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun") )
-        self.assertEqual( os.path.realpath(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun/rundata"),
-                          os.path.realpath(self.temp_dir + "/runs/201907010_LOCALTEST_newrun") )
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{run_name}/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{run_name}"))
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/{run_name}/pipeline/output"),
+                          os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}") )
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}/rundata"),
+                          os.path.realpath(f"{self.temp_dir}/runs/{run_name}") )
 
-        with open(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/upstream") as fh:
+        with open(f"{self.temp_dir}/runs/{run_name}/pipeline/upstream") as fh:
             self.assertEqual(fh.read().rstrip('\n'), 'LOCAL')
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['chgrp'] = [['-c', '--reference='+self.temp_dir+"/fastqdata/201907010_LOCALTEST_newrun", './pipeline']]
+        expected_calls['chgrp'] = [["-c", f"--reference={self.temp_dir}/fastqdata/{run_name}", "./pipeline"]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("new", "--comment", "@???")]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
@@ -380,7 +383,7 @@ class T(unittest.TestCase):
            list_remote_cells.sh shouldn't leak to STDERR as was happening in 0.6.0.
         """
         # Make a run but it's aborted so we'll ignore it.
-        self.copy_run("20000101_TEST_testrun2")
+        self.copy_run("20000101_TEST_00testrun2")
         self.touch("pipeline/aborted")
 
         # An empty upstream location
@@ -397,9 +400,9 @@ class T(unittest.TestCase):
     def test_new_but_output_exists(self):
         """There should be an error if the directory in fastqdata already exists
         """
-        self.copy_run("201907010_LOCALTEST_newrun")
+        self.copy_run("20190710_LOCALTEST_00newrun")
 
-        os.mkdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun")
+        os.mkdir(f"{self.temp_dir}/fastqdata/20190710_LOCALTEST_00newrun")
 
         # Driver should still exit cleanly
         self.bm_rundriver()
@@ -410,9 +413,9 @@ class T(unittest.TestCase):
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # The failed flag should be set
-        self.assertTrue(os.path.exists(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/failed"))
+        self.assertTrue(os.path.exists(f"{self.temp_dir}/runs/20190710_LOCALTEST_00newrun/pipeline/failed"))
         # The source should be set to 'LOCAL'
-        with open(self.temp_dir + "/runs/201907010_LOCALTEST_newrun/pipeline/upstream") as fh:
+        with open(f"{self.temp_dir}/runs/20190710_LOCALTEST_00newrun/pipeline/upstream") as fh:
             self.assertEqual(fh.read(), "LOCAL\n")
 
         # A new ticket should have been made, but with an error
@@ -421,7 +424,7 @@ class T(unittest.TestCase):
                                                                  "Failed at New_Run_Setup.\nSee log in /dev/stdout")]
 
         # And nothing should be written to the fastqdata dir
-        self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/201907010_LOCALTEST_newrun"), [])
+        self.assertEqual(os.listdir(self.temp_dir + "/fastqdata/20190710_LOCALTEST_00newrun"), [])
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
@@ -432,21 +435,20 @@ class T(unittest.TestCase):
         """
         # Note the upstream2 example is also used by test_run_status.py so check all is well
         # with those before trying to diagnose faults here.
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream2"
         self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run('20000101_TEST_00testrun2')
 
-        #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
         self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary_PAD00000_1ea085ce.txt")
 
         self.bm_rundriver()
 
-        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_00testrun2")
         # Because of final_summary.txt we should see this:
         self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced"))
 
         expected_calls = self.bm.empty_calls()
-        rsync_first_bit = ["==", "={}=".format(EXAMPLES + '/upstream2/testrun2'), "=20000101_TEST_testrun2="]
+        rsync_first_bit = ["==", f"={EXAMPLES}/upstream2/00testrun2=", "=20000101_TEST_00testrun2="]
         expected_calls['rsync'] = [ rsync_first_bit + ["=a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa="],
                                     rsync_first_bit + ["=a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb="],
                                     rsync_first_bit + ["=another test/20000101_0000_3-C1-C1_PAD00000_cccccccc="] ]
@@ -456,16 +458,16 @@ class T(unittest.TestCase):
         """I had a bug where if there were multiple new upstream runs the logs would both go to the
            first of them. Not good.
         """
-        self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream3'
+        self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream3"
 
         self.bm_rundriver()
 
         if VERBOSE:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
-        # The run is named '20190226_TEST_testrun'. Check for dirs and symlinks.
-        log1 = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testrun/pipeline.log")
-        log2 = slurp_file(self.temp_dir + "/fastqdata/20190226_TEST_testruncopy/pipeline.log")
+        # The run will be named '20190226_TEST_00testrun'. Check for dirs and symlinks.
+        log1 = slurp_file(f"{self.temp_dir}/fastqdata/20190226_TEST_00testrun/pipeline.log")
+        log2 = slurp_file(f"{self.temp_dir}/fastqdata/20190226_TEST_00testruncopy/pipeline.log")
 
         self.assertEqual(len(log1), len(log2))
 
@@ -474,11 +476,11 @@ class T(unittest.TestCase):
         """
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
         self.environment['SYNC_CMD'] = 'rsync =$upstream_host= =$upstream_path= =$run= =$cell='
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run("20000101_TEST_00testrun2")
         run_path_1 = self.run_path
 
         # Now add a run which is incomplete
-        self.copy_run('201907010_LOCALTEST_missingfile')
+        self.copy_run('20190710_LOCALTEST_00missingfile')
         os.makedirs(os.path.join(self.run_path, "pipeline/output"))
         run_path_2 = self.run_path
 
@@ -487,8 +489,8 @@ class T(unittest.TestCase):
         self.bm.add_mock('Snakefile.main', fail=True)
 
         self.bm_rundriver()
-        self.assertInStdout("INCOMPLETE 201907010_LOCALTEST_missingfile")
-        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        self.assertInStdout("INCOMPLETE 20190710_LOCALTEST_00missingfile")
+        self.assertInStdout("SYNC_NEEDED 20000101_TEST_00testrun2")
 
         # A correctly-named plog should now appear in both
         lines_in_log1 = slurp_file(os.path.join(run_path_1, "pipeline", "output", "sync_from_upstream.log"))
@@ -504,26 +506,27 @@ class T(unittest.TestCase):
     def test_sync_needed_withbatch(self):
         """Same with PROM_RUNS_BATCH=year
         """
+        run_name = "20000101_TEST_00testrun2"
         self.environment['PROM_RUNS_BATCH'] = 'year'
         self.environment['UPSTREAM_TEST'] = EXAMPLES + '/upstream2'
         self.environment['SYNC_CMD'] = 'rsync "$upstream_host" "$upstream_path" "$run" "$run_dir" "$run_dir_full" "$cell"'
-        self.copy_run('20000101_TEST_testrun2', subdir="2000")
+        self.copy_run(run_name, subdir=run_name[:4])
 
         #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
         self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary_PAD00000_1ea085ce.txt")
 
         self.bm_rundriver()
 
-        self.assertInStdout("SYNC_NEEDED 20000101_TEST_testrun2")
+        self.assertInStdout(f"SYNC_NEEDED {run_name}")
         # Because of final_summary.txt we should see this:
         self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced"))
 
         expected_calls = self.bm.empty_calls()
-        rsync_first_bit = [ "",                               # No upstream host
-                            EXAMPLES + "/upstream2/testrun2", # Upstream source of example run
-                            "20000101_TEST_testrun2",         # The name of the run
-                            "2000/20000101_TEST_testrun2",    # The target directory, including the year
-                            self.run_path                     # The full target directory
+        rsync_first_bit = [ "",                                 # No upstream host
+                            f"{EXAMPLES}/upstream2/00testrun2", # Upstream source of example run
+                            f"{run_name}",                      # The name of the run
+                            f"{run_name[:4]}/{run_name}",       # The target directory, including the year
+                            self.run_path                       # The full target directory
                           ]
         expected_calls['rsync'] = [ rsync_first_bit + ["a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa"],
                                     rsync_first_bit + ["a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb"],
@@ -535,15 +538,15 @@ class T(unittest.TestCase):
            When the pipeline runs again it should notify the run as complete and kick off
            processing and do all the other stuff.
         """
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run('20000101_TEST_00testrun2')
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
         self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
 
         self.bm_rundriver()
-        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
-        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
-        self.assertTrue(os.path.exists(self.run_path + "/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
-        self.assertFalse(os.path.exists(self.run_path + "/pipeline/failed"))
+        self.assertInStdout("CELL_READY 20000101_TEST_00testrun2")
+        self.assertTrue(os.path.exists(f"{self.run_path}/pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done"))
+        self.assertTrue(os.path.exists(f"{self.run_path}/pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.done"))
+        self.assertFalse(os.path.exists(f"{self.run_path}/pipeline/failed"))
 
         # Doctor non-deterministic calls to rt_runticket_manager.py
         for i, c in enumerate(self.bm.last_calls['rt_runticket_manager.py']):
@@ -563,7 +566,7 @@ class T(unittest.TestCase):
                                                                  "All 2 cells have run on the instrument. Full report will follow soon."),
                                                      self.rt_cmd("processing", "--comment", "@???"),
                                                      self.rt_cmd("Finished all cells", "--reply", "@???" )]
-        expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2",
+        expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_00testrun2",
                                                    "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                    "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
 
@@ -574,11 +577,11 @@ class T(unittest.TestCase):
            When the pipeline runs again it should NOT notify the run as complete but the one cell
            should be processed (higher priority than starting the sync).
         """
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run('20000101_TEST_00testrun2')
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
 
         self.bm_rundriver()
-        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("CELL_READY 20000101_TEST_00testrun2")
 
         # Doctor non-deterministic calls to rt_runticket_manager.py
         for i, c in enumerate(self.bm.last_calls['rt_runticket_manager.py']):
@@ -595,7 +598,8 @@ class T(unittest.TestCase):
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--comment", "@???"),
                                                      self.rt_cmd("Finished cell", "--reply", "@???")]
-        expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_testrun2", "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa" ]]
+        expected_calls['del_remote_cells.sh'] = [[ "/DUMMY/PATH/20000101_TEST_00testrun2",
+                                                   "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa" ]]
 
         self.assertEqual(self.bm.last_calls, expected_calls)
 
@@ -604,7 +608,7 @@ class T(unittest.TestCase):
            The run should press on up to the final stage but should then fail and
            not del_remote_cells
         """
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run('20000101_TEST_00testrun2')
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
         self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
 
@@ -613,7 +617,7 @@ class T(unittest.TestCase):
         self.bm.add_mock('rt_runticket_manager.py', fail=True)
         self.bm_rundriver(check_stderr=False)
 
-        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("CELL_READY 20000101_TEST_00testrun2")
         self.assertInStdout("Failed to send summary to RT.")
 
         self.assertInStderr("FAIL Reporting for cells")
@@ -660,7 +664,7 @@ class T(unittest.TestCase):
            The run should notify RT (which will work) but then end in a failed
            state because of the upload failure.
         """
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run("20000101_TEST_00testrun2")
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
         self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
 
@@ -668,7 +672,7 @@ class T(unittest.TestCase):
         self.bm.add_mock('upload_report.sh', fail=True, side_effect="echo Error in upload_report.sh >&2")
         self.bm_rundriver()
 
-        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("CELL_READY 20000101_TEST_00testrun2")
         self.assertInStdout("Processing completed but failed to upload the report.")
         # We've already asserted that STDERR is empty.
 
@@ -713,7 +717,7 @@ class T(unittest.TestCase):
            For now I'll just need to enter failed state. Anything else would need a change
            to the state machine.
         """
-        self.copy_run('20000101_TEST_testrun2')
+        self.copy_run("20000101_TEST_00testrun2")
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
 
         # When the driver can't report a failure to RT, it will log an error to STDERR so that
@@ -721,7 +725,7 @@ class T(unittest.TestCase):
         self.bm.add_mock('rt_runticket_manager.py', fail=True)
         self.bm_rundriver(check_stderr=False)
 
-        self.assertInStdout("CELL_READY 20000101_TEST_testrun2")
+        self.assertInStdout("CELL_READY 20000101_TEST_00testrun2")
         self.assertInStdout("Failed to send summary to RT.")
         self.assertInStderr("FAIL Reporting for cells")
         self.assertInStderr("and also failed to report the error via RT")

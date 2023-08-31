@@ -1,5 +1,5 @@
 bashmocker==0.3.0
-pyyaml==6.0
+pyyaml==6.0.1
 yamlloader==1.1.0
 rt==2.2.2
 h5py==3.8.0

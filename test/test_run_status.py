@@ -89,7 +89,7 @@ class T(unittest.TestCase):
     def test_run_new(self):
         """ A totally new run.
         """
-        run_info = self.use_run('201907010_LOCALTEST_newrun')
+        run_info = self.use_run('20190710_LOCALTEST_00newrun')
 
         self.assertEqual( run_info.get_status(), 'new' )
         self.assertEqual( run_info.get_instrument(), 'LOCALTEST' )
@@ -112,7 +112,7 @@ class T(unittest.TestCase):
            in the upstream the status should switch from 'incomplete' to 'sync_needed'
            and the internal status should chenge from INCOMPLETE to PENDING
         """
-        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+        run_info = self.use_run('20000101_TEST_00testrun2', copy=True)
 
         # This should have two incomplete cells, and thus be in status incomplete
         self.assertEqual( run_info.get_status(), 'incomplete' )
@@ -128,7 +128,7 @@ class T(unittest.TestCase):
 
         # Now if I redo the run_info with relevant upstream
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_TEST_testrun2": {
+                            upstream = { "20000101_TEST_00testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                            "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]) } } )
@@ -156,7 +156,7 @@ class T(unittest.TestCase):
         # If I add an unrecognised cell to the upstream that should be pending,
         # and push us back to sync_needed
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_TEST_testrun2": {
+                            upstream = { "20000101_TEST_00testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/TEST123" ]) } } )
 
@@ -196,7 +196,7 @@ class T(unittest.TestCase):
         """Test for bug noted on 30/7 - a run with sync in progress should appear in this state even if
            there is no upstream info provided.
         """
-        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+        run_info = self.use_run("20000101_TEST_00testrun2", copy=True)
         self.assertEqual( run_info.get_status(), 'incomplete' )
 
         # If I say that both cells on this run are done, but supply a third then it should be in
@@ -207,7 +207,7 @@ class T(unittest.TestCase):
         self.assertEqual( run_info.get_status(), 'complete' )
 
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_TEST_testrun2": {
+                            upstream = { "20000101_TEST_00testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/20000101_0000_3-C1-C1_PAD00000_cccccccc" ]) } } )
         self.assertEqual( run_info.get_status(), 'sync_needed' )
@@ -217,7 +217,7 @@ class T(unittest.TestCase):
 
         # Now the status should be syncing whether or not I provide the upstream
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_TEST_testrun2": {
+                            upstream = { "20000101_TEST_00testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "a test lib/20000101_0000_3-C1-C1_PAD00000_cccccccc" ]) } } )
         self.assertEqual( run_info.get_status(), 'syncing' )
@@ -227,10 +227,10 @@ class T(unittest.TestCase):
 
     def test_bug_20191119_EGS1_11879CD(self):
         """Attempt to replicate a bug seen on run 20191119_EGS1_11879CD where a sync finished and the
-           run went into cell_ready rather than processing. We can still use 20000101_TEST_testrun2
+           run went into cell_ready rather than processing. We can still use 20000101_TEST_00testrun2
            as a basis.
         """
-        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+        run_info = self.use_run("20000101_TEST_00testrun2", copy=True)
 
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.started")
@@ -249,7 +249,7 @@ class T(unittest.TestCase):
            Probably this is not an entirely sensible thing to do, but we can make the
            behaviour consistent pretty easily if the cell name is unchanged.
         """
-        run_info = self.use_run('20000101_TEST_testrun2', copy=True)
+        run_info = self.use_run("20000101_TEST_00testrun2", copy=True)
 
         # Mark those two cells as complete
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.done")
@@ -266,7 +266,7 @@ class T(unittest.TestCase):
 
         # Now with upstream but the sample names mismatch
         run_info = RunStatus( os.path.join(self.current_run_dir),
-                            upstream = { "20000101_TEST_testrun2": {
+                            upstream = { "20000101_TEST_00testrun2": {
                                             "loc": "xxx",
                                             "cells": set([ "wibble/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                            "bibble/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]) } } )
@@ -281,11 +281,11 @@ class T(unittest.TestCase):
         """If pipeline/type.yaml is present it should be queried for the type
         """
         # This one has type.yaml
-        run_info = self.use_run('20000101_TEST_testrun2', copy=False)
+        run_info = self.use_run('20000101_TEST_00testrun2', copy=False)
         self.assertEqual( dictify(run_info.get_yaml())['Type:'], 'internal' )
 
         # This does not
-        run_info = self.use_run('201907010_LOCALTEST_newrun', copy=False)
+        run_info = self.use_run('201907010_LOCALTEST_00newrun', copy=False)
         self.assertEqual( dictify(run_info.get_yaml())['Type:'], 'unknown' )
 
 

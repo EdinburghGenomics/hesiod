@@ -75,7 +75,9 @@ xargs md5sum -- < md5sums_000.fofn
 I'd have to put the md5sums somewhere. Probably we can just work in the pipeline/ directory but I don't want to
 run Snakemake in there, so maybe we do need an output directory for these runs. Yeah, I think I do. Then the
 delivery involves moving the cell directory to the transfer server and copying the final md5sums file to a
-suitable location. Probably best to make it obvious, so put it at the top level.
+suitable location. Probably best to make it obvious, so put it at the top level of the delivery folder.
+
+We can keep the output dir for now and not worry about cleanup - there's not much in there.
 
 Then trigger my delivery logic to make a token, and send an e-mail. But I don't think this belongs in Hesiod,
 so I think we may end up calling some qc_tools_python logic here. But this is fine. All fine. Then we can keep

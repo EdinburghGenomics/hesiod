@@ -73,7 +73,7 @@ class T(unittest.TestCase):
         """Test the cell scan function on a sample dir.
            Normally driver.sh pass in the list explicitly in order to include remote unsynced cells
         """
-        self.assertEqual( scan_cells(DATA_DIR + '/runs/20000101_TEST_testrun2'),
+        self.assertEqual( scan_cells(f"{DATA_DIR}/runs/20000101_TEST_00testrun2"),
                           [ 'a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa',
                             'a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb' ]
                         )
