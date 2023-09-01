@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Test the functions found in the Snakefile"""
+"""Test the functions found in the main Snakefile"""
 
 import sys, os, re
 import unittest

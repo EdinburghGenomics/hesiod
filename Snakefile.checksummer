@@ -31,7 +31,10 @@ def split_input_dir(idir=config['input_dir']):
     try:
         dot_pos = path_bits.index(".")
     except ValueError:
-        # No /./ in the path
+        dot_pos = None
+
+    if not dot_pos:
+        # No /./ in the path, or it's right at the end
         return (idir, "")
 
     # Re-reverse list in-place!
@@ -70,8 +73,10 @@ def batchlist(l, batch_size, min_pad=2):
     for i, x in enumerate(l):
         lol[i % batches_needed].append(x)
 
-    pad_size = min(len(str(batches_needed - 1)), min_pad)
+    pad_size = max(len(str(batches_needed - 1)), min_pad)
     return { f"{k:0{pad_size}d}": v for k, v in enumerate(lol) }
+
+## End of functions ## Leave this comment in place to help the unit tests.
 
 # Determine the output prefix.
 BASE_PATH, PREFIX_PATH = split_input_dir()

@@ -56,8 +56,8 @@ rule per_cell_blob_plots:
                       pf = BLOB_PARTS,
                       ss = [BLOB_SUBSAMPLE] ),
     run:
-        # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE, so check
-        # the FASTA, then make a dict of {part: seq_count} for this cell.
+        # We want to know how big the subsample actually was, as it may be < BLOB_SUBSAMPLE,
+        # so check the FASTA, then make a dict of {part: seq_count} for this cell.
         wc = wildcards
         if not BLOB_PARTS:
             counts = {}
