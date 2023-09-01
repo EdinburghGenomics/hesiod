@@ -4,7 +4,8 @@
 # This workflow expects to be run in an output directory and will
 # produce {foo}_md5sums.txt by checksumming all the regular files
 # in config['input_dir']. As with rsync, if there is a /./ in the input
-# path it will be used to split the input into a base path and a prefix.
+# path it will be used to split the input into a base path and a prefix
+# that the md5sums.txt will be relative to.
 #
 # A checkpoint rule will be used to batch the files and save the output
 # into {foo}_batches.json.
@@ -101,12 +102,25 @@ rule main:
 
 checkpoint gen_batches:
     output:
-        json = f"{OUTPUT_PREFIX}_batches.json"
+        json = f"{OUTPUT_PREFIX}batches.json"
     run:
         batches = scan_for_batches(BASE_PATH, PREFIX_PATH)
 
         with open(str(output.json), "w") as jfh:
             json.dump(batches, jfh)
+
+rule md5sum_batch:
+    output: f"{OUTPUT_PREFIX}md5sums_{{b}}.txt"
+    input:
+        json = f"{OUTPUT_PREFIX}batches.json"
+    run:
+        logger.quiet.discard('all')
+
+        with open(str(input.json)) as bffh:
+            batches = json.load(bffh)
+        my_batch = batches[wildcards.b]
+
+        shell("(cd {BASE_PATH:q} ; md5sum {my_batch:q}) > {output}")
 
 def i_combine_batches(wildcards=None):
     batches_file = checkpoints.gen_batches.get().output.json
@@ -114,12 +128,13 @@ def i_combine_batches(wildcards=None):
     with open(batches_file) as bffh:
         batches = json.load(bffh)
 
-    # One file per batch, names based on keys.
-    batch_keys = sorted(batches)
-    return [ f"{OUTPUT_PREFIX}md5sums_{b}.txt" for b in batch_keys ]
+    # One file per batch, names based on the dict keys and always combined
+    # in order, although I have to sort the result anyway so maybe that's
+    # pointless.
+    return [ f"{OUTPUT_PREFIX}md5sums_{b}.txt" for b in sorted(batches) ]
 
 rule combine_batches:
     output: f"{OUTPUT_PREFIX}md5sums.txt"
     input:  i_combine_batches
     shell:
-        "cat {input} > {output}"
+        "sort -k2 {input} > {output}"
