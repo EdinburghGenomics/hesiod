@@ -96,5 +96,34 @@ class T(unittest.TestCase):
                                '0002': ['c', 'g', 'k'],
                                '0003': ['d', 'h', 'l'], })
 
+    @patch('os.walk')
+    def test_scan_for_batches(self, dummy_walk):
+
+        dummy_walk.return_value = []
+        res = scan_for_batches('test', '')
+        self.assertEqual(res, {})
+
+        dummy_walk.return_value = [ ( 'wrong', [], [] ) ]
+        self.assertRaises( AssertionError, scan_for_batches, 'test', '' )
+
+        # When prefix_p is empty
+        dummy_walk.return_value = [ ( 'test',     [ 'd1' ], [ 'f1', 'f2' ] ),
+                                    ( 'test/foo', [], [ 'f4', 'f3' ] ), ]
+        res = scan_for_batches('test', '')
+        self.assertEqual(res, { '000': [ 'f1',
+                                         'f2',
+                                         'foo/f3',
+                                         'foo/f4' ] })
+
+        # When prefix_p is non-empty
+        dummy_walk.return_value = [ ( '/test/x/y',     [ 'd1' ], [ 'f1', 'f2' ] ),
+                                    ( '/test/x/y/foo', [], [ 'f4', 'f3' ] ), ]
+        res = scan_for_batches('/test', 'x/y')
+        self.assertEqual(res, { '000': [ 'x/y/f1',
+                                         'x/y/f2',
+                                         'x/y/foo/f3',
+                                         'x/y/foo/f4' ] })
+
+
 if __name__ == '__main__':
     unittest.main()

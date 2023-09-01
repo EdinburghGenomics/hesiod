@@ -58,8 +58,21 @@ def scan_for_batches(base_p, prefix_p, batch_size=config.get('batch_size', 100))
     # 1 - Get a list of all files with paths starting prefix_p/
     # 2 - Make sure it's sorted
     # 3 - call batchlist
+    res = []
 
-def batchlist(l, batch_size, min_pad=2):
+    for dirpath, dirnames, filenames in os.walk(os.path.join(base_p, prefix_p)):
+
+        assert dirpath[:len(base_p)] == base_p
+        reldirpath = dirpath[len(base_p):]
+        if base_p:
+            reldirpath = reldirpath.lstrip('/')
+
+        res.extend([os.path.join(reldirpath, f) for f in filenames])
+
+    res.sort()
+    return batchlist(res, batch_size, 3)
+
+def batchlist(l, batch_size, min_pad=0):
     """Helper function for the above
     """
     # 1 - Work out the keys and make a base dict (use 00 01 02, or
@@ -73,6 +86,7 @@ def batchlist(l, batch_size, min_pad=2):
     for i, x in enumerate(l):
         lol[i % batches_needed].append(x)
 
+    # Return a dict rather than a list so we can pad the keys
     pad_size = max(len(str(batches_needed - 1)), min_pad)
     return { f"{k:0{pad_size}d}": v for k, v in enumerate(lol) }
 
