@@ -13,7 +13,6 @@ BLAST_SCRIPT   = config.get('blast_script', "blast_nt")
 
 # For testing, make blobs of all three passing outputs. Probably we just want "pass" in the
 # final version. See also label_for_part() in the main Snakefile.
-#BLOB_PARTS  = "pass nolambda lambda".split()
 BLOB_PARTS  = config.get('blob_parts', ["pass"])
 
 # Snakemake won't let us set a congif item to [], so...
@@ -145,7 +144,7 @@ rule parse_blob_table:
 # Note I was thinking to add "sed '/^>/!s/U/T/g'" to fix U's to T's but apparently BLAST is cool
 # with the U bases.
 rule fastq_to_subsampled_fasta:
-    output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
+    output: "blob/{foo,.+(_pass|_fail)}+sub{n}.fasta"
     input: "{foo}.fastq.gz"
     threads: 2
     shell:
@@ -154,18 +153,6 @@ rule fastq_to_subsampled_fasta:
              {TOOLBOX} seqtk seq -ACU - | \
              {TOOLBOX} seqtk sample - {wildcards.n} | \
              sed -e 's,/,_,g' > {output}
-        """
-
-# Version that works on lambda.bam files
-# The sed filter may well be redundant here.
-rule bam_to_subsampled_fasta:
-    output: "blob/{foo,.+(_lambda)}+sub{n}.fasta"
-    input: "{foo}.bam"
-    threads: 2
-    shell:
-       r"""{TOOLBOX} samtools fasta {input} | \
-             {TOOLBOX} seqtk sample - {wildcards.n} | \
-             sed 's,/,_,g' > {output}
         """
 
 # Makes a .complexity file for our FASTA file
