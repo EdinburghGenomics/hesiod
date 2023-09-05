@@ -89,7 +89,7 @@ else
 
         # For get_pod5_metadata.py
         pip_install pyarrow==11.0.0
-        pip_install pod5==0.2.3
+        pip_install pod5==0.2.4
 
         # Here’s the big one
         pip_install numpy==1.23.2     # upgrade with NanoPlot

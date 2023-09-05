@@ -1,0 +1,19 @@
+Current flowcells are generating vast numbers of POD5 files.
+
+For example, cell 125000635_G363873_1972_G003181315 produced 13000 pod5_pass files, which are about 100MB
+each.
+
+If we merged in batches of 100 files that are around 10GB each, we get 130 files. Much better!
+Or maybe merge in batches of 40 files that are about 4GB each, and we get about 350.
+
+$ pod5 merge ... # should do this nicely
+
+OK, I think I'll arbitrarily pick 80 files. I can use a similar logic I already have for the
+batched-up md5summing and the FASTQ merging.
+
+The merging currently makes a per-batch md5sum file called batch{FAST5_BATCH_SIZE}_{b:08d}.md5.
+I think the {b:08d} format should be replaced by a variable-width number dependent on the number of
+batches rather than hard-coded to 08. Easy enough.
+
+While I'm at it, I can completely remove the calref mapping feature, as we no longer add Lambda spike-in by
+default! This will simplify the code a little.
