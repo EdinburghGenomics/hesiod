@@ -44,18 +44,19 @@ rule copy_report:
         else:
             shell("touch {output}")
 
-# Link (or copy) and checksum a batch of fast5 files:
-# * see doc/job_grouping.txt for why I'm doing manual batching not using Snakemake groups
-# * Some validation is provided by h5stat. Not perfect but it should at least spot truncations.
+# Merge and checksum a batch of pod5 files:
+# * merging is done with "pod5 merge" which should do some basic validation
+#   TODO - check that I get an error if files are truncated.
+#   TODO - check that merging a single POD5 is allowed and validates the POD5
 # * md5sum is invoked such that keeps the full path out of the .md5 file, as usual
 # * barcode=. should work with this even though it's a bit sus.
 # * making the input 'ancient' is an attempt to speed up the DAG build but I'm not sure it helps
-# * due to hard-link logic the 'chgrp' bit will change the ownership on the input file, which
-#   would not normally happen even with g+s in effect. We need to avoid this for test runs because
-#   these often use real data for input and I would end up with production files owned by tbooth2,
-#   but the same-owner check is good for this, I think.
-def i_copy_md5sum_fast5_batch(wildcards):
-    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"fast5_{wildcards.pfs}"]
+#   (it does with my hacked Snakemake!)
+def i_merge_md5sum_pod5_batch(wildcards):
+    """Input func for a single batch of pod5 files to be merged.
+       The final batch may be small - maybe just one single POD5.
+    """
+    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"pod5_{wildcards.pfs}"]
 
     batch_size = int(wildcards.bsize)
     batch_num = int(wildcards.batch)
@@ -63,78 +64,64 @@ def i_copy_md5sum_fast5_batch(wildcards):
     return [ ancient(f"{EXPDIR}/{f}") for f in
              all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size] ]
 
-rule copy_md5sum_fast5_batch:
+rule merge_md5sum_pod5_batch:
     output:
-        dir = directory("{cell}/fast5_{barcode}_{pfs}/batch{bsize}_{batch}"),
-        md5 = "md5sums/{cell}/fast5_{barcode}_{pfs}/batch{bsize}_{batch}.md5"
+        pod5 = "{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod",
+        md5  = "md5sums/{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod.md5"
     input:
-        i_copy_md5sum_fast5_batch
+        i_merge_md5sum_pod5_batch
     params:
-        batchdir = "fast5_{barcode}_{pfs}/batch{bsize}_{batch}"
+        pod5_base = "pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod"
     shell:
-       r"""true > {output.md5}.tmp
-           mkdir -v {output.dir}
-           for ifile in {input} ; do
-               ofile="{output.dir}/$(basename "$ifile")"
-               if [ "$(stat -c %u/%D "$ifile")" = "$(id -u)/$(stat -c %D $(dirname "$ofile"))"  ] ; then
-                  ln -T "$ifile" "$ofile"
-                  chgrp --reference="$(dirname "$ofile")" "$ofile"
-               else
-                  cp -T "$ifile" "$ofile"
-               fi
-               {TOOLBOX} h5stat "$ofile" > /dev/null
-               ( cd {wildcards.cell} && md5sum -- "{params.batchdir}/$(basename "$ofile")" ) >> {output.md5}.tmp
-           done
+       r"""pod5 merge -o {output.pod5} {input}
+           ( cd {wildcards.cell} && md5sum -- {params.pod5_base} ) > {output.md5}.tmp
            mv {output.md5}.tmp {output.md5}
         """
 
-localrules: merge_fast5_md5_batches
+localrules: merge_pod5_md5sums
 
-# The copy_fast5 rule in Snakefile.main drives execution of the rule below which runs per barcode
-# (each time for pass+fail) and drives the rule above which actually copies/sums the batches of files.
+# The copy_pod5 rule in Snakefile.main drives execution of the rule below which runs per barcode
+# (each time for pass+fail) and drives the rule above which actually merges/sums the batches of
+# files.
 
-def i_merge_fast5_md5_batches(wildcards):
-    """Available files within a single directory are divided into
-       batches of, say, 100
+def i_merge_pod5_md5sums(wildcards):
+    """Available POD5 files within a single directory are divided into
+       batches of, say, 80
     """
-    fast5_dir = f"{wildcards.cell}/fast5_{wildcards.bc}_{wildcards.pf}"
+    pod5_dir = f"{wildcards.cell}/pod5_{wildcards.bc}_{wildcards.pf}"
 
-    # How many file to be batched up for this barcode? And thus how many batches?
-    total_files = len(SC[wildcards.cell][wildcards.bc][f'fast5_{wildcards.pf}'])
-    batches_needed = ((total_files - 1) // FAST5_BATCH_SIZE) + 1
+    # How many files in total for this barcode? And thus how many merged files?
+    total_files = len(SC[wildcards.cell][wildcards.bc][f'pod5_{wildcards.pf}'])
+    output_pod5_needed = ((total_files - 1) // POD5_BATCH_SIZE) + 1
 
     # List of md5 files we thus need to generate.
     res = []
-    for b in range(batches_needed):
-        res.append(f"md5sums/{fast5_dir}/batch{FAST5_BATCH_SIZE}_{b:08d}.md5")
+    for b in range(output_pod5_needed):
+        # FIXME - probably {b:08d} is wrong now?!
+        res.append(f"md5sums/{pod5_dir}/batch{POD5_BATCH_SIZE}_{b:08d}.pod.md5")
     return res
 
-rule merge_fast5_md5_batches:
-    output: "md5sums/{cell}/fast5_{bc}_{pf}/all_fast5.md5"
-    input:  i_merge_fast5_md5_batches
+rule merge_pod5_md5sums:
+    output: "md5sums/{cell}/pod5_{bc}_{pf}/all_pod5.md5"
+    input:  i_merge_pod5_md5sums
     run:
         # Cos sys.stderr gets silenced in sub-jobs:
         logger.quiet.discard('all')
 
-        # Re-calculate the number of fast5 files for this barcode, as we can't easily extract
-        # it from the input function. We'll use this for a sanity check at the end.
-        total_files = len(SC[wildcards.cell][wildcards.bc][f'fast5_{wildcards.pf}'])
-
-        # Compile the per-batch md5 files into one per barcode.
+        # Compile the per-merged-pod5 md5 files into one per barcode.
+        # Could do this with shell("cat ...") but there may be a lot of files.
         lines_written = 0
         with open(str(output), 'x') as ofh:
             out_dir = os.path.dirname(str(output))
-            print(f"Writing fast5 md5 for {out_dir}")
-            # Could do this with shell("cat ...")
+            print(f"Writing pod5 md5 for {out_dir}")
             for c in input:
                 with open(str(c)) as ifh:
                     for md5line in ifh:
                         ofh.write(md5line)
                         lines_written += 1
-        # We should now be able to check that the count of md5 lines matches
-        # the expected number of lines in SC, which is useful as we no longer
-        # have Snakemake tracking every individual file.
-        assert lines_written == total_files, "lines_written == total_files"
+
+        # Check that the count of md5 lines matches
+        assert lines_written == len(input), "lines_written == len(input)"
 
 # These two concatenate and zip and sum the fastq. The fastq are smaller so one final file is OK.
 # The name for the file is as per doc/filename_convention.txt but this rule doesn't care.

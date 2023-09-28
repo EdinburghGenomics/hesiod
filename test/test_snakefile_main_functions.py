@@ -123,7 +123,7 @@ class T(unittest.TestCase):
                              blobs = ['__blob__'],
                              nanoplot = '__nanoplot__',
                              duplex = 1,
-                             fast5_meta = dict() )
+                             pod5_meta = dict() )
 
         if VERBOSE:
             pprint(got)

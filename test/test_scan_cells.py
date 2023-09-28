@@ -43,6 +43,8 @@ class T(unittest.TestCase):
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
                                        "bam_pass": [],
                                        "bam_fail": [],
+                                       "pod5_pass": [],
+                                       "pod5_fail": [],
                                        "fast5_fail": [],
                                        "fastq_fail": [],
                                        "fastq.gz_fail": [],
@@ -78,6 +80,7 @@ class T(unittest.TestCase):
     def test_scan_error(self):
         """ A missing fast5 file should raise an exception
         """
+        # FIXME - how does this work with POD5?
         with self.assertRaises(RuntimeError):
             scan_cells( f"{DATA_DIR}/runs/20190710_LOCALTEST_00missingfile",
                         cellsready=['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'] )
@@ -139,6 +142,8 @@ class T(unittest.TestCase):
         """
         sc =  {'testlib/testcell_123' : { '.': dict(
                        bam_fail   = [],
+                       pod5_pass  = [],
+                       pod5_fail  = [],
                        fast5_fail = [],
                        fastq_fail = [],
                        bam_pass   = ['testlib/testcell_123/bam_pass/PAD38578_aaa_0.bam',

@@ -17,7 +17,7 @@ from pprint import pprint, pformat
 from hesiod import ( glob, groupby, parse_cell_name, load_final_summary,
                      fast5_out, find_summary, dump_yaml )
 
-DEFAULT_FILETYPES_TO_SCAN = ["fastq", "fastq.gz", "fast5", "bam"]
+DEFAULT_FILETYPES_TO_SCAN = ["fastq", "fastq.gz", "fast5", "pod5", "bam"]
 
 def main(args):
 
@@ -41,12 +41,16 @@ def scan_main(args):
                                   subset = args.subset)
     sc = res['scanned_cells']
 
-    # Find a representative FAST5 per cell
+    # Find a representative FAST5 and POD5 per cell
     for c, v in sc.items():
         rep_fast5 = res.setdefault('representative_fast5', dict())
         rep_fast5[c] = find_representative_fast5( cell = c,
                                                   infiles = v,
                                                   try_glob = args.missing_ok )
+        rep_pod5 = res.setdefault('representative_pod5', dict())
+        rep_fast5[c] = find_representative_pod5( cell = c,
+                                                 infiles = v,
+                                                 try_glob = args.missing_ok )
 
     # Add printable counts
     res['printable_counts'] = sc_counts(sc)
@@ -80,14 +84,16 @@ def scan_cells( expdir, cells=None, cellsready=None,
     if cells is None:
         if expdir:
             # Look for valid cells in the input files
-            cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob(f"{expdir}/*/*/fastq_????/") ))
+            cells = sorted(set( '/'.join(fs.strip('/').split('/')[-3:-1])
+                                for fs in glob(f"{expdir}/*/*/fastq_????/") ))
         else:
             # No cells in input, but maybe we can look at the output
             L.debug("No cells in expdir")
             cells = []
         if not cells and look_in_output:
             L.debug("Looking for output files instead")
-            # Look for cells here in the output (presumably the experiment already processed and the rundata was removed)
+            # Look for cells here in the output (presumably the experiment already processed and
+            # the rundata was removed)
             cells = [ '/'.join(fs.strip('/').split('/')[-3:-1]) for fs in glob("*/*/cell_info.yaml") ]
 
     if cellsready is None:
@@ -134,19 +140,21 @@ def scan_cells( expdir, cells=None, cellsready=None,
 
         # Some fixing-upping...
         for c, d in res.items():
-            # We may have files in fast5_skip but these are never barcoded, nor are there any fastq files,
-            # since they are not even basecalled. They do need to be included in the tally when checking vs. the
-            # final summary.
+            # We may have files in fast5_skip (or pod5_skip) but these are never barcoded, nor are
+            # there any fastq files, since they are not even basecalled. They do need to be
+            # included in the tally when checking vs. the final summary.
             # For non-barcoded runs I'll tack them on with fast5_fail. For barcoded runs they go in
             # unclassified/fast5_fail. This seems to be fairly reasonable.
-            # Oh and we apparently need to do this for BAM files too? Let's just do it for all types.
+            # Oh and we apparently need to do this for BAM files too? Let's just do it for all
+            # types.
             for filetype in filetypes_to_scan:
                 files_in_skip = [ f[len(expdir) + 1:]
                                   for f in globn(f"{expdir}/{c}/{filetype}_skip/*") ]
 
-                # For Promethion, at present, the skip files actually go into fast5_fail/. not fast5_skip/
-                # but by my logic when there are barcodes these need to be in 'unclassified' so
-                # detect this case first and pull them out before making the empty lists.
+                # For Promethion, at present, the skip files actually go into fast5_fail/.
+                # not fast5_skip/ but by my logic when there are barcodes these need to be in
+                # 'unclassified' so detect this case first and pull them out before making the
+                # empty lists.
                 if 'unclassified' in d and d.get('.',{}).get(f"{filetype}_fail"):
                     files_in_skip.extend(d['.'][f"{filetype}_fail"])
                     del d['.'][f"{filetype}_fail"]
@@ -175,7 +183,7 @@ def scan_cells( expdir, cells=None, cellsready=None,
         # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
             fs = load_final_summary(f"{expdir}/{c}/")
-            for ft in ["fastq", "fast5"]:
+            for ft in ["fastq", "fast5", "pod5"]:
                 # Add zipped and unzipped FASTQ files...
                 ft_sum = sum( len(fileslist[f"{ft}{z}_{pf}"])
                                 for fileslist in d.values()
@@ -236,6 +244,11 @@ def find_representative_fast5(cell, infiles, try_glob=False):
             return None
     else:
         return None
+
+def find_representative_pod5(cell, infiles, try_glob=False):
+    # FIXME - this needs a rethink, I think, rather than just replacing fast5 with pod5 in
+    # the function definition above.
+    return None
 
 def parse_args(*args):
     description = """Scan the input files for all cells, to provide a work plan for Snakemake"""

@@ -15,5 +15,5 @@ The merging currently makes a per-batch md5sum file called batch{FAST5_BATCH_SIZ
 I think the {b:08d} format should be replaced by a variable-width number dependent on the number of
 batches rather than hard-coded to 08. Easy enough.
 
-While I'm at it, I can completely remove the calref mapping feature, as we no longer add Lambda spike-in by
-default! This will simplify the code a little.
+While I'm at it, I can completely remove the calref mapping feature, as we no longer add Lambda
+spike-in by default! This will simplify the code a little.
