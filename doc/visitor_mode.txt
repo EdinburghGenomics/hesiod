@@ -83,3 +83,105 @@ Then trigger my delivery logic to make a token, and send an e-mail. But I don't 
 so I think we may end up calling some qc_tools_python logic here. But this is fine. All fine. Then we can keep
 the e-mail template in with disseminate_results.py with the other stuff. Do we ask for an acknowledgement in the
 same way? TODO - check that.
+
+---
+
+## Manual delivery of these user runs
+
+On 2/10/23 - we already have some runs done using this naming scheme, specifically:
+
+20230926_EGS2_v_mmarr3_EXP_SONT001a
+20230926_EGS2_v_mmarr3_EXP_SONT001b
+20230926_EGS2_v_mmarr3_EXP_SONT001c
+20230926_EGS2_v_mmarr3_EXP_SONT001d
+20230928_EGS2_v_mmarr3_EXP_SONT001e
+20230928_MIN2_v_yzhang35_run1
+
+I didn't expect Melissa to make multiple experiments, but there's no reason why she shouldn't do.
+A few thoughts here:
+
+1) A user could potentially make any number of experiments, and add new flowcells to those experiments,
+either with new samples or with re-runs of existing sample names.
+
+I delivered 20230928_MIN2_v_yzhang35_run1 as:
+
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_MIN2_v_yzhang35_run1/P1-3/20230928_1133_MN32284_APP107_ffde8584/
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_MIN2_v_yzhang35_run1/P1-3_md5sums.txt
+
+But this is not robust in general as he could run a second flowcell on this sample, and then there would be a filename
+clash with the md5sums. I could do this, using the unique(ish) ID part of the run element ID:
+
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_MIN2_v_yzhang35_run1/P1-3_ffde8584_md5sums.txt (1)
+
+Or:
+
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_MIN2_v_yzhang35_run1_P1-3_ffde8584_md5sums.txt (2)
+
+Or:
+
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_1133_MN32284_APP107_ffde8584_md5sums.txt (3)
+/lustre-gseg/transfer/nanopore_v_yzhang35/20230928_MIN2_v_yzhang35_run1/20230928_1133_MN32284_APP107_ffde8584_md5sums.txt (4)
+
+I think probably 3 is the way to go. On the minus side it leads to having long path names in the md5sums file, and it's
+not immediately obvious which md5sums relate to which subdirectrory, but on the plus side it makes the md5sums file
+prominent and avoids concocting a new file name as we just use the cell directory name. And it also makes it obvious that
+this is the checksum file for one cell.
+
+I'll go with this for now. So, to deliver the "mmarr3" experiments we do this:
+
+1) $ mkdir /lustre-gseg/promethion/visitor_runs_delivery/20230926_EGS2_v_mmarr3 && cd <ditto>
+
+We need a temporary directory to make the md5sums. This could be anywhere since we're only generating
+one small file per experiment.
+
+2) $ source ~pipeline/hesiod/current/_hesiod_venv/bin/activate
+
+We need a specific version of Snakemake and this is the easiest way to get it.
+
+3) $ ~pipeline/hesiod/current/Snakefile.checksummer --config input_dir="/lustre-gseg/promethion/prom_runs/2023/./20230926_EGS2_v_mmarr3_EXP_SONT001a/lamb9/20230926_1134_3B_PAO09471_f1c1bf28" op_index=-1
+
+This depends on my having deployed an updated version of the pipeline. If "Snakefile.checksummer" doesn't exist it means I
+didn't do this and you need to grab a copy from GIT.
+
+4) Repeat (3) for all cells that need processing
+
+You should be able to do this in the same directory as Snakemake has granular locking.
+
+5) Now move the cells to the /lustre-gseg/transfer area. However, we want to leave the empty directories behind, so don't move the
+whole experiment.
+
+$ mkdir -p /lustre-gseg/transfer/nanopore_v_<uuid>/<expid>/<libid>
+$ mv /lustre-gseg/promethion/prom_runs/2023/./20230926_EGS2_v_mmarr3_EXP_SONT001a/lamb9/20230926_1134_3B_PAO09471_f1c1bf28 /lustre-gseg/transfer/nanopore_v_mmarr3/20230926_EGS2_v_mmarr3_EXP_SONT001a/lamb9/
+
+Note this involves use of 'sudo' just now, as the runs are owned by the pipeline account.
+And the md5sums:
+
+$ mv /lustre-gseg/promethion/visitor_runs_delivery/20230926_EGS2_v_mmarr3/*_md5sums.txt /lustre-gseg/transfer/nanopore_v_mmarr3/
+
+6) And finally, generate a token for this download.
+
+$ disseminate_results.py -p nanopore_v_mmarr3 --new_token
+
+And check the URL looks OK:
+
+https://transfer.genomics.ed.ac.uk/<token>
+
+It's also a good idea to tell the user the size of the download - you can exclude .pod5 and .fast5 files:
+
+$ du -csh --exclude='*.'{pod5,fast5} */*/
+
+## Practical implementation - timing
+
+Is it ok for users to get an e-mail for every cell they run? I guess so.
+If they make multiple experiments then it seems inevitable, as the pipeline triggers experiments separately.
+If they add multiple cells to one experiment, we may get them in batches depending on the sync cycle.
+
+I guess I could add an arbitrary delay, say for example don't process a visitor experiment until everything
+is at least an hour old. But this seems a bit silly. Also it's something I can add on later, rather than
+an essential feature. For now let's say:
+
+We'll continue to process experiments individually
+But if there are multiple cells ready at one time we'll deliver all the cells at once
+
+I need a test case for this, Fortunately, easy to make. I'll concoct a visitor run for 'tbooth2' with
+three cells, two of which are ready to deliver.

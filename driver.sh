@@ -801,7 +801,7 @@ classify_expt() {
     classify_expt.py "$EXPERIMENT" > "pipeline/type.yaml"
 
     # Set/reset $EXPT_TYPE as a side effect
-    EXPT_TYPE="$(tyq.py '{0[type]}' pipeline/type.yaml)"
+    EXPT_TYPE="$(tyq.py '{type}' pipeline/type.yaml)"
 }
 
 get_run_status() {
