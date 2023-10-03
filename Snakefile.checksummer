@@ -23,7 +23,7 @@ snakerun_drmaa "$0" "$@"
 from pprint import pprint, pformat
 
 def split_input_dir(idir=config['input_dir']):
-    """Return config['input_dir'], split if necessary.
+    """Return config['input_dir'], split at /./ if there is one.
     """
     idir = idir.rstrip("/")
     path_bits = idir.split("/")
@@ -95,7 +95,17 @@ def batchlist(l, batch_size, min_pad=0):
 
 # Determine the output prefix.
 BASE_PATH, PREFIX_PATH = split_input_dir()
-OUTPUT_PREFIX = PREFIX_PATH and f"{PREFIX_PATH.replace('/','_')}_"
+if 'op_index' in config:
+    if config['op_index'] is not None:
+        # Generally use 0 or -1 to get the first or last item in the path.
+        # This only affects the name of the md5 file
+        OUTPUT_PREFIX = PREFIX_PATH.split("/")[int(config['op_index'])] + "_"
+    else:
+        OUTPUT_PREFIX = ""
+else:
+    OUTPUT_PREFIX = PREFIX_PATH and f"{PREFIX_PATH.replace('/','_')}_"
+
+localrules: main, gen_batches, combine_batches
 
 rule main:
     input: f"{OUTPUT_PREFIX}md5sums.txt"
@@ -110,7 +120,8 @@ checkpoint gen_batches:
             json.dump(batches, jfh)
 
 rule md5sum_batch:
-    output: f"{OUTPUT_PREFIX}md5sums_{{b}}.txt"
+    output:
+        batch = f"{OUTPUT_PREFIX}md5sums_{{b}}.txt"
     input:
         json = f"{OUTPUT_PREFIX}batches.json"
     run:
@@ -120,7 +131,7 @@ rule md5sum_batch:
             batches = json.load(bffh)
         my_batch = batches[wildcards.b]
 
-        shell("(cd {BASE_PATH:q} ; md5sum {my_batch:q}) > {output}")
+        shell("(cd {BASE_PATH:q} ; md5sum {my_batch:q}) > {output.batch}")
 
 def i_combine_batches(wildcards=None):
     batches_file = checkpoints.gen_batches.get().output.json
@@ -137,4 +148,4 @@ rule combine_batches:
     output: f"{OUTPUT_PREFIX}md5sums.txt"
     input:  i_combine_batches
     shell:
-        "sort -k2 {input} > {output}"
+        "sort -k2 {input} > {output}.part ; mv {output}.part {output}"
