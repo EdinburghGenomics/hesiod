@@ -312,7 +312,7 @@ action_cell_ready_visitor(){
     # Delivery logic is under qc_tools_python so we link it via a toolbox script
     _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
     _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
-    "$_toolbox"/deliver_visitor_cells $CELLSREADY
+    env PATH="$_toolbox:$PATH" deliver_visitor_cells $CELLSREADY
     [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
 
     for _c in $CELLSREADY ; do

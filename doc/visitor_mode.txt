@@ -187,3 +187,10 @@ driver mechanism).
 I need a test case for this, Fortunately, easy to make. I'll concoct a visitor run for 'tbooth2' with
 three cells, two of which are ready to deliver.
 
+---
+
+Question - what level of reporting should we have for visitor runs? I think we should have the same level
+of chatter as regular runs, as in we get a ticket and then see a message if the run is delivered but
+also an error if auto-delivery fails. But maybe this doesn't need to go to EVERYONE in the lab. Easiest
+way is to have RT notifications go to a different queue for visitor runs and control notifications at
+the RT level. So let's code that thing.

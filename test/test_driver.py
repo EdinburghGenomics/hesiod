@@ -9,185 +9,16 @@ from tempfile import mkdtemp
 from shutil import rmtree, copytree
 from glob import glob
 
-"""Here we're using a Python script to test a shell script (driver.sh).  The shell
-   script calls various programs.  Ideally we want to have a cunning way of catching
-   and detecting the calls to those programs, similar to the way that unittest.mock.patch works.
-   To this end, see the BashMocker class, which does just this.
-"""
-from bashmocker import BashMocker
+from test_driver_base import slurp_file, TestDriverBase, load_yaml
 
-VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 EXAMPLES = os.path.dirname(__file__) + '/examples'
-DRIVER = os.path.abspath(os.path.dirname(__file__) + '/../driver.sh')
 
-PROGS_TO_MOCK = {
-    "chgrp": None,
-    "ssh" : None,
-    "rsync" : None,
-    "Snakefile.main" : None,
-    "rt_runticket_manager.py" : "echo STDERR rt_runticket_manager.py >&2",
-    "upload_report.sh" : "echo STDERR upload_report.sh >&2 ; echo http://dummylink",
-    "del_remote_cells.sh" : "echo STDERR del_remote_cells.sh >&2",
-    "scan_cells.py" : None,
-}
+class T(TestDriverBase):
 
-# Snakemake targets are always the same, unless $MAIN_SNAKE_TARGETS is set
-SNAKE_TARGETS = ("copy_fast5 main -f"
-                 " -R per_cell_blob_plots per_project_blob_tables one_cell"
-                 "    nanostats convert_final_summary sample_names"
-                 " --config".split())
-
-
-class T(unittest.TestCase):
-
-    def setUp(self):
-        """Make a shadow folder, and in it have subdirs runs and fastqdata and log.
-           Initialize BashMocker.
-           Calculate the test environment needed to run the driver.sh script.
-        """
-        self.temp_dir = mkdtemp()
-        for d in ['runs', 'fastqdata', 'log']:
-            os.mkdir(os.path.join(self.temp_dir, d))
-
-        self.bm = BashMocker()
-        for p, s in PROGS_TO_MOCK.items(): self.bm.add_mock(p, side_effect=s)
-
-        # Set the driver to run in our test harness. Note I can set
-        # $BIN_LOCATION to more than one path.
-        # Also we need to set VERBOSE to the driver even if it's not set for this test script.
-        self.environment = dict(
-                PROM_RUNS = os.path.join(self.temp_dir, 'runs'),
-                FASTQDATA = os.path.join(self.temp_dir, 'fastqdata'),
-                UPSTREAM = 'TEST',
-                UPSTREAM_TEST = '',
-                BIN_LOCATION = self.bm.mock_bin_dir + ':' + os.path.dirname(DRIVER),
-                LOG_DIR = os.path.join(self.temp_dir, 'log'), #this is redundant if...
-                MAINLOG = "/dev/stdout",
-                ENVIRON_SH = '/dev/null',
-                VERBOSE = 'yes',
-                PY3_VENV = 'none',
-                DEL_REMOTE_CELLS = 'yes',
-            )
-
-        # Now clear any of these environment variables that might have been set outside
-        # of this script.
-        for e in self.environment:
-            if e in os.environ: del(os.environ[e])
-
-        # See the errors in all their glory
-        self.maxDiff = None
-
-    def tearDown(self):
-        """Remove the shadow folder and clean up the BashMocker
-        """
-        rmtree(self.temp_dir)
-
-        self.bm.cleanup()
-
-    def bm_rundriver(self, expected_retval=0, check_stderr=True):
-        """A convenience wrapper around self.bm.runscript that sets the environment
-           appropriately and runs DRIVER and returns STDOUT split into an array.
-        """
-        retval = self.bm.runscript(DRIVER, set_path=False, env=self.environment)
-
-        # Where a file is missing it's always useful to see the error.
-        # (status 127 is the standard shell return code for a command not found)
-        if retval == 127 or VERBOSE:
-            print("STDERR:")
-            print(self.bm.last_stderr)
-        if VERBOSE:
-            print("STDOUT:")
-            print(self.bm.last_stdout)
-            print("RETVAL: %s" % retval)
-
-        self.assertEqual(retval, expected_retval)
-
-        # If the return val is 0 then stderr should normally be empty.
-        # Not always, but this is a useful default.
-        if retval == 0 and check_stderr:
-            self.assertEqual(self.bm.last_stderr, '')
-
-        return self.bm.last_stdout.split("\n")
-
-    def copy_run(self, run, subdir=None):
-        """Utility function to add a run from examples/runs into temp_dir/runs.
-           Returns the path to the run copied.
-        """
-        self.run_name = run
-        run_dir = os.path.join(EXAMPLES, 'runs', run)
-
-        # We want to know the desired output location
-        # Note if you copy multiple runs then self.run_path will just be the last
-        if subdir:
-            os.mkdir(os.path.join(self.temp_dir, 'runs', subdir))
-            self.run_path = os.path.join(self.temp_dir, 'runs', subdir, run)
-        else:
-            self.run_path = os.path.join(self.temp_dir, 'runs', run)
-
-        # Annoyingly, copytree gives me no way to avoid running copystat on the files.
-        # But that doesn't mean it's impossible...
-        with patch('shutil.copystat', lambda *a, **kw: True):
-            return copytree(run_dir,
-                            self.run_path,
-                            symlinks = True )
-
-    def rt_cmd(self, *args):
-        """Get the expected args to rt_runticket_manager.py
-        """
-        return [*f"-r {self.run_name} -Q promrun -P Experiment --subject".split(), *args]
-
-    def assertInStdout(self, *words):
-        """Assert that there is at least one line in stdout containing all these strings
-        """
-        o_split = self.bm.last_stdout.split("\n")
-
-        # This loop progressively prunes down the lines, until anything left
-        # must have contained each word in the list.
-        for w in words:
-            o_split = [ l for l in o_split if w in l ]
-
-        self.assertTrue(o_split)
-
-    def assertInStderr(self, *words):
-        """Assert that there is at least one line in stdout containing all these strings
-        """
-        o_split = self.bm.last_stderr.split("\n")
-
-        # This loop progressively prunes down the lines, until anything left
-        # must have contained each word in the list.
-        for w in words:
-            o_split = [ l for l in o_split if w in l ]
-
-        self.assertTrue(o_split)
-
-    def assertNotInStdout(self, *words):
-        """Assert that no lines in STDOUT contain all of these strings
-        """
-        o_split = self.bm.last_stdout.split("\n")
-
-        # This loop progressively prunes down the lines, until anything left
-        # must have contained each word in the list.
-        for w in words:
-            o_split = [ l for l in o_split if w in l ]
-
-        self.assertFalse(o_split)
-
-    def shell(self, cmd):
-        """Call to os.system in 'safe mode'
-        """
-        status = os.system("set -euo pipefail ; " + cmd)
-        if status:
-            raise ChildProcessError("Exit status was %s running command:\n%s" % (status, cmd))
-
-        return status
-
-    def touch(self, fp, content="meh"):
-        """Create a new file within self.run_path
-        """
-        with open(os.path.join(self.run_path, fp), 'w') as fh:
-            print(content, file=fh)
-
-    ### And the actual tests ###
+    # See TestDriverBase for all the utility stuff
+    def __init__(self, *args):
+        super().__init__(*args)
+        self.examples = EXAMPLES
 
     def test_nop(self):
         """With no data, nothing should happen. At all.
@@ -246,27 +77,28 @@ class T(unittest.TestCase):
         """
         self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream1"
 
+        run_name = "20190226_TEST_00testrun"
+        self.run_name = run_name # Needed for rt_cmd when copy_run() not used
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
-            subprocess.call(["head", "-v", f"{self.temp_dir}/runs/20190226_TEST_00testrun/pipeline/type.yaml"])
+            subprocess.call(["head", "-v", f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"])
 
         # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
-        self.run_name = "20190226_TEST_00testrun"
-        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{self.run_name}/pipeline"))
-        self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{self.run_name}"))
-        self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}/pipeline/output"),
-                          os.path.realpath(f"{self.temp_dir}/fastqdata/{self.run_name}") )
-        self.assertEqual( os.path.realpath(f"{self.temp_dir}/fastqdata/{self.run_name}/rundata"),
-                          os.path.realpath(f"{self.temp_dir}/runs/{self.run_name}") )
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{run_name}/pipeline"))
+        self.assertTrue(os.path.isdir(f"{self.temp_dir}/fastqdata/{run_name}"))
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/runs/{run_name}/pipeline/output"),
+                          os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}") )
+        self.assertEqual( os.path.realpath(f"{self.temp_dir}/fastqdata/{run_name}/rundata"),
+                          os.path.realpath(f"{self.temp_dir}/runs/{run_name}") )
 
-        with open(f"{self.temp_dir}/runs/{self.run_name}/pipeline/upstream") as fh:
+        with open(f"{self.temp_dir}/runs/{run_name}/pipeline/upstream") as fh:
             self.assertEqual(fh.read(), f"{self.environment['UPSTREAM_TEST']}/00testrun\n")
 
         # A new ticket should have been made
         expected_calls = self.bm.empty_calls()
-        expected_calls['chgrp'] = [["-c", f"--reference={self.temp_dir}/fastqdata/{self.run_name}", "./pipeline"]]
+        expected_calls['chgrp'] = [["-c", f"--reference={self.temp_dir}/fastqdata/{run_name}", "./pipeline"]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd('new', '--comment', '@???')]
 
         # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
@@ -277,10 +109,14 @@ class T(unittest.TestCase):
 
         # The STDERR from upload_report.sh and rt_runticket_manager.py should end
         # up in the per-run log.
-        log_lines = slurp_file(f"{self.temp_dir}/fastqdata/{self.run_name}/pipeline.log")
+        log_lines = slurp_file(f"{self.temp_dir}/fastqdata/{run_name}/pipeline.log")
         self.assertTrue('STDERR rt_runticket_manager.py') in log_lines
         self.assertTrue('STDERR upload_report.sh') in log_lines
         self.assertTrue('cat: pipeline/report_upload_url.txt: No such file or directory') in log_lines
+
+        # The run should be classified as "internal"
+        self.assertEqual( load_yaml(f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"),
+                          dict(type = 'internal') )
 
     def test_new_upstream_withbatch(self):
         """Check that setting PROM_RUNS_BATCH works.
@@ -291,7 +127,7 @@ class T(unittest.TestCase):
 
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
@@ -310,7 +146,7 @@ class T(unittest.TestCase):
         self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream2"
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/20000101_TEST_00testrun2/pipeline"))
@@ -329,7 +165,7 @@ class T(unittest.TestCase):
         self.environment['UPSTREAM_TEST'] = f"{EXAMPLES}/upstream2"
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/2000/20000101_TEST_00testrun2/pipeline"))
@@ -353,7 +189,7 @@ class T(unittest.TestCase):
         self.copy_run(run_name)
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # Check for dirs and symlinks as above
@@ -409,7 +245,7 @@ class T(unittest.TestCase):
         # This should go to the main log
         self.assertInStdout("cannot create directory")
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # The failed flag should be set
@@ -462,7 +298,7 @@ class T(unittest.TestCase):
 
         self.bm_rundriver()
 
-        if VERBOSE:
+        if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
         # The run will be named '20190226_TEST_00testrun'. Check for dirs and symlinks.
@@ -560,7 +396,7 @@ class T(unittest.TestCase):
                                              "-c",
                                                 "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
-        expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
+        expected_calls['Snakefile.main'] = [self.snake_targets]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--reply",
                                                                  "All 2 cells have run on the instrument. Full report will follow soon."),
@@ -594,7 +430,7 @@ class T(unittest.TestCase):
                                              "-c",
                                                 "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
-        expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
+        expected_calls['Snakefile.main'] = [self.snake_targets]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--comment", "@???"),
                                                      self.rt_cmd("Finished cell", "--reply", "@???")]
@@ -640,7 +476,7 @@ class T(unittest.TestCase):
                                              "-c",
                                                 "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
-        expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
+        expected_calls['Snakefile.main'] = [self.snake_targets]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         # Is this right? The pipeline tries to report the RT failure to RT and only then does it admit defeat and
         # report the error to STDERR. I gues it's OK.
@@ -693,7 +529,7 @@ class T(unittest.TestCase):
                                              "-c",
                                                 "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
-        expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
+        expected_calls['Snakefile.main'] = [self.snake_targets]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [self.rt_cmd("processing", "--reply",
                                                                  "All 2 cells have run on the instrument."
@@ -746,7 +582,7 @@ class T(unittest.TestCase):
                                              "-c",
                                                 "a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa",
                                                 "a test lib/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb" ]]
-        expected_calls['Snakefile.main'] = [SNAKE_TARGETS]
+        expected_calls['Snakefile.main'] = [self.snake_targets]
         expected_calls['upload_report.sh'] = [[ self.run_path + "/pipeline/output" ]]
         expected_calls['rt_runticket_manager.py'] = [ self.rt_cmd("processing", "--comment", "@???"),
                                                       self.rt_cmd("Finished cell", "--reply", "@???"),
@@ -758,10 +594,6 @@ class T(unittest.TestCase):
         expected_calls['del_remote_cells.sh'] = []
 
         self.assertEqual(self.bm.last_calls, expected_calls)
-
-def slurp_file(f):
-    with open(f) as fh:
-        return [ l.rstrip('\n') for l in fh ]
 
 if __name__ == '__main__':
     unittest.main()
