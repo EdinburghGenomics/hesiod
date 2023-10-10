@@ -302,9 +302,22 @@ action_cell_ready_visitor(){
 
     BREAK=1
 
+    RUN_INPUT_DIR="$(dirname "$PWD")"
+    RUN_INPUT_BASE="$(basename "$PWD")"
+    for _c in $CELLSREADY ; do
+        # I could do this in parallel but I don't think it matters
+        Snakefile.checksummer --config input_dir="$RUN_INPUT_DIR/./$RUN_INPUT_BASE/$_c" op_index=-1
+    done
 
-    ###
-    And so on to checksum and deliver the cells
+    # Delivery logic is under qc_tools_python so we link it via a toolbox script
+    _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+    _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
+    "$_toolbox"/deliver_visitor_cells $CELLSREADY
+    [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
+
+    for _c in $CELLSREADY ; do
+        mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
+    done
 }
 
 

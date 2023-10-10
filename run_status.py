@@ -132,8 +132,8 @@ class RunStatus:
 
     def _is_stalled(self):
         """ This works in SMRTino. It may or may not be sensible here.
-            FIXME or DELETEME
         """
+        # TODO - test this, or maybe just delete it if never used
 
         if self.stall_time is None:
             # Nothing is ever stalled then.

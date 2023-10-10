@@ -1,0 +1,9 @@
+#!/bin/bash
+
+# Placeholder/stub script for testing
+
+echo "Delivering $# cells in run ??:"
+
+for $_cell in $@ ; do
+    echo "  $_cell"
+done

@@ -738,7 +738,6 @@ def main(args):
 
     out_file = args.out or '-'
 
-    # FIXME - we're missing a pipeline status!?
     rep = format_report( all_info,
                          pipedata = pipedata,
                          aborted_list = [],

@@ -181,7 +181,9 @@ is at least an hour old. But this seems a bit silly. Also it's something I can a
 an essential feature. For now let's say:
 
 We'll continue to process experiments individually
-But if there are multiple cells ready at one time we'll deliver all the cells at once
+But if there are multiple cells ready at one time we'll deliver all the cells at once (as per the current
+driver mechanism).
 
 I need a test case for this, Fortunately, easy to make. I'll concoct a visitor run for 'tbooth2' with
 three cells, two of which are ready to deliver.
+
