@@ -41,12 +41,13 @@ class RunStatus:
         self.remote_loc = remote_info_for_run.get('loc', None)
 
         # Cell names are in the form library/cell as there are two levels of directory.
-        # Note the glob pattern needs to be the same as in list_remote_cells.sh
+        # Note the glob pattern needs to be the same as in list_remote_cells.sh - really
+        # old runs did not have "other_reports" but now this is indicative of a real cell.
         self.local_cells = set()
-        for l in glob( os.path.join(self.run_path, '*/20??????_*_????????/fast?_????') ):
+        for l in glob( os.path.join(self.run_path, '*/20??????_*_????????/other_reports') ):
             self.local_cells.add("{}/{}".format(*l.split('/')[-3:]))
         # Allow for re-called cells which have an extension
-        for l in glob( os.path.join(self.run_path, '*/20??????_*_????????.*/fast?_????') ):
+        for l in glob( os.path.join(self.run_path, '*/20??????_*_????????.*/other_reports') ):
             self.local_cells.add("{}/{}".format(*l.split('/')[-3:]))
 
         # Do we need a quick mode?

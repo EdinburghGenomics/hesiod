@@ -21,7 +21,7 @@ L.basicConfig(level=(L.DEBUG if VERBOSE else L.WARNING))
 class T(unittest.TestCase):
 
     #Helper functions:
-    def use_run(self, run_id, copy=False, make_run_info=True):
+    def use_run(self, run_id, copy=False, make_run_info=True, from_dir="runs"):
         """Inspect a run.
            If copy=True, copies the selected run into a temporary folder first.
            Sets self.current_run to the run id and
@@ -33,16 +33,16 @@ class T(unittest.TestCase):
         # Make a temp dir if needed
         if copy:
             self.tmp_dir = mkdtemp()
-            self.run_dir = self.tmp_dir + '/runs'
+            self.run_dir = os.path.join(self.tmp_dir, "runs")
             os.mkdir(self.run_dir)
 
             # Clone the run folder into it
             with patch('shutil.copystat', lambda *a, **kw: True):
-                copytree( os.path.join(EXAMPLES, 'runs', run_id),
+                copytree( os.path.join(EXAMPLES, from_dir, run_id),
                           os.path.join(self.run_dir, run_id),
                           symlinks=True )
         else:
-            self.run_dir = EXAMPLES + '/runs'
+            self.run_dir = os.path.join(EXAMPLES, from_dir)
 
         # Set the current_run variable
         self.current_run = run_id
@@ -288,6 +288,18 @@ class T(unittest.TestCase):
         run_info = self.use_run('201907010_LOCALTEST_00newrun', copy=False)
         self.assertEqual( dictify(run_info.get_yaml())['Type:'], 'unknown' )
 
+    def test_no_fastx(self):
+        """Newer runs may have pod5 and bam files but no fast5 or fastq, so
+           we need a more robust way to spot a valid cell.
+           Nowadays it seems easiest to look for "other_reports".
+        """
+        run_info = self.use_run( "20230101_ONT1_somerun",
+                                 from_dir = "visitor_runs",
+                                 copy = False )
+
+        ri = dictify(run_info.get_yaml())
+        self.assertEqual( ri['Type:'],  "unknown" )
+        self.assertEqual( ri['Cells:'], "sampleA/20230101_1111_2G_PAQ12345_zzzzzzzz" )
 
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
