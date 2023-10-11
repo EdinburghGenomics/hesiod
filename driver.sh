@@ -294,6 +294,11 @@ action_cell_ready(){
 
 action_cell_ready_unknown(){
     log "\_CELL_READY $EXPERIMENT. But EXPT_TYPE is $EXPT_TYPE. Taking no action."
+
+    # Mark the cells complete so we don't keep trying to reprocess it
+    for _c in "${CELLSREADY[@]}" ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$_c").done"
+    done
 }
 
 action_cell_ready_visitor(){
@@ -474,11 +479,12 @@ action_processing(){
 action_failed() {
     # failed experiments need attention from an operator, so log the situatuion
     set +e
-    _reason=`cat pipeline/failed 2>/dev/null`
+    local _lastfail
+    local _reason=$(cat pipeline/failed 2>/dev/null)
     if [ -z "$_reason" ] ; then
         # Get the last lane or sync failure message
-        _lastfail=`echo pipeline/*.failed`
-        _reason=`cat ${_lastfail##* } 2>/dev/null`
+        _lastfail=$(echo pipeline/*.failed)
+        _reason=$(cat ${_lastfail##* } 2>/dev/null)
     fi
 
     log "\_FAILED $EXPERIMENT ($_reason)"
@@ -627,7 +633,7 @@ check_for_ready_cells(){
 
     # Change for MinKNOW 3.6+ the file is now named final_summary_*_*.txt but permit the
     # old name (final_summary.txt) too.
-    _count=0
+    local _count=0
     for cell in "${CELLSPENDING[@]}" ; do
         if qglob "$cell" "final_summary.txt" || qglob "$cell" "final_summary_*_*.txt" ; then
             _count=$(( $_count + 1 ))
@@ -645,10 +651,10 @@ notify_experiment_complete(){
     # Tell RT that the experiment finished. Ie. all cells seen are synced and ready to process.
     # As the number of cells in an experiment is open-ended, this may happen more than once, but
     # only once for any given total number of cells.
-    _cc=${#CELLS[@]}
-    _ca=${#CELLSABORTED[@]}
-    _cr=${#CELLSREADY[@]}
-    _cd=${#CELLSDONE[@]}
+    local _cc=${#CELLS[@]}
+    local _ca=${#CELLSABORTED[@]}
+    local _cr=${#CELLSREADY[@]}
+    local _cd=${#CELLSDONE[@]}
 
     # Have we actually synced all the cells?
     if ! [ $(( $_ca + $_cr + $_cd )) -eq $_cc ] ; then
@@ -726,10 +732,10 @@ send_summary_to_rt() {
     # see where the report has gone. The summary will be made by make_summary.py
 
     # Other than that, supply run_status and premble if you want this.
-    _reply_or_comment="${1:-}"
-    _run_status="${2:-}"
-    _preamble="${3:-Run report is at}"
-    _fudge="${4:-}"   # Set status complete after processing?
+    local _reply_or_comment="${1:-}"
+    local _run_status="${2:-}"
+    local _preamble="${3:-Run report is at}"
+    local _fudge="${4:-}"   # Set status complete after processing?
 
     # We need to short-circuit this if the experiment is not an internal experiment.
     # Actually this is now done by unsetting the reporting queue in ~/.rt_settings
@@ -790,7 +796,7 @@ pipeline_fail() {
     # Record a failure of the pipeline. The failure may be due to network outage so try
     # to report to RT but be prepared for that to fail too.
 
-    stage=${1:-Pipeline}
+    local stage=${1:-Pipeline}
 
     if [ -z "${2:-}" ] ; then
         # General failure
@@ -843,6 +849,7 @@ get_run_status() {
   # We're passing this info to the state functions via global variables.
 
   # This construct allows error output to be seen in the log.
+  local _runstatus
   _runstatus="$(run_status.py -I "$1" <<<"$UPSTREAM_INFO")" || \
         run_status.py -I "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
@@ -961,6 +968,7 @@ fi
 
 # Now synthesize new run events
 STATUS=new
+CELLSPENDING=()
 if [ -n "$UPSTREAM" ] ; then
     log ">> Handling new upstream runs matching regex $EXP_NAME_REGEX"
     [[ -n "$UPSTREAM_INFO" ]] || log "No runs seen"
@@ -985,7 +993,6 @@ if [ -n "$UPSTREAM" ] ; then
         IFS=$'\t' read -a CELLS < <( awk -v FS="\t" -v ORS="\t" -v runid="$EXPERIMENT" \
                                          '$1==runid {print $3} ; END {print "\n"}' \
                                           <<<"$UPSTREAM_INFO" )
-        CELLSPENDING=()
 
         unset per_expt_log # Should be done by plog_start in any case.
         eval action_"$STATUS"

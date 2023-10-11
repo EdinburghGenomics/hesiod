@@ -21,6 +21,8 @@ class T(TestDriverBase):
         super().__init__(*args)
         self.example_runs = os.path.join(self.examples, "visitor_runs")
 
+        self.progs_to_mock['Snakefile.checksummer'] = None
+
         # Mock 'env' as it's used to make calls to the toolbox
         self.progs_to_mock['env'] = None
 
@@ -73,11 +75,15 @@ class T(TestDriverBase):
         self.assertEqual( load_yaml(f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"),
                           dict(type = 'test') )
 
-        # This should not do anything when a cell is ready, aside from acknowledging and
-        # setting the pipeline status to DONE
+        # If this file had been there initially then the next run of the driver would process
+        # the cells, but as it is the run will only mark the cell as ready.
         self.touch("sampleA/20230101_1111_2G_PAQ12345_zzzzzzzz/final_summary_xxx_yyy.txt")
         self.bm_rundriver()
-        self.assertInStdout("1 cells in this experiment are now ready for processing.")
+        self.assertInStdout("1 cells in this experiment are now ready for processing")
+
+        # This should not do anything when a cell is ready, aside from acknowledging and
+        # setting the pipeline status to DONE
+        self.bm_rundriver()
         self.assertInStdout(f"CELL_READY {run_name}. But EXPT_TYPE is test. Taking no action.")
 
         # And this should do nothing at all
@@ -115,9 +121,16 @@ class T(TestDriverBase):
 
         run_name = "20230101_ONT1_v_tbooth2_test1"
         self.copy_run(run_name)
+        self.touch("sample1/20230101_1111_2G_PAQ12345_aaaaaaaa/final_summary_xxx_yyy.txt")
+        self.touch("sample1/20230101_1111_2G_PAQ12345_bbbbbbbb/final_summary_xxx_yyy.txt")
+        self.touch("sample2/20230101_1111_2G_PAQ12345_cccccccc/final_summary_xxx_yyy.txt")
         self.bm_rundriver() # See tests above
 
-        # And this should deliver the cells
+        if self.verbose:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # And this should deliver the cells immediately, since I added the summaries
+        # before the first driver run.
         self.bm_rundriver()
         self.assertInStdout(f"CELL_READY {run_name}. Auto-delivering 3 visitor cells")
 
