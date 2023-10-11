@@ -118,6 +118,12 @@ class RTManager():
         else:
             self._config = self._get_config_from_ini(config_name)
 
+            queue_from_config = self._config.get(self._queue_setting + '_queue')
+            if (not queue_from_config) or queue_from_config.lower() == 'none':
+                # Second chance to short-circuit RT at the config level
+                L.warning(f"RT is short-circuited as there is no queue configured for {config_name}")
+                self._config = None
+
         self.tracker = None
 
     def connect(self, timeout=60):
@@ -136,7 +142,7 @@ class RTManager():
                            default_queue = self._queue )
 
         if not self.tracker.login():
-            raise AuthorizationError(f'login() failed on {self._config_name} ({self.tracker.url})')
+            raise AuthorizationError(f"login() failed on {self._config_name} ({self.tracker.url})")
 
         # Here comes the big monkey-patch-o-doom!
         # It will force a 60-second timeout on the Rt session, assuming the internal implementation

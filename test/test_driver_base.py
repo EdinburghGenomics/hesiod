@@ -150,7 +150,7 @@ class TestDriverBase(unittest.TestCase):
     def rt_cmd(self, *args):
         """Get the expected args to rt_runticket_manager.py
         """
-        return [*f"-r {self.run_name} -Q promrun -P Experiment --subject".split(), *args]
+        return [*f"-r {self.run_name} -Q promrun_internal -P Experiment --subject".split(), *args]
 
     def assertInStdout(self, *words):
         """Assert that there is at least one line in stdout containing all these strings
@@ -203,7 +203,57 @@ class TestDriverBase(unittest.TestCase):
         with open(os.path.join(self.run_path, fp), 'w') as fh:
             print(content, file=fh)
 
-    # The actual tests are in the base classes
+    # Most of the actual tests are in the base classes
+    def test_nop(self):
+        """With no data, nothing should happen. At all.
+           The script will exit with status 1 as the glob pattern match will fail.
+           Message going to STDERR would trigger an alert from CRON if this happened in production.
+        """
+        self.bm_rundriver(expected_retval=1)
+
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+
+        self.assertInStdout("Found 0 cells in upstream runs")
+        self.assertInStderr('Nothing found matching {}/runs/.*_.* or in any upstream locations'.format(self.temp_dir))
+
+    def test_nop_withbatch(self):
+        """Check that setting PROM_RUNS_BATCH does the same as above, with a slightly
+           different error.
+        """
+        self.environment['PROM_RUNS_BATCH'] = 'month'
+        self.bm_rundriver(expected_retval=1)
+
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+
+        self.assertInStdout("Found 0 cells in upstream runs")
+        self.assertInStderr(r'Nothing found matching ' + self.temp_dir + '/runs/\d{4}-\d{2}/.*_.* or in any upstream locations')
+
+    def test_no_venv(self):
+        """With a missing virtualenv the script should fail and not even scan.
+           Normally there will be an active virtualenv in the test directory so
+           we need to explicitly break this.
+        """
+        self.environment['PY3_VENV'] = '/dev/null/NO_SUCH_PATH'
+        self.bm_rundriver(expected_retval=1)
+
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+
+        self.assertTrue('/dev/null/NO_SUCH_PATH/bin/activate: Not a directory' in self.bm.last_stderr)
+        self.assertFalse('no match' in self.bm.last_stderr)
+
+    def test_no_run_location(self):
+        """If no PROM_RUNS is set, expect a fast failure.
+        """
+        self.environment['PROM_RUNS'] = 'meh'
+        self.bm_rundriver(expected_retval=1)
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+        self.assertEqual(self.bm.last_stderr, "No such directory 'meh'\n")
+
+        del(self.environment['PROM_RUNS'])
+        self.bm_rundriver(expected_retval=1)
+        self.assertEqual(self.bm.last_calls, self.bm.empty_calls())
+        self.assertTrue('PROM_RUNS: unbound variable' in self.bm.last_stderr)
+
 
 def slurp_file(f):
     with open(f) as fh:

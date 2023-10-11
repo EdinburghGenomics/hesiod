@@ -28,7 +28,7 @@ def main(args):
         expid = os.path.basename(os.path.realpath(args.dir))
 
     if args.cells:
-        cells = args.cells.split('\t')
+        cells = args.cells
     else:
         cells = scan_cells(args.dir)
 
@@ -132,7 +132,7 @@ def parse_args(*args):
                             help="Hint what we expect the experiment ID to be.")
     argparser.add_argument("--upstream",
                             help="Hint the upstream location for this experiment.")
-    argparser.add_argument("--cells",
+    argparser.add_argument("--cells", nargs="+",
                             help="Hint what we expect the cells to be.")
     argparser.add_argument("--fudge", action="store_true",
                             help="Convert all 'in qc' cells to 'done' for final summary.")

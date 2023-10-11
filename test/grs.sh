@@ -68,17 +68,18 @@ get_run_status() { # run_dir
             STATUS/PipelineStatus UPSTREAM/Upstream ; do
 
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
-    eval "${_v%/*}"='"$_line"'
+    #eval "${_v%/*}"='"$_line"'
+    IFS=$'\t' read -a "${_v%/*}" <<<"$_line" 
   done
 
   # Resolve output location
   RUN_OUTPUT="$(readlink -f "$run/pipeline/output" || true)"
 }
 
-get_run_status test/examples/runs/20000101_TEST_testrun2/
+get_run_status test/examples/runs/20000101_TEST_00testrun2/
 
 cat -A <<<"$RUNID"
 cat -A <<<"$STATUS"
 cat -A <<<"$UPSTREAM"
-cat -A <<<"$CELLS"
+cat -A <<<"${CELLS[@]}"
 cat -A <<<"$CELLSABORTED"

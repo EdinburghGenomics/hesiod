@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 shopt -sq nullglob
-IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix...
 
 #  Contents:
 #    - Configuration
@@ -33,9 +32,6 @@ IFS=$'\t' # I'm using tab-separated lists instead of arrays. Sorry. Should fix..
 #  to emulate eval{} statements in Perl. It does work but you have to be really careful
 #  on the syntax, and you have to check $? explicitly - trying to do it implicitly in
 #  the manner of ( foo ) || handle_error won't do what you expect.
-#
-#  Also note the non-standard $IFS setting. If you're not sure what this does, check the
-#  BASH manual. Yes, I should have used arrays for this.
 
 ###--->>> CONFIGURATION <<<---###
 
@@ -204,7 +200,7 @@ action_new(){
     # Create an input directory with a pipeline subdir and send an initial notification to RT
     # Have a 'from' file containing the upstream location
     # Also make a matching output directory and back/forth symlinks
-    _cc=`twc $CELLS`
+    _cc=${#CELLS[@]}
     _exp_dir="$(dir_for_run "$EXPERIMENT")"
     _exp_dir_dir="$(dirname "$PROM_RUNS/$_exp_dir")"
 
@@ -253,8 +249,10 @@ action_new(){
         set +e
         log "$_msg2"
         # Prevent writing to the pipeline log during failure handling as we don't own it!
+        # But do classify the experiment so we can send the RT message to the right place.
         (  plog() { ! [ $# = 0 ] || cat >/dev/null ; }
            per_expt_log="$MAINLOG"
+           classify_expt
            pipeline_fail New_Run_Setup
         )
         return
@@ -293,10 +291,10 @@ action_cell_ready_unknown(){
 }
 
 action_cell_ready_visitor(){
-    log "\_CELL_READY $EXPERIMENT. Auto-delivering `twc $CELLSREADY` visitor cells."
+    log "\_CELL_READY $EXPERIMENT. Auto-delivering ${#CELLSREADY[@]} visitor cells."
     plog_start
 
-    for _c in $CELLSREADY ; do
+    for _c in "${CELLSREADY[@]}" ; do
         touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
     done
 
@@ -304,18 +302,18 @@ action_cell_ready_visitor(){
 
     RUN_INPUT_DIR="$(dirname "$PWD")"
     RUN_INPUT_BASE="$(basename "$PWD")"
-    for _c in $CELLSREADY ; do
+    for _c in "${CELLSREADY[@]}" ; do
         # I could do this in parallel but I don't think it matters
         Snakefile.checksummer --config input_dir="$RUN_INPUT_DIR/./$RUN_INPUT_BASE/$_c" op_index=-1
     done
 
     # Delivery logic is under qc_tools_python so we link it via a toolbox script
-    _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+    _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
     _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
-    env PATH="$_toolbox:$PATH" deliver_visitor_cells $CELLSREADY
+    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}"
     [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
 
-    for _c in $CELLSREADY ; do
+    for _c in "${CELLSREADY[@]}" ; do
         mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
     done
 }
@@ -323,17 +321,17 @@ action_cell_ready_visitor(){
 
 action_cell_ready_internal(){
     # This is the main event. Start processing and then report.
-    log "\_CELL_READY $EXPERIMENT. Time to process `twc $CELLSREADY` cells (`twc $CELLSDONE` already done)."
+    log "\_CELL_READY $EXPERIMENT. Time to process ${#CELLSREADY[@]} cells (${#CELLSDONE[@]} already done)."
     plog_start
 
-    for _c in $CELLSREADY ; do
+    for _c in "${CELLSREADY[@]}" ; do
         touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
     done
 
     BREAK=1
 
     # Printable version of CELLSREADY
-    _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+    _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
 
     # This will be a no-op if the experiment isn't really complete, and will return 3
     # If contacting RT fails it will return 1, which we count as success
@@ -362,9 +360,8 @@ action_cell_ready_internal(){
       _force_rerun+=" nanostats          convert_final_summary    sample_names"
       ( cd "$RUN_OUTPUT"
 
-        scan_cells.py -m -r $CELLSREADY $CELLSDONE -c $CELLS > sc_data.yaml
+        scan_cells.py -m -r "${CELLSREADY[@]}" "${CELLSDONE[@]}" -c "${CELLS[@]}" > sc_data.yaml
 
-        unset IFS
         Snakefile.main ${MAIN_SNAKE_TARGETS:-copy_fast5 main} \
             -f -R $_force_rerun \
             --config ${EXTRA_SNAKE_CONFIG:-}
@@ -401,7 +398,7 @@ action_cell_ready_internal(){
         false
       fi
 
-      for _c in $CELLSREADY ; do
+      for _c in "${CELLSREADY[@]}" ; do
           mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
       done
 
@@ -410,12 +407,12 @@ action_cell_ready_internal(){
     # Attempt deletion but don't fret if it fails
     set +e ; ( set -e
         _upstream="$(cat pipeline/upstream)"
-        _cellsready_p=$'[\n\t'"$(sed 's|\t|,\n\t|g' <<<"$CELLSREADY")"$'\n]'
+        _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
         if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
             if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
                 log "Marking deletable cells on $_upstream."
                 echo "Marking cells as deletable on $_upstream: $_cellsready_p"
-                del_remote_cells.sh "$_upstream" $CELLSREADY || log FAILED
+                del_remote_cells.sh "$_upstream" "${CELLSREADY[@]}" || log FAILED
             fi
         fi
     ) |& plog
@@ -451,7 +448,7 @@ action_incomplete(){
     # down then it's possible the final_summary.txt file will be there even though the
     # sync did not complete. And then, with the upstream missing, on the next run of the
     # driver we end up here. Therefore only allow the check if no upstream scanning failed.
-    if [ -z "$UPSTREAM_FAILS" ] ; then
+    if [ ${#UPSTREAM_FAILS[@]} = 0 ] ; then
         check_for_ready_cells
     fi
 }
@@ -488,6 +485,7 @@ action_aborted() {
 
 action_complete() {
     # the pipeline already fully completed for this experiment - Yay! - nothing to be done ...
+    # unless another cell appears later.
     true
 }
 
@@ -529,7 +527,7 @@ do_sync(){
     _sync_cmd="${_sync_cmd:-false}"      # Well there should be a command :-/
 
     # Loop through cells
-    while read experiment upstream cell ; do
+    while IFS=$'\t' read experiment upstream cell ; do
 
         # Note as well as $experiment we also have $run_dir set which incorporates the batch directory,
         # and $run_dir_full which is the full local path.
@@ -566,7 +564,7 @@ do_sync(){
             plog "Cell $cell is already synced and/or complete"
         fi
 
-    done < <(awk -F "$IFS" -v expid="$EXPERIMENT" '$1 == expid {print}' <<<"$UPSTREAM_INFO")
+    done < <(awk -F $'\t' -v expid="$EXPERIMENT" '$1 == expid {print}' <<<"$UPSTREAM_INFO")
 
     check_for_ready_cells
     mv pipeline/sync.started pipeline/sync.done
@@ -588,12 +586,6 @@ cell_to_tfn(){
     printf "%s" "${1##*/}"
 }
 
-twc(){
-    # Count the number of words in a tab-separated string. This is
-    # simple when IFS=$'\t'
-    printf "%s" $#
-}
-
 qglob(){
     # Given a directory and a glob pattern, see if the pattern matches within
     # the directory.
@@ -611,9 +603,10 @@ get_full_version(){
 }
 
 # Wrapper for ticket manager that sets the experiment and queue (note this refers
-# to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control this.)
+# to ~/.rt_settings not the actual queue name - set RT_SYSTEM to control which subsection
+# of that file is used)
 rt_runticket_manager(){
-    rt_runticket_manager.py -r "$EXPERIMENT" -Q promrun -P Experiment "$@"
+    rt_runticket_manager.py -r "$EXPERIMENT" -Q promrun_${EXPT_TYPE} -P Experiment "$@"
 }
 
 check_for_ready_cells(){
@@ -627,10 +620,11 @@ check_for_ready_cells(){
     # Change for MinKNOW 3.6+ the file is now named final_summary_*_*.txt but permit the
     # old name (final_summary.txt) too.
     _count=0
-    for cell in $CELLSPENDING ; do
+    for cell in "${CELLSPENDING[@]}" ; do
         if qglob "$cell" "final_summary.txt" || qglob "$cell" "final_summary_*_*.txt" ; then
             _count=$(( $_count + 1 ))
             touch_atomic "pipeline/$(cell_to_tfn "$cell").synced"
+            CELLSREADY+=("$cell")
         fi
     done
 
@@ -643,10 +637,10 @@ notify_experiment_complete(){
     # Tell RT that the experiment finished. Ie. that all cells seen are synced and ready to process.
     # As the number of cells in an experiment is open-ended, this may happen more than once, but only
     # once for any given number of cells.
-    _cc=`twc $CELLS`
-    _ca=`twc $CELLSABORTED`
-    _cr=`twc $CELLSREADY`
-    _cd=`twc $CELLSDONE`
+    _cc=${#CELLS[@]}
+    _ca=${#CELLSABORTED[@]}
+    _cr=${#CELLSREADY[@]}
+    _cd=${#CELLSDONE[@]}
 
     # Have we actually synced all the cells?
     if ! [ $(( $_ca + $_cr + $_cd )) -eq $_cc ] ; then
@@ -697,6 +691,28 @@ upload_report() {
     fi
 }
 
+join3() {
+    # A general join function in Bash, with a prefix, delim and postfix
+    local prefix="$1"  ; shift
+    local delim="$1"   ; shift
+    local postfix="$1" ; shift
+    local res=""
+    local i
+    if [ $# -gt 0 ] ; then
+        res="$1"
+        shift
+        for i in "$@" ; do
+            res+="$delim""$i"
+        done
+    fi
+    printf "%s%s%s" "$prefix" "$res" "$postfix"
+}
+
+join_cells_p() {
+    # A specific join function for pretty-printing cells
+    printf "%s" "$( join3 $'[\n\t' $',\n\t' $'\n]' "$@" )"
+}
+
 send_summary_to_rt() {
     # Sends a summary to RT. Look at pipeline/report_upload_url.txt to
     # see where the report has gone. The summary will be made by make_summary.py
@@ -707,13 +723,8 @@ send_summary_to_rt() {
     _preamble="${3:-Run report is at}"
     _fudge="${4:-}"   # Set status complete after processing?
 
-    # We need to short-circuit this if the experiment is not an internal experiment
-    debug "EXPT_TYPE is ${EXPT_TYPE:-UNSET!!}"
-    if [[ "$EXPT_TYPE" != internal ]] ; then
-        debug "Skipping RT report as the experiment is of type: $EXPT_TYPE"
-        echo "Skipping RT report as the experiment is of type: $EXPT_TYPE"
-        return
-    fi
+    # We need to short-circuit this if the experiment is not an internal experiment.
+    # Actually this is now done by unsetting the reporting queue in ~/.rt_settings
 
     # Quoting of a subject with spaces requires use of arrays but beware this:
     # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
@@ -736,11 +747,11 @@ send_summary_to_rt() {
     { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
             _last_upload_report="Report not yet generated."
 
-      _run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "$CELLS" $_fudge 2>&3)" || \
+      _run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" $_fudge 2>&3)" || \
             _run_summary="Error making experiment summary."
     } 3>&1
 
-    # Switch spaces to &nbsp; in the summary. This doesn't really fix the table but it does help.
+    # Switch spaces to &nbsp; in the summary. This doesn't really fix the table but it helps a bit.
     _run_summary="$(sed 's/ /\xC2\xA0/g' <<<"$_run_summary")"
 
     # Send it all to the ticket. Log any stderr.
@@ -804,7 +815,7 @@ project_realnames() {
     # Save info about the projects into $RUN_OUTPUT/project_realnames.yaml
     # This is done on a best-effort basis, so if we can't contact the LIMS no file is written.
     plog "Asking LIMS for the real project names..."
-    project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t $CELLS |& plog || true
+    project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t "${CELLS[@]}" |& plog || true
 }
 
 classify_expt() {
@@ -830,7 +841,7 @@ get_run_status() {
             CELLS/Cells CELLSPENDING/CellsPending CELLSREADY/CellsReady CELLSDONE/CellsDone CELLSABORTED/CellsAborted \
             STATUS/PipelineStatus RUNUPSTREAM/Upstream ; do
     _line="$(awk -v FS=":" -v f="${_v#*/}" '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
-    eval "${_v%/*}"='"$_line"'
+    IFS=$'\t' read -a "${_v%/*}" <<<"$_line" 
   done
 
   # Resolve output location
@@ -839,16 +850,15 @@ get_run_status() {
 
 ###--->>> GET INFO FROM UPSTREAM SERVER(S) <<<---###
 export UPSTREAM_LOC UPSTREAM_NAME
-UPSTREAM_INFO="" UPSTREAM_LOCS=() UPSTREAM_FAILS=""
+UPSTREAM_INFO="" UPSTREAM_LOCS=() UPSTREAM_FAILS=()
 
-# Note because of the IFS setting we need to munge $UPSTREAM
-for UPSTREAM_NAME in `tr ' ' '\t' <<<$UPSTREAM` ; do
+for UPSTREAM_NAME in $UPSTREAM ; do
     eval UPSTREAM_LOC="\$UPSTREAM_${UPSTREAM_NAME}"
     UPSTREAM_LOCS+=("$UPSTREAM_LOC")
 
     # If this fails (network error or whatever) we still want to process local stuff
     log ">> Looking for ${UPSTREAM_NAME} upstream runs in $UPSTREAM_LOC"
-    UPSTREAM_INFO+="$(list_remote_cells.sh 2> >(log) ; printf $)" || UPSTREAM_FAILS+="$UPSTREAM_LOC"$'\t'
+    UPSTREAM_INFO+="$(list_remote_cells.sh 2> >(log) ; printf $)" || UPSTREAM_FAILS+=("$UPSTREAM_LOC")
     # https://stackoverflow.com/questions/15184358/how-to-avoid-bash-command-substitution-to-remove-the-newline-character
     UPSTREAM_INFO=${UPSTREAM_INFO%$}
 done
@@ -904,7 +914,7 @@ for run in "${prom_runs_list[@]}" ; do
 
     # Taken from SMRTino - normally we don't log all the boring stuff
     if [ "$STATUS" = complete ] || [ "$STATUS" = aborted ] || [ "$STATUS" = stripped ] ; then _log=debug ; else _log=log ; fi
-    $_log "$EXPERIMENT with `twc $CELLS` cell(s) and status=$STATUS"
+    $_log "$EXPERIMENT with ${#CELLS[@]} cell(s) and status=$STATUS"
 
     # Call the appropriate function in the appropriate directory.
     pushd "$run" >/dev/null
@@ -919,7 +929,7 @@ for run in "${prom_runs_list[@]}" ; do
     # a new scan at regular intervals in any case. We don't want an instance of the driver to
     # spend 2 hours processing then start working on a new run. On the other hand, we don't
     # want a problem run to gum up the pipeline if every instance of the script tries to process
-    # it, fails, and then exits.
+    # it, quickly fails, and then exits.
     [ "$BREAK" = 0 ] || break
 done
 
@@ -946,11 +956,12 @@ if [ -n "$UPSTREAM" ] ; then
             continue
         fi
 
-        # Set vars to match get_run_status. Remember we have IFS set globally to "\t" in this script.
-        RUNUPSTREAM=$(awk -v FS="$IFS" -v runid="$EXPERIMENT" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
-        CELLS=$(awk -v FS="$IFS" -v ORS="$IFS" -v runid="$EXPERIMENT" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
-        CELLS="${CELLS%$IFS}" # chop trailing tab
-        CELLSPENDING=""
+        # Set vars to match get_run_status.
+        set -x # DEBUG
+        printf "%s\n" "$UPSTREAM_INFO"
+        RUNUPSTREAM=$(awk -v FS=$'\t' -v runid="$EXPERIMENT" '$1==runid {print $2}' <<<"$UPSTREAM_INFO" | head -n 1)
+        IFS=$'\t' read -a CELLS < <(awk -v FS=$'\t' -v ORS=$'\t' -v runid="$EXPERIMENT" '$1==runid {print $3}' <<<"$UPSTREAM_INFO")
+        CELLSPENDING=()
 
         unset per_expt_log # Should be done by plog_start in any case.
         eval action_"$STATUS"
@@ -958,7 +969,7 @@ if [ -n "$UPSTREAM" ] ; then
         [ $? = 0 ] || log "Error while trying to run action_$STATUS on $EXPERIMENT"
         set -e
 
-    done < <(printf "%s" "$UPSTREAM_INFO" | awk -F "$IFS" '{print $1}' | uniq)
+    done < <(printf "%s" "$UPSTREAM_INFO" | awk -F $'\t' '{print $1}' | uniq)
 fi
 
 # Now start sync events, if there are any.
