@@ -311,11 +311,13 @@ action_cell_ready_visitor(){
 
     BREAK=1
 
-    RUN_INPUT_DIR="$(dirname "$PWD")"
-    RUN_INPUT_BASE="$(basename "$PWD")"
+    local rund="$(dirname "$PWD")"
+    local based="$(basename "$PWD")"
     for _c in "${CELLSREADY[@]}" ; do
         # I could do this in parallel but I don't think it matters
-        Snakefile.checksummer --config input_dir="$RUN_INPUT_DIR/./$RUN_INPUT_BASE/$_c" op_index=-1
+        ( cd "$RUN_OUTPUT"
+          Snakefile.checksummer --config input_dir="$rund/./$based/$_c" op_index=-1
+        ) |& plog
     done
 
     # Delivery logic is under qc_tools_python so we link it via a toolbox script

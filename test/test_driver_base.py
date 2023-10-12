@@ -37,10 +37,11 @@ PROGS_TO_MOCK = {
 }
 
 # Snakemake targets are always the same, unless $MAIN_SNAKE_TARGETS is set
-SNAKE_TARGETS = ("copy_fast5 main -f"
-                 " -R per_cell_blob_plots per_project_blob_tables one_cell"
-                 "    nanostats convert_final_summary sample_names"
-                 " --config".split())
+SNAKE_TARGETS = """copy_fast5 main -f
+                    -R per_cell_blob_plots per_project_blob_tables one_cell
+                       nanostats convert_final_summary sample_names
+                    --config
+                """
 
 
 class TestDriverBase(unittest.TestCase):
@@ -48,10 +49,10 @@ class TestDriverBase(unittest.TestCase):
     def __init__(self, *args):
         super().__init__(*args)
         self.verbose = VERBOSE
-        self.snake_targets = SNAKE_TARGETS
+        self.snake_targets = SNAKE_TARGETS.split()
         self.examples = EXAMPLES
         self.example_runs = os.path.join(self.examples, "runs")
-        self.progs_to_mock = PROGS_TO_MOCK
+        self.progs_to_mock = PROGS_TO_MOCK.copy()
 
     def setUp(self):
         """Make a shadow folder, and in it have subdirs runs and fastqdata and log.

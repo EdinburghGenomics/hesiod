@@ -23,7 +23,9 @@ class T(TestDriverBase):
 
         self.progs_to_mock['Snakefile.checksummer'] = None
 
-        # Mock 'env' as it's used to make calls to the toolbox
+        # Mock 'env' as it's used to make the call to toolbox/deliver_visitor_cells
+        # But note this is also used in list_remote_cells.sh so we can't test
+        # that while env is mocked.
         self.progs_to_mock['env'] = None
 
     def rt_cmd(self, *args, **kwargs):
@@ -135,15 +137,44 @@ class T(TestDriverBase):
         self.assertInStdout(f"CELL_READY {run_name}. Auto-delivering 3 visitor cells")
 
         expected_calls = self.bm.empty_calls()
-        expected_calls['env'] = [['deliver_visitor_cells', 'x', 'y']]
+
+        checksum_base_path = f"input_dir={self.temp_dir}/runs/./20230101_ONT1_v_tbooth2_test1"
+        expected_calls['Snakefile.checksummer'] = [
+            [  "--config",
+               f"{checksum_base_path}/sample1/20230101_1111_2G_PAQ12345_aaaaaaaa",
+               "op_index=-1"],
+            [  "--config",
+               f"{checksum_base_path}/sample1/20230101_1111_2G_PAQ12345_bbbbbbbb",
+               "op_index=-1"],
+            [  "--config",
+               f"{checksum_base_path}/sample2/20230101_1111_2G_PAQ12345_cccccccc",
+               "op_index=-1"] ]
+
+        # The call to env is non-deterministic, so we have to doctor it...
+        self.bm.last_calls['env'][0][0] = re.sub( r'^(PATH=).*', r'\1',
+                                                  self.bm.last_calls['env'][0][0] )
+        expected_calls['env'] = [[ "PATH=",
+                                   "deliver_visitor_cells",
+                                   "sample1/20230101_1111_2G_PAQ12345_aaaaaaaa",
+                                   "sample1/20230101_1111_2G_PAQ12345_bbbbbbbb",
+                                   "sample2/20230101_1111_2G_PAQ12345_cccccccc" ]]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
         # After this, once cell is left incomplete
         self.bm_rundriver()
         self.assertInStdout(f"{run_name} with 4 cell(s) and status=incomplete")
 
-        # So finish that one too
+        # So finish that one too. As it stands we have to run the driver twice to spot
+        # the cell and then to process it. (Could add a short-circuit to this)
+        self.touch("sample2/20230101_1111_2G_PAQ12345_dddddddd/final_summary_xxx_yyy.txt")
+        self.bm_rundriver()
+        self.assertInStdout("1 cells in this experiment are now ready for processing")
+
         self.bm_rundriver()
         self.assertInStdout(f"CELL_READY {run_name}. Auto-delivering 1 visitor cells")
 
+        # We'll just do a spot check on this.
+        self.assertEqual( len(self.bm.last_calls['Snakefile.checksummer']), 1 )
+
+        self.bm_rundriver()
         self.assertInStdout(f"{run_name} with 4 cell(s) and status=complete")
