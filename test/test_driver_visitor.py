@@ -142,13 +142,13 @@ class T(TestDriverBase):
         expected_calls['Snakefile.checksummer'] = [
             [  "--config",
                f"{checksum_base_path}/sample1/20230101_1111_2G_PAQ12345_aaaaaaaa",
-               "op_index=-1"],
+               "output_prefix=20230101_1111_2G_PAQ12345_aaaaaaaa"],
             [  "--config",
                f"{checksum_base_path}/sample1/20230101_1111_2G_PAQ12345_bbbbbbbb",
-               "op_index=-1"],
+               "output_prefix=20230101_1111_2G_PAQ12345_bbbbbbbb"],
             [  "--config",
                f"{checksum_base_path}/sample2/20230101_1111_2G_PAQ12345_cccccccc",
-               "op_index=-1"] ]
+               "output_prefix=20230101_1111_2G_PAQ12345_cccccccc"] ]
 
         # The call to env is non-deterministic, so we have to doctor it...
         self.bm.last_calls['env'][0][0] = re.sub( r'^(PATH=).*', r'\1',

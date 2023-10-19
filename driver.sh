@@ -305,18 +305,20 @@ action_cell_ready_visitor(){
     log "\_CELL_READY $EXPERIMENT. Auto-delivering ${#CELLSREADY[@]} visitor cells."
     plog_start
 
-    for _c in "${CELLSREADY[@]}" ; do
-        touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
+    local c
+    for c in "${CELLSREADY[@]}" ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$c").started"
     done
 
     BREAK=1
 
     local rund="$(dirname "$PWD")"
     local based="$(basename "$PWD")"
-    for _c in "${CELLSREADY[@]}" ; do
+    for c in "${CELLSREADY[@]}" ; do
         # I could do this in parallel but I don't think it matters
         ( cd "$RUN_OUTPUT"
-          Snakefile.checksummer --config input_dir="$rund/./$based/$_c" op_index=-1
+          Snakefile.checksummer --config input_dir="$rund/./$based/$c" \
+                                         output_prefix="$(basename "$c")"
         ) |& plog
     done
 
@@ -326,8 +328,8 @@ action_cell_ready_visitor(){
     env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}"
     [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
 
-    for _c in "${CELLSREADY[@]}" ; do
-        mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
+    for c in "${CELLSREADY[@]}" ; do
+        mv pipeline/$(cell_to_tfn "$c").started pipeline/$(cell_to_tfn "$c").done
     done
 }
 

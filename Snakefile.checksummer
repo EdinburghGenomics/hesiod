@@ -95,13 +95,9 @@ def batchlist(l, batch_size, min_pad=0):
 
 # Determine the output prefix.
 BASE_PATH, PREFIX_PATH = split_input_dir()
-if 'op_index' in config:
-    if config['op_index'] is not None:
-        # Generally use 0 or -1 to get the first or last item in the path.
-        # This only affects the name of the md5 file
-        OUTPUT_PREFIX = PREFIX_PATH.split("/")[int(config['op_index'])] + "_"
-    else:
-        OUTPUT_PREFIX = ""
+if 'output_prefix' in config:
+    # This only affects the name of the md5 file
+    OUTPUT_PREFIX = config['output_prefix'] or ""
 else:
     OUTPUT_PREFIX = PREFIX_PATH and f"{PREFIX_PATH.replace('/','_')}_"
 
