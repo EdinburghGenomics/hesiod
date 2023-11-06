@@ -1,9 +1,19 @@
 #!/bin/bash
 
-# Placeholder/stub script for testing
+# The driver calls this script with a list of cells, and the script
+# needs to call qc_tools_python/bin/visitor_disseminate.py
 
-echo "Delivering $# cells in run ??:"
+# The driver should set VISITOR_UUN and EXPERIMENT and ensure that
+# the working directory is the input directory (in PROM_RUNS).
 
-for $_cell in $@ ; do
+echo "Delivering $# cells in experiment $EXPERIMENT:"
+for $_cell in "$@" ; do
     echo "  $_cell"
 done
+
+# So, first this...
+source /lustre-gseg/software/qc_tools_python/current/activate
+
+visitor_disseminate.py -e "$EXPERIMENT" -u "$VISITOR_UUN" "$@"
+
+echo DONE

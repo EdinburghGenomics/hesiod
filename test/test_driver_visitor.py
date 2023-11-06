@@ -24,7 +24,7 @@ class T(TestDriverBase):
         self.progs_to_mock['Snakefile.checksummer'] = None
 
         # Mock 'env' as it's used to make the call to toolbox/deliver_visitor_cells
-        # But note this is also used in list_remote_cells.sh so we can't test
+        # But note this is also used within list_remote_cells.sh so we can't test
         # that while env is mocked.
         self.progs_to_mock['env'] = None
 
@@ -128,6 +128,11 @@ class T(TestDriverBase):
         self.touch("sample2/20230101_1111_2G_PAQ12345_cccccccc/final_summary_xxx_yyy.txt")
         self.bm_rundriver() # See tests above
 
+        # Use a second mock script to check the calling of "env deliver_visitor_cells" to allow me
+        # to check the environment vars are passed.
+        self.bm.add_mock('env', side_effect="set -e ; dummy_deliver $EXPERIMENT $VISITOR_UUN")
+        self.bm.add_mock('dummy_deliver')
+
         if self.verbose:
             subprocess.call(["tree", "-usa", self.temp_dir])
 
@@ -150,14 +155,16 @@ class T(TestDriverBase):
                f"{checksum_base_path}/sample2/20230101_1111_2G_PAQ12345_cccccccc",
                "output_prefix=20230101_1111_2G_PAQ12345_cccccccc"] ]
 
-        # The call to env is non-deterministic, so we have to doctor it...
+        # We could calculate the PATH passed to env, but it's easier to doctor it...
         self.bm.last_calls['env'][0][0] = re.sub( r'^(PATH=).*', r'\1',
-                                                  self.bm.last_calls['env'][0][0] )
+                                          self.bm.last_calls['env'][0][0] )
         expected_calls['env'] = [[ "PATH=",
                                    "deliver_visitor_cells",
                                    "sample1/20230101_1111_2G_PAQ12345_aaaaaaaa",
                                    "sample1/20230101_1111_2G_PAQ12345_bbbbbbbb",
                                    "sample2/20230101_1111_2G_PAQ12345_cccccccc" ]]
+        expected_calls['dummy_deliver'] = [[ "20230101_ONT1_v_tbooth2_test1",
+                                             "tbooth2" ]]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
         # After this, once cell is left incomplete

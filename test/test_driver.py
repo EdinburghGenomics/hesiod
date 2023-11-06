@@ -454,7 +454,7 @@ class T(TestDriverBase):
         self.touch("pipeline/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa.synced")
         self.touch("pipeline/20000101_0000_2-B1-B1_PAD00000_bbbbbbbb.synced")
 
-        # Make the report uploader faile
+        # Make the report uploader fail
         self.bm.add_mock('upload_report.sh', fail=True, side_effect="echo Error in upload_report.sh >&2")
         self.bm_rundriver()
 
