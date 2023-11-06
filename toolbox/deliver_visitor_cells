@@ -7,8 +7,8 @@
 # the working directory is the input directory (in PROM_RUNS).
 
 echo "Delivering $# cells in experiment $EXPERIMENT:"
-for $_cell in "$@" ; do
-    echo "  $_cell"
+for $cell in "$@" ; do
+    echo "  $cell"
 done
 
 # So, first this...

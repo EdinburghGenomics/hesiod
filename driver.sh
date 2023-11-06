@@ -325,6 +325,8 @@ action_cell_ready_visitor(){
     # Delivery logic is under qc_tools_python so we link it via a toolbox script
     _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
     _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
+    really_export EXPERIMENT
+    export VISITOR_UUN="$(tyq.py '{uun}' pipeline/type.yaml)"
     env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}"
     [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
 
@@ -602,6 +604,16 @@ cell_to_tfn(){
     # I think the best option is just to chop the lib/ part. Note this must
     # correspond to the logic in run_status.py which interprets the touch files.
     printf "%s" "${1##*/}"
+}
+
+really_export(){
+    # Turns out that attempting to export a variable that was set with "read -a"
+    # fails silently. This forces the issue. If the variable contains an array you'll
+    # lose everything but the first value.
+    eval local v="\$$1"
+
+    unset "$1"
+    export $1="$v"
 }
 
 qglob(){

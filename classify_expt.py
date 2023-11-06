@@ -27,7 +27,7 @@ def classify(expt_name):
 
     if mo_v:
         return dict(type = "visitor",
-                    uid  = mo_v.group(1).lower())
+                    uun  = mo_v.group(1).lower())
     elif mo_i:
         return dict(type = "internal")
 

@@ -116,13 +116,13 @@ class T(TestDriverBase):
 
         # Run should be judged to be a visitor run
         self.assertEqual( load_yaml(f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"),
-                          dict(type="visitor", uid="tbooth2") )
+                          dict(type="visitor", uun="tbooth2") )
 
 
     def test_visitor_cell_complete(self):
 
         run_name = "20230101_ONT1_v_tbooth2_test1"
-        self.copy_run(run_name)
+        run_dir = self.copy_run(run_name)
         self.touch("sample1/20230101_1111_2G_PAQ12345_aaaaaaaa/final_summary_xxx_yyy.txt")
         self.touch("sample1/20230101_1111_2G_PAQ12345_bbbbbbbb/final_summary_xxx_yyy.txt")
         self.touch("sample2/20230101_1111_2G_PAQ12345_cccccccc/final_summary_xxx_yyy.txt")
@@ -130,7 +130,7 @@ class T(TestDriverBase):
 
         # Use a second mock script to check the calling of "env deliver_visitor_cells" to allow me
         # to check the environment vars are passed.
-        self.bm.add_mock('env', side_effect="set -e ; dummy_deliver $EXPERIMENT $VISITOR_UUN")
+        self.bm.add_mock('env', side_effect="set -e ; dummy_deliver $(pwd) $EXPERIMENT $VISITOR_UUN")
         self.bm.add_mock('dummy_deliver')
 
         if self.verbose:
@@ -163,7 +163,8 @@ class T(TestDriverBase):
                                    "sample1/20230101_1111_2G_PAQ12345_aaaaaaaa",
                                    "sample1/20230101_1111_2G_PAQ12345_bbbbbbbb",
                                    "sample2/20230101_1111_2G_PAQ12345_cccccccc" ]]
-        expected_calls['dummy_deliver'] = [[ "20230101_ONT1_v_tbooth2_test1",
+        expected_calls['dummy_deliver'] = [[ run_dir,
+                                             "20230101_ONT1_v_tbooth2_test1",
                                              "tbooth2" ]]
         self.assertEqual(self.bm.last_calls, expected_calls)
 
