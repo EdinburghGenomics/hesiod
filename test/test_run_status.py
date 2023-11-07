@@ -342,6 +342,32 @@ class T(unittest.TestCase):
         self.assertEqual( run_info.get_cells_in_state(run_info.CELL_INCOMPLETE), [] )
         self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
 
+    def test_failed_but_done(self):
+        """What if an experiment has a failed file but all the cells are done?
+
+           This is an unreasonable state, but we should report it.
+        """
+        run_info = self.use_run( "20231010_MIN2_v_jschmoe2_delivered",
+                                 copy = True,
+                                 from_dir = "visitor_runs" )
+
+        self.touch("pipeline/failed")
+
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                              upstream = { "20231010_MIN2_v_jschmoe2_delivered": {
+                                           "loc": "xxx",
+                                           "cells": set(["sample1/20231010_1042_MN32284_APO469_7e31b9d5"]) } } )
+
+        # OK so there is a failed file, so the pipeline status is 'failed'
+        self.assertEqual( run_info.get_status(), "failed" )
+
+        # But the cell should say it's done
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED),
+                                                      ["sample1/20231010_1042_MN32284_APO469_7e31b9d5"] )
+
+        # And the list of failed cells should be empty
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_FAILED), [] )
+
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
     """
