@@ -301,6 +301,9 @@ class T(TestDriverBase):
         #self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary.txt")
         self.touch("a test lib/20000101_0000_1-A1-A1_PAD00000_aaaaaaaa/final_summary_PAD00000_1ea085ce.txt")
 
+        # For this to work, we need to pretend it's the year 2000
+        self.bm.add_mock("date", side_effect='/bin/date -d "2000-01-01" "$@"', log=False)
+
         self.bm_rundriver()
 
         self.assertInStdout(f"SYNC_NEEDED {run_name}")

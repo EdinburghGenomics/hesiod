@@ -920,9 +920,14 @@ unset UPSTREAM_LOC UPSTREAM_NAME
 # First, account for PROM_RUNS_BATCH and see what runs are here locally.
 # Remember we have nullglob set but also -u so be careful trying to access an empty list
 if [ "${PROM_RUNS_BATCH:-none}" = year ] ; then
-    prom_runs_prefix="$PROM_RUNS/\d{4}"
-    prom_runs_list=("$PROM_RUNS"/[0-9][0-9][0-9][0-9]/*_*/)
+    # Look at this year plus last year. Anything older you'll have to do manually!
+    this_year=$(date +%Y)
+    last_year=$(date +%Y -d '1 year ago')
+    prom_runs_prefix="$PROM_RUNS/($last_year|$this_year)"
+    prom_runs_list=("$PROM_RUNS"/$last_year/*_*/)
+    prom_runs_list+=("$PROM_RUNS"/$this_year/*_*/)
 elif [ "${PROM_RUNS_BATCH:-none}" = month ] ; then
+    # TODO - Should probably do the same here and look back 12 months
     prom_runs_prefix="$PROM_RUNS/\d{4}-\d{2}"
     prom_runs_list=("$PROM_RUNS"/[0-9][0-9][0-9][0-9]-[0-9][0-9]/*_*/)
 else
