@@ -1,0 +1,16 @@
+So with visitor deliveries, I had the bright idea to move, rather than copy, the
+cell directory.
+
+The problem with this is that run_status.py no longer sees that the cell is synced
+and adds the run to the sync queue. Now when it actually goes to sync, nothing
+happens because the .synced file is detected. But it should have been detected
+earlier, by run_status.py.
+
+Let's make a test case, based on 20231010_MIN2_v_ctang2_run2_20231010.
+
+$ ./run_status.py -I test/examples/visitor_runs/20231010_MIN2_v_jschmoe2_delivered <<<$'20231010_MIN2_v_jschmoe2_delivered\tfoo\tsample1/20231010_1042_MN32284_APO469_7e31b9d5'
+
+This shows as "sync_needed" but the cell should be marked as "done".
+
+I think I can live with cells that only have a ".synced" touch file being detected here, but the ".done"
+should be respected. Make this a test case and fix the bug.

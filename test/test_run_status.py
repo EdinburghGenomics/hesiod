@@ -301,6 +301,47 @@ class T(unittest.TestCase):
         self.assertEqual( ri['Type:'],  "unknown" )
         self.assertEqual( ri['Cells:'], "sampleA/20230101_1111_2G_PAQ12345_zzzzzzzz" )
 
+    def test_missing_cell_bug(self):
+        """When a cell is delivered on a visitor run, the entire cell directory is removed.
+           In this case, the presence of the "done" file should still stop the driver from
+           trying to re-sync the upstream cell.
+        """
+        run_info = self.use_run( "20231010_MIN2_v_jschmoe2_delivered",
+                                 copy = False,
+                                 from_dir = "visitor_runs" )
+
+        # This run has no cells, and so should be in status "complete" as there is nothing to do.
+        self.assertEqual( run_info.get_status(), "complete" )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_INCOMPLETE), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
+
+        # Now if I redo the run_info with relevant upstream
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                              upstream = { "20231010_MIN2_v_jschmoe2_delivered": {
+                                           "loc": "xxx",
+                                           "cells": set(["sample1/20231010_1042_MN32284_APO469_7e31b9d5"]) } } )
+
+        # Should still be complete
+        self.assertEqual( run_info.get_status(), "complete" )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED),
+                                                      ["sample1/20231010_1042_MN32284_APO469_7e31b9d5"] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_INCOMPLETE), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
+
+        # Shouldn't matter if the sample directory is there or not
+        run_info = RunStatus( os.path.join(self.current_run_dir),
+                              upstream = { "20231010_MIN2_v_jschmoe2_delivered": {
+                                           "loc": "xxx",
+                                           "cells": set(["sample2/20231010_1042_MN32284_APO469_7e31b9d5"]) } } )
+
+        # As above
+        self.assertEqual( run_info.get_status(), "complete" )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PROCESSED),
+                                                      ["sample2/20231010_1042_MN32284_APO469_7e31b9d5"] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_INCOMPLETE), [] )
+        self.assertEqual( run_info.get_cells_in_state(run_info.CELL_PENDING), [] )
+
 def dictify(s):
     """ Very very dirty minimal YAML parser is OK for testing.
     """

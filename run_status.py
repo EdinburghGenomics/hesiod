@@ -119,7 +119,14 @@ class RunStatus:
         for cellname in self.remote_cells:
             tfn = self.cell_to_tfn(cellname)
             if not tfn in local_tfn_set:
-                res[cellname] = self.CELL_NEW
+                if self._exists_pipeline( tfn + '.aborted' ):
+                    res[cellname] = self.CELL_ABORTED
+                elif self._exists_pipeline( tfn + '.done' ):
+                    res[cellname] = self.CELL_PROCESSED
+                else:
+                    # These cells may be removed from the local area after they are done or
+                    # aborted, but .started and .synced flags are disregarded.
+                    res[cellname] = self.CELL_NEW
 
         self._cells_cache = res
         return res
