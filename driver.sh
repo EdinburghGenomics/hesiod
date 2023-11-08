@@ -327,7 +327,7 @@ action_cell_ready_visitor(){
     _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
     really_export EXPERIMENT
     export VISITOR_UUN="$(tyq.py '{uun}' pipeline/type.yaml)"
-    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}"
+    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}" |& plog
     [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
 
     for c in "${CELLSREADY[@]}" ; do

@@ -40,7 +40,7 @@ else
     ( set -e ;
         # Best to resolve the symlink before bootstrapping the VEnv
         _py3="${TOOLBOX:-`dirname $BASH_SOURCE`/toolbox}"/bootstrap_python3
-        _py3_real="$(readlink -f "$_py3")"
+        _py3_real="$(readlink -m "$_py3")"
         echo "Bootstrapping new VEnv from $_py3 ($_py3_real)"
         "$_py3_real" -mvenv ./_hesiod_venv
         activate_venv
