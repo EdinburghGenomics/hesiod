@@ -203,15 +203,27 @@ plan:
 
 1) Deploy version v2.3.1.1 but do not make it current.
 
+DONE
+
 2) Stop the Hesiod pipeline so we don't get confused processing the v run and the ongoing Promethion
    runs (but remember to restart it this afternoon!)
+
+DONE
 
 3) Configure v2.3.1.1 to only process v_tbooth2 runs and to log to the screen, and check I can run it
    manually.
 
+DONE
+
 4) Hack on it until I get delivery.
+
+DONE!!!
 
 5) Check the ticket in the "testing" queue is correctly opened, gets comments, and then is closed.
 
+Heck yes - https://rt.genomics.ed.ac.uk/Ticket/Display.html?id=15738
+
 6) Deploy v2.3.2 and put the CRON back and then make a new test run with 2 cells and check they both
    get delivered in one go.
+
+OK, sure

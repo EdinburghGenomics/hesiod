@@ -15,7 +15,8 @@ done
 # So, first this...
 source /lustre-gseg/software/qc_tools_python/current/activate
 
-echo "Current directory is $(pwd)"
+echo "Running visitor_disseminate.py in $(pwd)"
+set -x
 visitor_disseminate.py -e "$EXPERIMENT" -u "$VISITOR_UUN" "$@"
 
 echo DONE
