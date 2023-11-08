@@ -194,3 +194,24 @@ of chatter as regular runs, as in we get a ticket and then see a message if the 
 also an error if auto-delivery fails. But maybe this doesn't need to go to EVERYONE in the lab. Easiest
 way is to have RT notifications go to a different queue for visitor runs and control notifications at
 the RT level. So let's code that thing.
+
+--- Test plan 8/11/2023
+
+So I have everything coded, and what happens is it runs the Snakefile.checksummer but then says it's
+done when nothing is delivered. Clearly something fell through the cracks in my testing. Here is the
+plan:
+
+1) Deploy version v2.3.1.1 but do not make it current.
+
+2) Stop the Hesiod pipeline so we don't get confused processing the v run and the ongoing Promethion
+   runs (but remember to restart it this afternoon!)
+
+3) Configure v2.3.1.1 to only process v_tbooth2 runs and to log to the screen, and check I can run it
+   manually.
+
+4) Hack on it until I get delivery.
+
+5) Check the ticket in the "testing" queue is correctly opened, gets comments, and then is closed.
+
+6) Deploy v2.3.2 and put the CRON back and then make a new test run with 2 cells and check they both
+   get delivered in one go.

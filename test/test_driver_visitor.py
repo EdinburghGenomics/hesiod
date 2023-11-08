@@ -166,6 +166,11 @@ class T(TestDriverBase):
         expected_calls['dummy_deliver'] = [[ run_dir,
                                              "20230101_ONT1_v_tbooth2_test1",
                                              "tbooth2" ]]
+        expected_calls['rt_runticket_manager.py'] = [self.rt_cmd( "Delivered", "--reply", "@???" )]
+        # The call to rt_runticket_manager.py is non-deterministic, so we have to doctor it...
+        self.bm.last_calls['rt_runticket_manager.py'][0][-1] = re.sub(
+                                    r'@\S+$', '@???', self.bm.last_calls['rt_runticket_manager.py'][0][-1] )
+
         self.assertEqual(self.bm.last_calls, expected_calls)
 
         # After this, once cell is left incomplete
@@ -186,3 +191,35 @@ class T(TestDriverBase):
 
         self.bm_rundriver()
         self.assertInStdout(f"{run_name} with 4 cell(s) and status=complete")
+
+    def test_visitor_delivery_fail(self):
+        """What if deliver_visitor_cells fails?
+        """
+
+        run_name = "20230101_ONT1_v_tbooth2_test1"
+        run_dir = self.copy_run(run_name)
+        self.touch("sample1/20230101_1111_2G_PAQ12345_aaaaaaaa/final_summary_xxx_yyy.txt")
+        self.touch("sample1/20230101_1111_2G_PAQ12345_bbbbbbbb/final_summary_xxx_yyy.txt")
+        self.touch("sample2/20230101_1111_2G_PAQ12345_cccccccc/final_summary_xxx_yyy.txt")
+        self.bm_rundriver() # See tests above
+
+        # Use a second mock script to check the calling of "env deliver_visitor_cells" to allow me
+        # to check the environment vars are passed.
+        self.bm.add_mock('env', fail=True)
+        self.bm.add_mock('dummy_deliver')
+
+        if self.verbose:
+            subprocess.call(["tree", "-usa", self.temp_dir])
+
+        # And this should try to deliver the cells immediately, since I added the summaries
+        # before the first driver run.
+        self.bm_rundriver()
+        self.assertInStdout(f"CELL_READY {run_name}. Auto-delivering 3 visitor cells")
+
+        # But it should be failed
+        self.assertTrue(os.path.exists(f"{self.temp_dir}/runs/{run_name}/pipeline/failed"))
+
+        # Spot check the mock calls
+        self.assertEqual( len(self.bm.last_calls['Snakefile.checksummer']), 3)
+        self.assertEqual( len(self.bm.last_calls['env']), 1)
+        self.assertEqual( len(self.bm.last_calls['rt_runticket_manager.py']), 1)

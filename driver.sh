@@ -322,13 +322,29 @@ action_cell_ready_visitor(){
         ) |& plog
     done
 
+    local run_summary
+    run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" --fudge 2>&1 || true)"
+
     # Delivery logic is under qc_tools_python so we link it via a toolbox script
     _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
     _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
     really_export EXPERIMENT
     export VISITOR_UUN="$(tyq.py '{uun}' pipeline/type.yaml)"
-    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}" |& plog
-    [ $? = 0 ] || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
+    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}" |& plog \
+        || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
+
+    # Tell RT we delivered the cells. Maybe we can close the ticket too?
+    # For visitor runs, RT failure is not a critical failure.
+    ( rt_runticket_manager --subject "Delivered" --reply \
+        @<(echo "$(get_full_version)"
+           echo
+           echo "Cells were delivered to $VISITOR_UUN:"
+           echo "  ${CELLSREADY[@]}"
+           echo
+           echo "----------"
+           echo
+           echo "$run_summary"
+           echo ) ) |& plog || true
 
     for c in "${CELLSREADY[@]}" ; do
         mv pipeline/$(cell_to_tfn "$c").started pipeline/$(cell_to_tfn "$c").done
