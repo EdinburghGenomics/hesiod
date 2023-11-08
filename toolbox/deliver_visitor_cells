@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # The driver calls this script with a list of cells, and the script
 # needs to call qc_tools_python/bin/visitor_disseminate.py
@@ -7,13 +8,14 @@
 # the working directory is the input directory (in PROM_RUNS).
 
 echo "Delivering $# cells in experiment $EXPERIMENT:"
-for $cell in "$@" ; do
+for cell in "$@" ; do
     echo "  $cell"
 done
 
 # So, first this...
 source /lustre-gseg/software/qc_tools_python/current/activate
 
+echo "Current directory is $(pwd)"
 visitor_disseminate.py -e "$EXPERIMENT" -u "$VISITOR_UUN" "$@"
 
 echo DONE

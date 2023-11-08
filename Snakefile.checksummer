@@ -97,9 +97,12 @@ def batchlist(l, batch_size, min_pad=0):
 BASE_PATH, PREFIX_PATH = split_input_dir()
 if 'output_prefix' in config:
     # This only affects the name of the md5 file
-    OUTPUT_PREFIX = config['output_prefix'] or ""
+    if config['output_prefix']:
+        OUTPUT_PREFIX = config['output_prefix'] + "_"
+    else:
+        OUTPUT_PREFIX = ""
 else:
-    OUTPUT_PREFIX = PREFIX_PATH and f"{PREFIX_PATH.replace('/','_')}_"
+    OUTPUT_PREFIX = PREFIX_PATH and (PREFIX_PATH.replace('/','_') + "_")
 
 localrules: main, gen_batches, combine_batches
 

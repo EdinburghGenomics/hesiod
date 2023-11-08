@@ -326,12 +326,12 @@ action_cell_ready_visitor(){
     run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" --fudge 2>&1 || true)"
 
     # Delivery logic is under qc_tools_python so we link it via a toolbox script
-    _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
-    _toolbox="$( cd "$(dirname "$BASH_SOURCE")" && readlink -f "${TOOLBOX:-toolbox}" )"
+    local cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
+    local toolbox_path="$( cd "$HESIOD_HOME" && readlink -f "${TOOLBOX:-toolbox}" )"
     really_export EXPERIMENT
     export VISITOR_UUN="$(tyq.py '{uun}' pipeline/type.yaml)"
-    env PATH="$_toolbox:$PATH" deliver_visitor_cells "${CELLSREADY[@]}" |& plog \
-        || { pipeline_fail Deliver_Visitor_Cells "$_cellsready_p" ; return ; }
+    env PATH="$toolbox_path:$PATH" deliver_visitor_cells "${CELLSREADY[@]}" |& plog \
+        || { pipeline_fail Deliver_Visitor_Cells "$cellsready_p" ; return ; }
 
     # Tell RT we delivered the cells. Maybe we can close the ticket too?
     # For visitor runs, RT failure is not a critical failure.
@@ -339,7 +339,7 @@ action_cell_ready_visitor(){
         @<(echo "$(get_full_version)"
            echo
            echo "Cells were delivered to $VISITOR_UUN:"
-           echo "  ${CELLSREADY[@]}"
+           echo "  $cellsready_p"
            echo
            echo "----------"
            echo
