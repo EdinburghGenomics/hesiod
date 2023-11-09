@@ -56,8 +56,8 @@ runcmd git --git-dir=git_repo --work-tree="$latest_tag" checkout -f tags/"$lates
 # Sanity check
 [ -d "$latest_checked_out" ] || die "Could not read folder for tag $latest_checked_out"
 
-# Copy the config file
-cp -vn -t $latest_tag $latest_checked_out/environ.sh
+# Copy the current config file (not $latest_checked_out)
+cp -vn -t $latest_tag current/environ.sh
 
 # Bootstrap the VEnv
 echo "Bootstrapping the VirtualEnv in $latest_tag/_hesiod_venv"

@@ -204,18 +204,20 @@ action_new(){
     # Create an input directory with a pipeline subdir and send an initial notification to RT
     # Have a 'from' file containing the upstream location
     # Also make a matching output directory and back/forth symlinks
-    _cc=${#CELLS[@]}
-    _exp_dir="$(dir_for_run "$EXPERIMENT")"
-    _exp_dir_dir="$(dirname "$PROM_RUNS/$_exp_dir")"
+    local cc=${#CELLS[@]}
+    local exp_dir="$(dir_for_run "$EXPERIMENT")"
+    local exp_dir_dir="$(dirname "$PROM_RUNS/$exp_dir")"
+
+    local msg1 msg2
 
     if [ "$RUNUPSTREAM" = LOCAL ] ; then
         # The run_status.py script will report 'LOCAL' if the upstream record is missing, but we
         # then below write this value explicitly into the upstream file.
-        log "\_NEW $EXPERIMENT (LOCAL) with $_cc cells. Creating output directory in $FASTQDATA."
-        _msg1="New experiment in $PROM_RUNS with $_cc cells."
+        log "\_NEW $EXPERIMENT (LOCAL) with $cc cells. Creating output directory in $FASTQDATA."
+        msg1="New experiment in $PROM_RUNS with $cc cells."
     else
-        log "\_NEW $EXPERIMENT with $_cc cells. Creating skeleton directories in $_exp_dir_dir and $FASTQDATA."
-        _msg1="Syncing new experiment from $RUNUPSTREAM to $_exp_dir_dir with $_cc cells."
+        log "\_NEW $EXPERIMENT with $cc cells. Creating skeleton directories in $exp_dir_dir and $FASTQDATA."
+        msg1="Syncing new experiment from $RUNUPSTREAM to $exp_dir_dir with $cc cells."
     fi
 
     # BREAK=1 is ignored when processing new experiments from upstream, because that loop doesn't
@@ -226,23 +228,23 @@ action_new(){
     # process more experiments. However, if nothing fails we can process multiple new experiments
     # in one go, be they local or remote.
     BREAK=1
-    if mkdir -vp "$PROM_RUNS/$_exp_dir/pipeline" |&debug ; then
-        cd "$PROM_RUNS/$_exp_dir"
+    if mkdir -vp "$PROM_RUNS/$exp_dir/pipeline" |&debug ; then
+        cd "$PROM_RUNS/$exp_dir"
         echo "$RUNUPSTREAM" > "pipeline/upstream"
     else
         # Don't want to get stuck in a panic loop sending multiple emails, but this is problematic
-        log "FAILED $EXPERIMENT (creating $PROM_RUNS/$_exp_dir/pipeline)"
+        log "FAILED $EXPERIMENT (creating $PROM_RUNS/$exp_dir/pipeline)"
         return
     fi
 
     # Now, this should fail if $FASTQDATA/$EXPERIMENT already exists or can't be created.
     RUN_OUTPUT="$FASTQDATA/$EXPERIMENT"
-    if _msg2="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
-        debug "$_msg2"
+    if msg2="$(mkdir -v "$RUN_OUTPUT" 2>&1)" ; then
+        debug "$msg2"
         plog_start
         log "Logging to $per_expt_log"
-        plog "$_msg1"
-        plog "$_msg2"
+        plog "$msg1"
+        plog "$msg2"
         chgrp -c --reference="$RUN_OUTPUT" ./pipeline |&plog
         # Links both ways, as usual
         ln -svn "$(readlink -f .)" "$RUN_OUTPUT/rundata" |&plog
@@ -252,7 +254,7 @@ action_new(){
         # in $FASTQDATA. In which case it should have been moved off the machine!
         # An error in any case, so try and fail gracefully.
         set +e
-        log "$_msg2"
+        log "$msg2"
         # Prevent writing to the pipeline log during failure handling as we don't own it!
         # But do classify the experiment so we can send the RT message to the right place.
         (  plog() { ! [ $# = 0 ] || cat >/dev/null ; }
@@ -276,7 +278,7 @@ action_new(){
     # If this fails for some reason, press on.
     ( send_summary_to_rt comment \
                          new \
-                         "$_msg1"$'\n\n'"This is a new experiment - there is no report yet." \
+                         "$msg1"$'\n\n'"This is a new experiment - there is no report yet." \
     ) |& plog || true
     log "DONE"
 }
@@ -296,8 +298,9 @@ action_cell_ready_unknown(){
     log "\_CELL_READY $EXPERIMENT. But EXPT_TYPE is $EXPT_TYPE. Taking no action."
 
     # Mark the cells complete so we don't keep trying to reprocess it
-    for _c in "${CELLSREADY[@]}" ; do
-        touch_atomic "pipeline/$(cell_to_tfn "$_c").done"
+    local cell
+    for cell in "${CELLSREADY[@]}" ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$cell").done"
     done
 }
 
@@ -305,20 +308,20 @@ action_cell_ready_visitor(){
     log "\_CELL_READY $EXPERIMENT. Auto-delivering ${#CELLSREADY[@]} visitor cells."
     plog_start
 
-    local c
-    for c in "${CELLSREADY[@]}" ; do
-        touch_atomic "pipeline/$(cell_to_tfn "$c").started"
+    local cell
+    for cell in "${CELLSREADY[@]}" ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$cell").started"
     done
 
     BREAK=1
 
     local rund="$(dirname "$PWD")"
     local based="$(basename "$PWD")"
-    for c in "${CELLSREADY[@]}" ; do
+    for cell in "${CELLSREADY[@]}" ; do
         # I could do this in parallel but I don't think it matters
         ( cd "$RUN_OUTPUT"
-          Snakefile.checksummer --config input_dir="$rund/./$based/$c" \
-                                         output_prefix="$(basename "$c")"
+          Snakefile.checksummer --config input_dir="$rund/./$based/$cell" \
+                                         output_prefix="$(basename "$cell")"
         ) |& plog
     done
 
@@ -346,8 +349,8 @@ action_cell_ready_visitor(){
            echo "$run_summary"
            echo ) ) |& plog || true
 
-    for c in "${CELLSREADY[@]}" ; do
-        mv pipeline/$(cell_to_tfn "$c").started pipeline/$(cell_to_tfn "$c").done
+    for cell in "${CELLSREADY[@]}" ; do
+        mv pipeline/$(cell_to_tfn "$cell").started pipeline/$(cell_to_tfn "$cell").done
     done
 }
 
@@ -357,18 +360,20 @@ action_cell_ready_internal(){
     log "\_CELL_READY $EXPERIMENT. Time to process ${#CELLSREADY[@]} cells (${#CELLSDONE[@]} already done)."
     plog_start
 
-    for _c in "${CELLSREADY[@]}" ; do
-        touch_atomic "pipeline/$(cell_to_tfn "$_c").started"
+    local cell
+    for cell in "${CELLSREADY[@]}" ; do
+        touch_atomic "pipeline/$(cell_to_tfn "$cell").started"
     done
 
     BREAK=1
 
     # Printable version of CELLSREADY
-    _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
+    local cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
 
     # This will be a no-op if the experiment isn't really complete, and will return 3
     # If contacting RT fails it will return 1, which we count as success
-    ( notify_experiment_complete ) |&plog || _exp_complete_res=$?
+    local exp_complete_res
+    ( notify_experiment_complete ) |&plog || exp_complete_res=$?
 
     # We'd like to have some project info from the LIMS (saves project_realnames.yaml)
     project_realnames
@@ -376,10 +381,11 @@ action_cell_ready_internal(){
     # Do we want an RT message for every cell? Well, just a comment, and again it may fail
     ( send_summary_to_rt comment \
                          processing \
-                         "Cell(s) ready: $_cellsready_p. Report is at" ) |& plog || true
+                         "Cell(s) ready: $cellsready_p. Report is at" ) |& plog || true
 
     # As usual, the Snakefile controls the processing
-    plog "Preparing to process cell(s) $_cellsready_p into $RUN_OUTPUT"
+    plog "Preparing to process cell(s) $cellsready_p into $RUN_OUTPUT"
+    local always_run
     set +e ; ( set -e
       log "  Starting Snakefile.main on $EXPERIMENT."
 
@@ -389,26 +395,27 @@ action_cell_ready_internal(){
       # run_status.py has sanity-checked that RUN_OUTPUT is the appropriate directory,
       # and links back to ./rundata.
       # TODO - document the reason for this list of rules to always run...
-      _force_rerun="per_cell_blob_plots  per_project_blob_tables  one_cell"
-      _force_rerun+=" nanostats          convert_final_summary    sample_names"
+      always_run=( per_cell_blob_plots  per_project_blob_tables  one_cell \
+                   nanostats            convert_final_summary    sample_names )
       ( cd "$RUN_OUTPUT"
 
         scan_cells.py -m -r "${CELLSREADY[@]}" "${CELLSDONE[@]}" -c "${CELLS[@]}" > sc_data.yaml
 
         Snakefile.main ${MAIN_SNAKE_TARGETS:-copy_fast5 main} \
-            -f -R $_force_rerun \
+            -f -R "${always_run[@]}" \
             --config ${EXTRA_SNAKE_CONFIG:-}
       ) |& plog
 
-    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$_cellsready_p" ; return ; }
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$cellsready_p" ; return ; }
 
     # Check the status from earlier
-    if [ ${_exp_complete_res:-0} = 3 ] ; then
-        _report_status="Finished cell"
-        _report_level=reply
+    local report_status report_level
+    if [ ${exp_complete_res:-0} = 3 ] ; then
+        report_status="Finished cell"
+        report_level=reply
     else
-        _report_status="Finished all cells"
-        _report_level=reply
+        report_status="Finished all cells"
+        report_level=reply
     fi
 
     set +e ; ( set -e
@@ -422,30 +429,31 @@ action_cell_ready_internal(){
       # At the moment, failing notify RT after making a report is always a failure condition, even
       # if there is more data to sync/process. This should probably be addressed so we can keep
       # syncing, but it requires complex changes to the state machine.
-      if ! send_summary_to_rt "$_report_level" \
-                              "$_report_status" \
-                              "Processing completed for cells $_cellsready_p. Run report is at" \
+      if ! send_summary_to_rt "$report_level" \
+                              "$report_status" \
+                              "Processing completed for cells $cellsready_p. Run report is at" \
                               FUDGE ;
       then
         log "Failed to send summary to RT. See $per_expt_log"
         false
       fi
 
-      for _c in "${CELLSREADY[@]}" ; do
-          mv pipeline/$(cell_to_tfn "$_c").started pipeline/$(cell_to_tfn "$_c").done
+      local cell
+      for cell in "${CELLSREADY[@]}" ; do
+          mv pipeline/$(cell_to_tfn "$cell").started pipeline/$(cell_to_tfn "$cell").done
       done
 
-    ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$_cellsready_p" ; return ; }
+    ) |& plog ; [ $? = 0 ] || { pipeline_fail Reporting "$cellsready_p" ; return ; }
 
     # Attempt deletion but don't fret if it fails
     set +e ; ( set -e
-        _upstream="$(cat pipeline/upstream)"
-        _cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
+        local upstream="$(cat pipeline/upstream)"
+        cellsready_p="$( join_cells_p "${CELLSREADY[@]}" )"
         if [ "${DEL_REMOTE_CELLS:-no}" = yes ] ; then
-            if [ ! "$_upstream" = LOCAL ] && [ ! -z "$_upstream" ] ; then
-                log "Marking deletable cells on $_upstream."
-                echo "Marking cells as deletable on $_upstream: $_cellsready_p"
-                del_remote_cells.sh "$_upstream" "${CELLSREADY[@]}" || log FAILED
+            if [ ! "$upstream" = LOCAL ] && [ ! -z "$upstream" ] ; then
+                log "Marking deletable cells on $upstream."
+                echo "Marking cells as deletable on $upstream: $cellsready_p"
+                del_remote_cells.sh "$upstream" "${CELLSREADY[@]}" || log FAILED
             fi
         fi
     ) |& plog
@@ -501,15 +509,15 @@ action_processing(){
 action_failed() {
     # failed experiments need attention from an operator, so log the situatuion
     set +e
-    local _lastfail
-    local _reason=$(cat pipeline/failed 2>/dev/null)
-    if [ -z "$_reason" ] ; then
+    local lastfail
+    local reason=$(cat pipeline/failed 2>/dev/null)
+    if [ -z "$reason" ] ; then
         # Get the last lane or sync failure message
-        _lastfail=$(echo pipeline/*.failed)
-        _reason=$(cat ${_lastfail##* } 2>/dev/null)
+        lastfail=$(echo pipeline/*.failed)
+        reason=$(cat ${_lastfail##* } 2>/dev/null)
     fi
 
-    log "\_FAILED $EXPERIMENT ($_reason)"
+    log "\_FAILED $EXPERIMENT ($reason)"
 }
 
 action_aborted() {
@@ -556,10 +564,11 @@ do_sync(){
 
     # Work out the right SYNC_CMD. The instrument/upstream name is the second part of
     # the EXPERIMENT.
-    _instrument=`sed 's/[^_]\+_\([^_]\+\)_.*/\1/' <<<"$EXPERIMENT"`
-    eval _sync_cmd="\${SYNC_CMD_${_instrument}:-}"
-    _sync_cmd="${_sync_cmd:-$SYNC_CMD}"  # Or the default?
-    _sync_cmd="${_sync_cmd:-false}"      # Well there should be a command :-/
+    local instrument sync_cmd
+    instrument=`sed 's/[^_]\+_\([^_]\+\)_.*/\1/' <<<"$EXPERIMENT"`
+    eval sync_cmd="\${SYNC_CMD_${instrument}:-}"
+    sync_cmd="${sync_cmd:-$SYNC_CMD}"  # Or the default?
+    sync_cmd="${sync_cmd:-false}"      # Well there should be a command :-/
 
     # Loop through cells
     while IFS=$'\t' read experiment upstream cell ; do
@@ -588,8 +597,8 @@ do_sync(){
             # pending ops (presume Ctrl+C was pressed) else if there is an error
             # proceed to the next experiment. Note it is essential to redirect stdin!
             # Also unset IFS to avoid re-splitting on spaces in filenames.
-            IFS= eval echo "Running: $_sync_cmd" | plog
-            if IFS= eval $_sync_cmd </dev/null |&plog ; then
+            IFS= eval echo "Running: $sync_cmd" | plog
+            if IFS= eval $sync_cmd </dev/null |&plog ; then
                 true
             elif [ $? = 130 -o $? = 20 ] ; then
                 touch pipeline/sync.failed ; BREAK=1 ; return
@@ -665,17 +674,17 @@ check_for_ready_cells(){
 
     # Change for MinKNOW 3.6+ the file is now named final_summary_*_*.txt but permit the
     # old name (final_summary.txt) too.
-    local _count=0
+    local ready_count=0
     for cell in "${CELLSPENDING[@]}" ; do
         if qglob "$cell" "final_summary.txt" || qglob "$cell" "final_summary_*_*.txt" ; then
-            _count=$(( $_count + 1 ))
+            ready_count=$(( $ready_count + 1 ))
             touch_atomic "pipeline/$(cell_to_tfn "$cell").synced"
             CELLSREADY+=("$cell")
         fi
     done
 
-    if [ $_count -gt 0 ] ; then
-        log "$_count cells in this experiment are now ready for processing."
+    if [ $ready_count -gt 0 ] ; then
+        log "$ready_count cells in this experiment are now ready for processing."
     fi
 }
 
@@ -683,26 +692,27 @@ notify_experiment_complete(){
     # Tell RT that the experiment finished. Ie. all cells seen are synced and ready to process.
     # As the number of cells in an experiment is open-ended, this may happen more than once, but
     # only once for any given total number of cells.
-    local _cc=${#CELLS[@]}
-    local _ca=${#CELLSABORTED[@]}
-    local _cr=${#CELLSREADY[@]}
-    local _cd=${#CELLSDONE[@]}
+    local cc=${#CELLS[@]}
+    local ca=${#CELLSABORTED[@]}
+    local cr=${#CELLSREADY[@]}
+    local cd=${#CELLSDONE[@]}
+    local comment
 
     # Have we actually synced all the cells?
-    if ! [ $(( $_ca + $_cr + $_cd )) -eq $_cc ] ; then
+    if ! [ $(( $ca + $cr + $cd )) -eq $cc ] ; then
         # No
         return 3
     fi
 
-    if ! [ -e pipeline/notify_${_cc}_cells_complete.done ] ; then
+    if ! [ -e pipeline/notify_${cc}_cells_complete.done ] ; then
 
-        if [ $_ca -gt 0 ] ; then
-            _comment=$(( $_cc - $_ca))" cells have run. $_ca were aborted. Full report will follow soon."
+        if [ $ca -gt 0 ] ; then
+            comment=$(( $cc - $ca))" cells have run. $ca were aborted. Full report will follow soon."
         else
-            _comment="All $_cc cells have run on the instrument. Full report will follow soon."
+            comment="All $cc cells have run on the instrument. Full report will follow soon."
         fi
-        rt_runticket_manager --subject processing --reply "$_comment" || return $?
-        touch pipeline/notify_${_cc}_cells_complete.done
+        rt_runticket_manager --subject processing --reply "$comment" || return $?
+        touch pipeline/notify_${cc}_cells_complete.done
     fi
 }
 
@@ -716,7 +726,7 @@ upload_report() {
 
     # Get a handle on logging.
     plog </dev/null
-    _plog="${per_expt_log}"
+    local plog_file="${per_expt_log}"
 
     # Push to server and capture the result (upload_report.sh runs OK and prints a URL)
     # We want stderr from upload_report.sh to go to stdout, so it gets plogged.
@@ -724,14 +734,14 @@ upload_report() {
     rm -f pipeline/report_upload_url.txt
     log "Uploading report"
     upload_report.sh "$RUN_OUTPUT" 2>&1 >pipeline/report_upload_url.txt || \
-        { log "Upload error. See $_plog" ;
+        { log "Upload error. See $plog_file" ;
           rm -f pipeline/report_upload_url.txt ; }
 
     if [ ! -e pipeline/report_upload_url.txt ] ; then
         return 1
     elif ! grep -q . pipeline/report_upload_url.txt ; then
         # File exists but is empty. Shouldn't happen?!
-        log "upload_report.sh exited with status 0 but did not return a URL. See $_plog"
+        log "upload_report.sh exited with status 0 but did not return a URL. See $plog_file"
         rm pipeline/report_upload_url.txt
         return 1
     fi
@@ -764,52 +774,54 @@ send_summary_to_rt() {
     # see where the report has gone. The summary will be made by make_summary.py
 
     # Other than that, supply run_status and premble if you want this.
-    local _reply_or_comment="${1:-}"
-    local _run_status="${2:-}"
-    local _preamble="${3:-Run report is at}"
-    local _fudge="${4:-}"   # Set status complete after processing?
+    local reply_or_comment="${1:-}"
+    local run_status="${2:-}"
+    local preamble="${3:-Run report is at}"
+    local fudge="${4:-}"   # Set status complete after processing?
+
+    local run_summary last_upload_report
 
     # We need to short-circuit this if the experiment is not an internal experiment.
     # Actually this is now done by unsetting the reporting queue in ~/.rt_settings
 
     # Quoting of a subject with spaces requires use of arrays but beware this:
     # https://stackoverflow.com/questions/7577052/bash-empty-array-expansion-with-set-u
-    if [ -n "$_run_status" ] ; then
-        _run_status=(--subject "$_run_status")
+    if [ -n "$run_status" ] ; then
+        run_status=(--subject "$run_status")
     else
-        _run_status=()
+        run_status=()
     fi
 
     # The --fudge flag just fixes the status so the final summary doesn't show completed
     # cells as being "in_qc". Because sending the RT notification does actually complete
     # the processing.
-    if [ -n "$_fudge" ] ; then
-        _fudge=--fudge
+    if [ -n "$fudge" ] ; then
+        fudge=--fudge
     fi
 
     echo "Sending new summary of this experiment to RT."
 
     # This construct allows me to capture STDOUT while logging STDERR - see doc/outputter_trick.sh
-    { _last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
-            _last_upload_report="Report not yet generated."
+    { last_upload_report="$(cat pipeline/report_upload_url.txt 2>&3)" || \
+            last_upload_report="Report not yet generated."
 
-      _run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" $_fudge 2>&3)" || \
-            _run_summary="Error making experiment summary."
+      run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" $fudge 2>&3)" || \
+            run_summary="Error making experiment summary."
     } 3>&1
 
     # Switch spaces to &nbsp; in the summary. This doesn't really fix the table but it helps a bit.
-    _run_summary="$(sed 's/ /\xC2\xA0/g' <<<"$_run_summary")"
+    run_summary="$(sed 's/ /\xC2\xA0/g' <<<"$run_summary")"
 
     # Send it all to the ticket. Log any stderr.
-    ( set +u ; rt_runticket_manager "${_run_status[@]}" --"${_reply_or_comment}" \
+    ( set +u ; rt_runticket_manager "${run_status[@]}" --"${reply_or_comment}" \
         @<(echo "$(get_full_version)"
            echo
-           echo "${_preamble}:"
-           echo "$_last_upload_report"
+           echo "${preamble}:"
+           echo "$last_upload_report"
            echo
            echo "----------"
            echo
-           echo "$_run_summary"
+           echo "$run_summary"
            echo ) ) 2>&1
 }
 
@@ -829,6 +841,7 @@ pipeline_fail() {
     # to report to RT but be prepared for that to fail too.
 
     local stage=${1:-Pipeline}
+    local failure
 
     if [ -z "${2:-}" ] ; then
         # General failure
@@ -836,24 +849,24 @@ pipeline_fail() {
         # Mark the failure status
         echo "$stage on `date`" > pipeline/failed
 
-        _failure="$stage"
+        failure="$stage"
     else
         # Failure of a specific cell or cells
         echo "$stage on `date` for cells $2" > pipeline/failed
 
-        _failure="$stage for cells $2"
+        failure="$stage for cells $2"
     fi
 
     # Send an alert to RT.
     # Note that after calling 'plog' we can query '$per_expt_log' since all shell vars are global.
     plog "Attempting to notify error to RT"
     if rt_runticket_manager --subject failed \
-                            --reply "Failed at $_failure."$'\n'"See log in $per_expt_log" \
+                            --reply "Failed at $failure."$'\n'"See log in $per_expt_log" \
                             |& plog ; then
-        log "FAIL $_failure on $EXPERIMENT; see $per_expt_log"
+        log "FAIL $failure on $EXPERIMENT; see $per_expt_log"
     else
         # RT failure. Complain to STDERR in the hope this will generate an alert mail via CRON
-        msg="FAIL $_failure on $EXPERIMENT, and also failed to report the error via RT."$'\n'"See $per_expt_log"
+        msg="FAIL $failure on $EXPERIMENT, and also failed to report the error via RT."$'\n'"See $per_expt_log"
         echo "$msg" >&2
         log "$msg"
     fi
@@ -881,25 +894,25 @@ get_run_status() {
   # We're passing this info to the state functions via global variables.
 
   # This construct allows error output to be seen in the log.
-  local _runstatus
-  _runstatus="$(run_status.py -I "$1" <<<"$UPSTREAM_INFO")" || \
+  local runstatus line v
+  runstatus="$(run_status.py -I "$1" <<<"$UPSTREAM_INFO")" || \
         run_status.py -I "$1" <<<"$UPSTREAM_INFO" | log 2>&1
 
   # Capture the various parts into variables (see test/grs.sh)
-  for _v in EXPERIMENT/Experiment \
-            INSTRUMENT/Instrument \
-            EXPT_TYPE/Type \
-            CELLS/Cells \
-            CELLSPENDING/CellsPending \
-            CELLSREADY/CellsReady \
-            CELLSDONE/CellsDone \
-            CELLSABORTED/CellsAborted \
-            STATUS/PipelineStatus \
-            RUNUPSTREAM/Upstream
+  for v in EXPERIMENT/Experiment \
+           INSTRUMENT/Instrument \
+           EXPT_TYPE/Type \
+           CELLS/Cells \
+           CELLSPENDING/CellsPending \
+           CELLSREADY/CellsReady \
+           CELLSDONE/CellsDone \
+           CELLSABORTED/CellsAborted \
+           STATUS/PipelineStatus \
+           RUNUPSTREAM/Upstream
     do
-    _line="$(awk -v FS=":" -v f="${_v#*/}" \
-                 '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$_runstatus")"
-    IFS=$'\t' read -a "${_v%/*}" <<<"$_line"
+    line="$(awk -v FS=":" -v f="${v#*/}" \
+                 '$1==f {gsub(/^[^:]*:[[:space:]]*/,"");print}' <<<"$runstatus")"
+    IFS=$'\t' read -a "${v%/*}" <<<"$line"
   done
 
   # Resolve output location
