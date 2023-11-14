@@ -285,6 +285,12 @@ action_new(){
 
 
 action_cell_ready(){
+    # If this is a new cell on an old experiment then maybe pipeline/type.yaml is
+    # missing, so have a second chance to make it.
+    if [ ! -e "pipeline/type.yaml" ] ; then
+        classify_expt
+    fi
+
     # Re-dispatch based on $EXPT_TYPE
     if [[ $(type -t action_cell_ready_"$EXPT_TYPE") == function ]] ; then
         eval action_cell_ready_"$EXPT_TYPE"
@@ -296,6 +302,9 @@ action_cell_ready(){
 
 action_cell_ready_unknown(){
     log "\_CELL_READY $EXPERIMENT. But EXPT_TYPE is $EXPT_TYPE. Taking no action."
+
+    plog_start
+    plog "Cells are ready but EXPT_TYPE is $EXPT_TYPE. Taking no further action."
 
     # Mark the cells complete so we don't keep trying to reprocess it
     local cell
