@@ -146,7 +146,7 @@ rule parse_blob_table:
 # with the U bases.
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo,.+(_pass|_nolambda)}+sub{n}.fasta"
-    input: "{foo}.fastq.gz"
+    input:  "{foo}.fastq.gz"
     threads: 2
     shell:
        r"""set +o pipefail
@@ -160,7 +160,7 @@ rule fastq_to_subsampled_fasta:
 # The sed filter may well be redundant here.
 rule bam_to_subsampled_fasta:
     output: "blob/{foo,.+(_lambda)}+sub{n}.fasta"
-    input: "{foo}.bam"
+    input:  "{foo}.bam"
     threads: 2
     shell:
        r"""{TOOLBOX} samtools fasta {input} | \
@@ -203,6 +203,10 @@ checkpoint split_fasta_in_chunks:
            mv {output.parts}/list {output.list}
         """
 
+# Combine all the 100 (or however many) blast reports into one
+# I'm filtering out repeated rows to reduce the size of the BLOB DB - there can
+# be a _lot_ of repeats so this is worth running on the cluster.
+# The input may also be empty but that's OK it still works!
 def i_merge_blast_reports(wildcards):
     """Return a list of BLAST reports to be merged based upon how many chunks
        were outputted by split_fasta_in_chunks.
@@ -216,13 +220,9 @@ def i_merge_blast_reports(wildcards):
                              re.sub(r'\.fasta$', '.bpart', c))
                       for c in fasta_chunks ] )
 
-# Combine all the 100 (or however many) blast reports into one
-# I'm filtering out repeated rows to reduce the size of the BLOB DB - there can
-# be a _lot_ of repeats so this is worth running on the cluster.
-# The input may also be empty but that's OK it still works!
 rule merge_blast_reports:
     output: "blob/{foo}.blast"
-    input: unpack(i_merge_blast_reports)
+    input:  unpack(i_merge_blast_reports)
     shell:
         'LC_ALL=C ; ( for i in {input.bparts} ; do sort -u -k1,2 "$i" ; done ) > {output}'
 
@@ -231,7 +231,7 @@ rule merge_blast_reports:
 # in config['blast_script']
 rule blast_chunk:
     output: temp("blob/{foo}.blast_parts/{chunk}.bpart")
-    input: "blob/{foo}.fasta_parts/{chunk}.fasta"
+    input:  "blob/{foo}.fasta_parts/{chunk}.fasta"
     threads: 4
     resources:
         mem_mb = 24000,
