@@ -214,7 +214,7 @@ def format_report( all_info,
     # Header
     #########################################################################
 
-    P( f"% Promethion Experiment {','.join(expts)}",
+    P( f"% Nanopore Experiment {','.join(expts)}",
        f"% Hesiod version {pipedata['version']}",
        f"% {strftime()}" )
 
