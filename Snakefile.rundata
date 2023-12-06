@@ -362,8 +362,10 @@ rule map_calref_batch:
 
 # Remove the fastq_pass_tmp directory which should normally be empty of files if
 # everything worked.
-# FIXME - this now has to be 'rm -r', but this would be bad because Snakemake runs this hook
+# This now has to be 'rm -r', which could be bad because Snakemake runs this hook
 # after every run including if I'm just manually recreating a single file.
+# Therefore use config['cleanup'] to explicitly trigger cleanup.
 onsuccess:
-    shell("find fastq_pass_tmp/ -type d -delete || true")
+    if config.get('cleanup'):
+        shell("rm -rvf fastq_pass_tmp")
 
