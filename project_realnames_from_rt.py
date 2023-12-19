@@ -13,15 +13,9 @@ import logging as L
    It's not ideal, but it should be useful.
 """
 
-def get_project_names(pnum_list):
-    """Connect to the database and translate one or more project names
-    """
-
-def get_project_name(pnum, rtm):
-    """Given an existing RT connection, translate a single project name
-    """
-
 def main(args):
+
+    L.basicConfig(level=L.INFO, stream=sys.stderr)
 
     rt_config_name = os.environ.get('RT_SYSTEM', 'test-rt' if args.test else 'production-rt')
     pnum = f"{args.project_number:05d}"
