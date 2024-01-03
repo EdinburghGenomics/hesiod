@@ -365,7 +365,11 @@ rule map_calref_batch:
 # This now has to be 'rm -r', which could be bad because Snakemake runs this hook
 # after every run including if I'm just manually recreating a single file.
 # Therefore use config['cleanup'] to explicitly trigger cleanup.
-onsuccess:
-    if config.get('cleanup'):
-        shell("rm -rvf fastq_pass_tmp")
+#onsuccess:
+#    if config.get('cleanup'):
+#        shell("rm -rvf fastq_pass_tmp")
 
+# FIXME - I'm not sure this is needed for the pod5 version anyway.
+# Also remember that cleaning up the files from all cells just because the
+# last one ran ok is not necessarily safe, if we then expect to be able to
+# resume the failed ones.
