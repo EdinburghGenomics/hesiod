@@ -148,10 +148,8 @@ class RTManager():
         return (tid, tickets[0]) if tid > 0 else (None, None)
 
 def parse_args(*args):
-    description = """This script allows you to manipulate a ticket for an instrument run.
-                     You can reply, comment, open, stall, resolve tickets.
-                     Replying or commenting on a closed or non-existent ticket will create a new one,
-                     unless you specify --no-create.
+    description = """This script allows you to look up a project name by searching
+                     the tickets in the eg-projects queue on RT.
                   """
     argparser = ArgumentParser( description=description,
                                 formatter_class = ArgumentDefaultsHelpFormatter )
