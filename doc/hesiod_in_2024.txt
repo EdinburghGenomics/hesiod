@@ -18,6 +18,12 @@ So, the plan is:
 
 2) Merge pod5_no_calref into master and resolve the conflicts
 
+test/test_driver.py
+(and test/test_driver_base.py)
+driver.sh
+Snakefile.rundata
+Snakefile.blob
+
 3) Fix project_realnames_from_rt.py and make sure it works (support -t flag) and is called by
 the driver.
 
