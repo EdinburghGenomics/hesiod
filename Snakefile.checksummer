@@ -20,6 +20,7 @@ snakerun_drmaa "$0" "$@"
 "exit""" ### End of shell script part
 #!/usr/bin/env snakemake
 
+import json
 from pprint import pprint, pformat
 
 def split_input_dir(idir=config['input_dir']):
@@ -120,7 +121,7 @@ checkpoint gen_batches:
 
 rule md5sum_batch:
     output:
-        batch = f"{OUTPUT_PREFIX}md5sums_{{b}}.txt"
+        batch = temp(f"{OUTPUT_PREFIX}md5sums_{{b}}.txt")
     input:
         json = f"{OUTPUT_PREFIX}batches.json"
     run:
