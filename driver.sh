@@ -410,7 +410,7 @@ action_cell_ready_internal(){
 
         scan_cells.py -m -r "${CELLSREADY[@]}" "${CELLSDONE[@]}" -c "${CELLS[@]}" > sc_data.yaml
 
-        Snakefile.main ${MAIN_SNAKE_TARGETS:-copy_fast5 main} \
+        Snakefile.main ${MAIN_SNAKE_TARGETS:-copy_pod5 main} \
             -f -R "${always_run[@]}" \
             --config ${EXTRA_SNAKE_CONFIG:-}
       ) |& plog

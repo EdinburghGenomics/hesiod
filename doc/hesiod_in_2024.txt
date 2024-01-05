@@ -1,0 +1,33 @@
+It's January 2024. Where are we?
+
+Hesiod really needs updating to work with POD5 files (and latest MinKNOW).
+
+Hesiod can't get project names from the LIMS any more (as Clarity is dead).
+
+Hesiod in production has gained the power of visitor delivery and some fixes.
+
+Hesiod in dev branch (pod5_no_calref) is ready to test on a POD5 run - say:
+
+/lustre-gseg/promethion/prom_runs/2023/20231107_MIN2_26171SS/26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099
+
+And then I can upgrade everything and it will be great (and probably break again).
+
+So, the plan is:
+
+1) Make a new branch fast5_v_2x which will be the legacy Hesiod 2
+
+2) Merge pod5_no_calref into master and resolve the conflicts
+
+3) Fix project_realnames_from_rt.py and make sure it works (support -t flag) and is called by
+the driver.
+
+4) Test on the run above (and maybe some other POD5 run?) - 20230907_EGS2_25360EG
+
+5) Test that we can deliver the POD5 data
+
+    a) The actual files and md5 sums
+    b) The Information.txt file is correct
+
+6) Deploy the new Hesiod and new qc_tools_python
+
+7) Upgrade both the systems. Are we doing a base system upgrade on the DAU?

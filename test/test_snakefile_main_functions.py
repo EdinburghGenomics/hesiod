@@ -82,11 +82,6 @@ class T(unittest.TestCase):
             # Delete the temp file
             os.unlink(out_file)
 
-    def test_label_for_part(self):
-        # Not much to say about this. It just does a dict lookup
-        self.assertEqual(label_for_part("eno"), "passed and control-mapping")
-        self.assertEqual(label_for_part("eno", "barcode00"), "barcode00 control-mapping")
-
     def test_get_cell_info(self):
         """Just test the base case. We can add more if needed, of if bugs are suspected.
         """
@@ -106,7 +101,6 @@ class T(unittest.TestCase):
                      'Files in fast5 fail': 1,
                      '_counts': [
                         {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass', 'total_reads': 200},
-                        {'_barcode': '.', '_label': 'Passed and lambda-filtered reads', '_part': 'nolambda'},
                         {'_barcode': '.', '_label': 'All failed reads', '_part': 'fail'} ],
                      '_blobs': ['../../__blob__'],
                      '_duplex' : [ ['Duplex pairs',             1],
@@ -124,13 +118,12 @@ class T(unittest.TestCase):
                                                          fastq_fail = ['y.fastq'],
                                                          fast5_fail = ['y.fast5'] ) },
                              counts = { ('.','pass'): dict(total_reads = 200),
-                                        ('.','fail'): dict(),
-                                        ('.','nolambda'): dict() },
+                                        ('.','fail'): dict() },
                              fin_summary = dict(is_rna = False),
                              blobs = ['__blob__'],
                              nanoplot = '__nanoplot__',
                              duplex = 1,
-                             fast5_meta = dict() )
+                             pod5_meta = dict() )
 
         if VERBOSE:
             pprint(got)
