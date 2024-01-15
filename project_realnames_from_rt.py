@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import os, sys, re
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from contextlib import suppress
 import configparser
 from rt import Rt, AuthorizationError
 
@@ -126,8 +125,6 @@ class RTManager():
            as an integer, along with the ticket metadata as a dict,
            or return (None, None) if there is no such ticket.
         """
-        c = self._config
-
         tickets = list(self.tracker.search( Queue = self._queue,
                                             Subject__like = f'% {project_number}_%',
                                           ))

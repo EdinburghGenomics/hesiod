@@ -48,10 +48,10 @@ def scan_main(args):
                                                   infiles = v,
                                                   try_glob = args.missing_ok )
         rep_pod5 = res.setdefault('representative_pod5', dict())
-        rep_fast5[c] = find_representative_pod5( cell = c,
-                                                 infiles = v,
-                                                 batch_size = args.pod5_batch_size,
-                                                 try_glob = args.missing_ok )
+        rep_pod5[c] = find_representative_pod5( cell = c,
+                                                infiles = v,
+                                                batch_size = args.pod5_batch_size,
+                                                try_glob = args.missing_ok )
 
     # Note the pod5_batch_size setting
     res['pod5_batch_size'] = args.pod5_batch_size

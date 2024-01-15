@@ -196,6 +196,8 @@ def find_sequencing_summary(rundir, cell):
 
 def fast5_out(f5_in):
     """Given an input .fast5 file in the expdir, say what the output .fast5 will be
+
+       This is deprecated now we have batched pod5 files.
     """
     f5_split = f5_in.split('/')
     pf = f5_split[2].split('_')[1]
