@@ -3,8 +3,9 @@ import os, sys, re
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import configparser
 from rt import Rt, AuthorizationError
-
 import logging as L
+
+from hesiod import dump_yaml
 
 """This will translate a project number to a project name by connecting to RT and
    looking for a ticket in the eg-projects queue.
@@ -12,26 +13,85 @@ import logging as L
    It's not ideal, but it should be useful.
 """
 
+# Project links can be set by an environment var, presumably in environ.sh
+# Note that we also respect GENOLOGICSRC and PROJECT_NAME_LIST
+PROJECT_PAGE_URL = os.environ.get('PROJECT_PAGE_URL', "http://foo.example.com/")
+try:
+    if PROJECT_PAGE_URL.format('test') == PROJECT_PAGE_URL:
+        PROJECT_PAGE_URL += '{}'
+except Exception:
+    print("The environment variable PROJECT_PAGE_URL={} is not a valid format string.".format(
+                PROJECT_PAGE_URL), file=sys.stderr)
+    raise
+
 def main(args):
 
-    L.basicConfig(level=L.INFO, stream=sys.stderr)
+    L.basicConfig(level=(L.DEBUG if args.debug else L.INFO), stream=sys.stderr)
 
-    rt_config_name = os.environ.get('RT_SYSTEM', 'test-rt' if args.test else 'production-rt')
-    pnum = f"{args.project_number:05d}"
+    if args.take5:
+        projects = set([ s[:5] for s in args.projects ])
+    else:
+        projects = args.projects
 
-    with RTManager( config_name = rt_config_name,
-                    queue_setting = args.queue ) as rtm:
+    name_list = os.environ.get('PROJECT_NAME_LIST')
+    if name_list:
+        res = projects_from_fixed_list(projects, name_list.split(","))
+    else:
+        rt_config_name = os.environ.get('RT_SYSTEM', 'test-rt' if args.test else 'production-rt')
+        res = project_real_name( projects, rt_config = rt_config_name,
+                                           queue = args.queue )
 
-        ticket_id, ticket_dict = rtm.search_project_ticket(pnum)
-        if not ticket_id:
-            exit(f"No ticket found for '{pnum}'")
+    # Assuming no exception occurred...
+    print(dump_yaml(res, args.out), end='')
 
-        ticket_subject = ticket_dict['Subject']
 
-    #L.info(f"Ticket #{ticket_id} for '{pnum}' has subject: {ticket_dict.get('Subject')}")
-    mo = re.search(rf" ({pnum}_\w+)", ticket_subject)
+def project_real_name(projects, rt_config, queue):
 
-    print(mo.group(1))
+    res = dict()
+
+    with RTManager( config_name = rt_config,
+                    queue_setting = queue ) as rtm:
+
+        for p in projects:
+
+            ticket_id, ticket_dict = rtm.search_project_ticket(p)
+            if ticket_id:
+                ticket_subject = ticket_dict['Subject']
+            else:
+                L.warning(f"No ticket found for {p!r}")
+                ticket_subject = ""
+
+            #L.info(f"Ticket #{ticket_id} for '{p}' has subject: {ticket_dict.get('Subject')}")
+            mo = re.search(rf" ({p}_\w+)", ticket_subject)
+
+            if mo:
+                res[p] = dict( name = mo.group(1),
+                               url = PROJECT_PAGE_URL.format(mo.group(1)) )
+            elif p.startswith("Contr"):
+                res[p] = dict( name = "Control" )
+            else:
+                res[p] = dict( name = p + "_UNKNOWN" )
+
+    return res
+
+def projects_from_fixed_list(projects, pnl):
+    """Allows bypassing RT, normally for testing.
+        Note that if you want to disable RT look-up without supplying an actual
+        list of names you can just say "--project_names dummy" or some such thing.
+    """
+    res = dict()
+
+    for p in projects:
+        name_match = [ n for n in pnl if n.startswith(p) ]
+        if len(name_match) == 1:
+            res[p] = dict( name = name_match[0],
+                           url  = PROJECT_PAGE_URL.format(name_match[0]) )
+        elif p.startswith("Contr"):
+            res[p] = dict( name = "Control" )
+        else:
+            res[p] = dict( name = p + "_UNKNOWN" )
+
+    return res
 
 class RTManager():
     def __init__(self, config_name, queue_setting):
@@ -150,13 +210,20 @@ def parse_args(*args):
                   """
     argparser = ArgumentParser( description=description,
                                 formatter_class = ArgumentDefaultsHelpFormatter )
-    argparser.add_argument("-p", "--project_number", required=True, type=int,
-                            help="The project to look up.")
+    argparser.add_argument("projects", nargs="+",
+                            help="The project(s) to look up.")
     argparser.add_argument("-Q", "--queue", default="eg-projects",
                             help="The queue to use. A name defined in rt_settings.ini as FOO_queue,"
                                  " or a literal queue name.")
     argparser.add_argument("--test", action="store_true",
                             help="Set the script to connect to test-rt (as defined in rt_settings.ini)")
+
+    argparser.add_argument("-o", "--out",
+                            help="Where to save the report. If there is an error nothing will be written. Report is always printed.")
+    argparser.add_argument("-t", "--take5", action="store_true",
+                            help="Just use the first five chars of the project names given. Allows me to pass a list of library/cell names.")
+    argparser.add_argument("-d", "--debug", action="store_true",
+                            help="Print more verbose debugging messages.")
 
     return argparser.parse_args(*args)
 

@@ -16,6 +16,8 @@ So, the plan is:
 
 1) Make a new branch fast5_v_2x which will be the legacy Hesiod 2
 
+DONE
+
 2) Merge pod5_no_calref into master and resolve the conflicts
 
 test/test_driver.py
@@ -24,8 +26,12 @@ driver.sh
 Snakefile.rundata
 Snakefile.blob
 
+DONE
+
 3) Fix project_realnames_from_rt.py and make sure it works (support -t flag) and is called by
 the driver.
+
+Nearly done
 
 4) Test on the run above (and maybe some other POD5 run?) - 20230907_EGS2_25360EG
 
