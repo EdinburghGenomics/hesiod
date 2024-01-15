@@ -59,8 +59,6 @@ PIGZ    = 'pigz -nT -9 -b512'
 # Convert name of CWD to EXPERIMENT
 EXPERIMENT = os.path.basename(os.path.realpath('.')).split('.')[0]
 
-POD5_BATCH_SIZE = config.get("pod5_batch_size", 100)
-
 logger.info( f"EXPERIMENT = {EXPERIMENT}" )
 logger.info( f"config = {pformat(config)}" )
 
@@ -81,14 +79,18 @@ if not os.path.exists(EXPDIR):
 # project number.
 # Some outputs are aggregated {project} and other are per-cell.
 try:
-    SC_DATA = load_yaml(config.get("sc_data", "sc_data.yaml"), as_tuple="sc_data")
+    SC_DATA = load_yaml(config.get("sc_data", "sc_data.yaml"))
 except Exception:
     SC_DATA = empty_sc_data()
 
-SC = SC_DATA.scanned_cells
-CELL_COUNT = SC_DATA.counts['cellsready']
+SC = SC_DATA['scanned_cells']
+CELL_COUNT = SC_DATA['counts']['cellsready']
 
-logger.info( f"SC =\n{SC_DATA.printable_counts}" )
+# The POD5_BATCH_SIZE needs to correspond with the filename in SC_DATA.representative_pod5,
+# so get both settings from SC_DATA
+POD5_BATCH_SIZE = SC_DATA.get('pod5_batch_size', empty_sc_data()['pod5_batch_size'])
+
+logger.info( f"SC =\n{SC_DATA['printable_counts']}" )
 
 # NanoPlot makes many plots, but here are the ones we care about.
 # Note that newer NanoPlot makes more plots and uses different names.
@@ -301,7 +303,7 @@ rule main:
         projnames = "project_realnames.yaml",
     params:
         templates = os.environ.get('TEMPLATES', '.'),
-        totalcells = SC_DATA.counts['cells']
+        totalcells = SC_DATA['counts']['cells']
     run:
         # Un-silence sys.stderr in sub-jobs:
         logger.quiet.discard('all')
@@ -481,17 +483,12 @@ rule sample_names:
 def find_representative_pod5(wildcards):
     """Looks in SC_DATA for a representative POD5 for this cell. If there is none,
        raises an exception.
-       Since Snakemake now tracks only batches of POD5 files we need to convert this
-       representative file into a batch directory.
     """
-    rep_pod5 = SC_DATA.representative_pod5[wildcards.cell]
+    rep_pod5 = SC_DATA['representative_pod5'][wildcards.cell]
     if not rep_pod5:
         raise RuntimeError("No representative POD5 in SC_DATA")
 
-    # FIXME - 00000000 probably no longer works as len is variable
-    batch_file = f"{os.path.dirname(rep_pod5)}/batch{POD5_BATCH_SIZE}_00000000.pod5"
-
-    return batch_file
+    return rep_pod5
 
 # This should get the same metadata from the batched or un-batched POD5 meaning it can be run
 # even after the originals are deleted.

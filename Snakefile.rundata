@@ -212,7 +212,7 @@ rule concat_gzip_md5sum_fastq:
 #    if config.get('cleanup'):
 #        shell("rm -rvf fastq_pass_tmp")
 
-# FIXME - I'm not sure this is needed for the pod5 version anyway.
+# FIXME - I'm not sure the above is needed for the pod5 version anyway.
 # Also remember that cleaning up the files from all cells just because the
 # last one ran ok is not necessarily safe, if we then expect to be able to
 # resume the failed ones. Maybe I need to clean the specific cells?

@@ -50,7 +50,11 @@ def scan_main(args):
         rep_pod5 = res.setdefault('representative_pod5', dict())
         rep_fast5[c] = find_representative_pod5( cell = c,
                                                  infiles = v,
+                                                 batch_size = args.pod5_batch_size,
                                                  try_glob = args.missing_ok )
+
+    # Note the pod5_batch_size setting
+    res['pod5_batch_size'] = args.pod5_batch_size
 
     # Add printable counts
     res['printable_counts'] = sc_counts(sc)
@@ -195,7 +199,7 @@ def scan_cells( expdir, cells=None, cellsready=None,
                               F" {skipped_skip_files[(c,ft)]}")
                     ft_sum += len( skipped_skip_files[(c,ft)] )
 
-                ft_expected = fs[f"{ft}_files_in_final_dest"]
+                ft_expected = fs.get(f'{ft}_files_in_final_dest', 0)
                 if ft_sum != ft_expected and (subset is None):
                     raise RuntimeError( f"Mismatch between count of {ft.upper()} files for {c}:\n" +
                                         f"{ft_sum} (seen) != {ft_expected} (in final_summary.txt)" )
@@ -227,8 +231,8 @@ def find_representative_fast5(cell, infiles, try_glob=False):
        If try_glob is True, the fallback if sc has no candidates will be to scan the
        output directory itself.
     """
-    fast5_pass = [ plist for bc in infiles for plist in infiles[bc]['fast5_pass']  ]
-    fast5_fail = [ flist for bc in infiles for flist in infiles[bc]['fast5_fail']  ]
+    fast5_pass = [ plist for bc in infiles.values() for plist in bc['fast5_pass']  ]
+    fast5_fail = [ flist for bc in infiles.values() for flist in bc['fast5_fail']  ]
     if fast5_pass:
         # Depend on the first file provided by SC[wc.cell] for any barcode
         return fast5_out(fast5_pass[0])
@@ -245,10 +249,33 @@ def find_representative_fast5(cell, infiles, try_glob=False):
     else:
         return None
 
-def find_representative_pod5(cell, infiles, try_glob=False):
-    # FIXME - this needs a rethink, I think, rather than just replacing fast5 with pod5 in
-    # the function definition above.
-    return None
+def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
+    """Find a suitable fast5 file to scan for metadata. The assumption is that all contain
+       the same metadata.
+    """
+    # As we now batch up the pod5 files, the names are more predicatable than when we had
+    # fast5 files, and the name of the first one will be:
+    #
+    # {cell}/pod5_{bc}_{pf}/batch{POD5_BATCH_SIZE}_{b:08d}.pod
+    pod5_pass = [ bc for bc, bcparts in infiles.items() for plist in bcparts['pod5_pass']  ]
+    pod5_fail = [ bc for bc, bcparts in infiles.items() for flist in bcparts['pod5_fail']  ]
+
+    if pod5_pass:
+        bc = pod5_pass[0]
+        pf = "pass"
+    elif pod5_fail:
+        bc = pod5_fail[0] # We have no passing reads, but we have fails and can still report
+        pf = "fail"
+    elif try_glob:
+        # In this case, just look for any output file
+        globbed = glob(f"{cell}/pod5_*_????/*.pod5")
+        return globbed[0] if globbed else None
+    else:
+        # We really have nothing
+        return None
+
+    batch = 0  # This will always be padded to 8 digits
+    return f"{cell}/pod5_{bc}_{pf}/batch{batch_size}_{batch:08d}.pod"
 
 def parse_args(*args):
     description = """Scan the input files for all cells, to provide a work plan for Snakemake"""
@@ -263,6 +290,8 @@ def parse_args(*args):
                         help="Cells in this Experiment. If not specified, they will be scanned.")
     parser.add_argument("-r", "--cellsready", nargs='+',
                         help="Cells to process now. If not specified, the script will check all the cells.")
+    parser.add_argument("--pod5_batch_size", type=int, default=100,
+                        help="Number of POD5 files to merge into a single file.")
 
     # The point of this is that if the pipeline is being re-run, ./rundata may have been deleted but we can
     # still look at the outut files to reconstruct the info. But unless the pipeline has previously run and

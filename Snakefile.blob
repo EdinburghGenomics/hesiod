@@ -100,13 +100,13 @@ rule per_project_blob_tables:
     output: "blob/blobstats_by_project.yaml{x,$}"
     input:
         tsv = expand("blob/blobstats.{project}.{pf}.{taxlevel}.tsv",
-                                          project = SC_DATA.cells_per_project,
+                                          project = SC_DATA['cells_per_project'],
                                           pf = BLOB_PARTS,
                                           taxlevel = BLOB_LEVELS ),
     run:
         # List ALL the tables of blob stats to show per project
         res = dict()
-        for p in SC_DATA.cells_per_project:
+        for p in SC_DATA['cells_per_project']:
             # For each project p make a list of tables, first by {pf}, then by tax level.
             tsv_list = res[p] = list()
             for pf in BLOB_PARTS:
@@ -129,7 +129,7 @@ rule parse_blob_table:
     output: "blob/blobstats.{project}.{pf}.{taxlevel}.tsv"
     input:
         lambda wc: [ f"blob/{cellname_to_base(cell)}_{barcode}_{wc.pf}.{wc.taxlevel}.blobplot.stats.txt"
-                     for cell in SC_DATA.cells_per_project[wc.project]
+                     for cell in SC_DATA['cells_per_project'][wc.project]
                      for barcode in SC[cell] ]
     params:
         pct_limit = 1.0,

@@ -34,20 +34,13 @@ def dump_yaml(foo, filename=None):
             print(ydoc, file=yfh, end='')
     return ydoc
 
-def load_yaml(filename, relative_to=None, as_tuple=None):
+def load_yaml(filename, relative_to=None):
     """Load YAML from a file (not a file handle).
        If specified, relative paths are resolved relative to os.path.dirname(relative_to)
     """
     filename = str(filename) # Allow for directly passing Snakemake inputs
     with open(abspath(filename, relative_to)) as yfh:
-        res = yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
-
-    if not as_tuple:
-        return res
-
-    else:
-        # This is just to make the syntax a little cleaner in the Snakefile
-        return namedtuple(as_tuple, res)(**res)
+        return yaml.load(yfh, Loader=yamlloader.ordereddict.CSafeLoader)
 
 def abspath(filename, relative_to=None):
     """Version of abspath which can optionally be resolved relative to another file.

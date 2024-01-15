@@ -98,7 +98,7 @@ class T(unittest.TestCase):
                              '20220101_EGS1_12345AA_12345AA0018_AAA66666_deadbeef',
                      'Files in pass': 'unknown',
                      'Files in fail': 1,
-                     'Files in fast5 fail': 1,
+                     'Files in pod5 fail': 1,
                      '_counts': [
                         {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass', 'total_reads': 200},
                         {'_barcode': '.', '_label': 'All failed reads', '_part': 'fail'} ],
@@ -114,9 +114,9 @@ class T(unittest.TestCase):
 
         got = get_cell_info( experiment = "20220101_EGS1_12345AA",
                              cell = "12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef",
-                             cell_content = { '.': dict( fast5_pass = ['x.fast5'],
+                             cell_content = { '.': dict( pod5_pass  = ['x.pod5'],
                                                          fastq_fail = ['y.fastq'],
-                                                         fast5_fail = ['y.fast5'] ) },
+                                                         pod5_fail  = ['y.pod5'] ) },
                              counts = { ('.','pass'): dict(total_reads = 200),
                                         ('.','fail'): dict() },
                              fin_summary = dict(is_rna = False),

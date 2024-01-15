@@ -221,13 +221,6 @@ class T(unittest.TestCase):
         self.assertEqual(type(res1), OrderedDict)
         self.assertEqual(len(res1), 18)
 
-        # Convert the result to a namedtuple (only the top level is converted)
-        res2 = load_yaml(DATA_DIR + "/fs/final_summary.yaml", as_tuple="FinalSummary")
-
-        self.assertTrue(isinstance(res2, tuple))
-        self.assertEqual(type(res2).__name__, "FinalSummary")
-        self.assertEqual(res2._asdict(), res1)
-
     def test_dump_yaml(self):
         """YAML dumper now uses the blockquote style for multi-line strings which makes it
            easier to read, should you eve need to.
@@ -251,8 +244,8 @@ class T(unittest.TestCase):
     def test_empty_sc_data(self):
         """This just returns the same structure each time
         """
-
-        self.assertEqual( len(empty_sc_data()), 6 )
+        self.assertEqual( type(empty_sc_data()), dict )
+        self.assertEqual( len(empty_sc_data()), 7 )
 
 if __name__ == '__main__':
     unittest.main()

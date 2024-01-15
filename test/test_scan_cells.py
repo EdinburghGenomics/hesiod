@@ -13,7 +13,8 @@ import yaml
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
-from scan_cells import scan_main, parse_args, scan_cells, sc_counts, find_representative_fast5
+from scan_cells import ( scan_main, parse_args, scan_cells, sc_counts,
+                         find_representative_fast5, find_representative_pod5 )
 
 class T(unittest.TestCase):
 
@@ -142,10 +143,10 @@ class T(unittest.TestCase):
         """
         sc =  {'testlib/testcell_123' : { '.': dict(
                        bam_fail   = [],
-                       pod5_pass  = [],
                        pod5_fail  = [],
-                       fast5_fail = [],
                        fastq_fail = [],
+                       pod5_pass  = ['testlib/testcell_123/pod5_pass/PAD38578_aaa_0.pod5',
+                                     'testlib/testcell_123/pod5_pass/PAD38578_aaa_1.pod5'],
                        bam_pass   = ['testlib/testcell_123/bam_pass/PAD38578_aaa_0.bam',
                                      'testlib/testcell_123/bam_pass/PAD38578_aaa_1.bam'],
                        fast5_pass = ['testlib/testcell_123/fast5_pass/PAD38578_aaa_0.fast5',
@@ -160,10 +161,11 @@ class T(unittest.TestCase):
         expected = """\
                       {'testlib/testcell_123': {'.': {'bam_fail': '<0 files>',
                                                       'bam_pass': '<2 files>',
-                                                      'fast5_fail': '<0 files>',
                                                       'fast5_pass': '<2 files>',
                                                       'fastq_fail': '<0 files>',
-                                                      'fastq_pass': '<2 files>'}}}
+                                                      'fastq_pass': '<2 files>',
+                                                      'pod5_fail': '<0 files>',
+                                                      'pod5_pass': '<2 files>'}}}
                    """
         expected = dedent(expected).rstrip()
 
@@ -176,7 +178,8 @@ class T(unittest.TestCase):
         expected2 = """\
                        {'testlib/testcell_123': {'.': {'bam_pass': '<2 files>',
                                                        'fast5_pass': '<2 files>',
-                                                       'fastq_pass': '<2 files>'}}}
+                                                       'fastq_pass': '<2 files>',
+                                                       'pod5_pass': '<2 files>'}}}
                     """
         expected2 = dedent(expected2).rstrip()
 

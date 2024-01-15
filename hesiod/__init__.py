@@ -231,9 +231,10 @@ def empty_sc_data():
                                cellsready = 0 ),
                 printable_counts = "[EMPTY_SC_DATA]",
                 representative_fast5 = None,
+                pod5_batch_size = 100,
                 scanned_cells = {} )
 
-    return namedtuple("empty_sc_data", res)(**res)
+    return res
 
 def slurp_file(filename):
     """Standard file slurper. Returns a list of lines.
