@@ -83,6 +83,22 @@ class T(unittest.TestCase):
         # And just to be sure:
         self.assertEqual(sc, expected)
 
+    def test_scan_main_pod5(self):
+        """ A test using the run I was using to test pod5 runs.
+        """
+        args = parse_args([f"{DATA_DIR}/runs/20231107_MIN2_26171SS"])
+        sc = scan_main( args )
+
+        with open(f"{DATA_DIR}/runs/20231107_MIN2_26171SS/sc_data.yaml") as yfh:
+            expected = yaml.safe_load(yfh)
+
+        # This helps avoid seeing a massive diff when one small thing is different.
+        for k in expected:
+            self.assertEqual(sc[k], expected[k])
+
+        # And just to be sure:
+        self.assertEqual(sc, expected)
+
     def test_scan_error(self):
         """ A missing fast5 file should raise an exception
         """

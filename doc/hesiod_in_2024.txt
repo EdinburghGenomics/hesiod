@@ -31,9 +31,12 @@ DONE
 3) Fix project_realnames_from_rt.py and make sure it works (support -t flag) and is called by
 the driver.
 
-Nearly done
+Nearly done. Maybe I'll need to re-replace it with "project_realnames_from_ragic.py" but that's fine,
+whatever.
 
 4) Test on the run above (and maybe some other POD5 run?) - 20230907_EGS2_25360EG
+
+Seems I'm ready for this on 16th Jan. Let's go...
 
 5) Test that we can deliver the POD5 data
 
@@ -43,3 +46,10 @@ Nearly done
 6) Deploy the new Hesiod and new qc_tools_python
 
 7) Upgrade both the systems. Are we doing a base system upgrade on the DAU?
+
+8) Remember you also need to test the ONT data sync script, and if we are to use it work out how it's
+going to work with our renaming scheme. I guess probably just have the sync going to another directory
+and make that the upstream, then the "sync" is just going to be a symlink. A bit silly but it will
+at least work without major re-plumbing.
+
+https://community.nanoporetech.com/docs/prepare/library_prep_protocols/promethion-user-manual/v/pic_1013_v1_revv_12nov2019/data-management
