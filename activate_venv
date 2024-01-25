@@ -73,6 +73,7 @@ else
         pip_install tabulate==0.9.0
         pip_install reretry==0.11.1
         pip_install throttler==1.2.1
+        pip_install PuLP==2.7.0
         pip_install snakemake==7.18.2
         pip_install drmaa==0.7.9
 
