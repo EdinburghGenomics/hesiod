@@ -97,7 +97,7 @@ for run in "$FASTQDATA"/*/ ; do
 
   excludes=(--exclude='**/.snakemake' --exclude='**/slurm_output')
   if [ "${BACKUP_FAST5:-yes}" = no ] ; then
-    excludes+=(--exclude='*.fast5' --exclude='*.fast5.gz')
+    excludes+=(--exclude='*.fast5' --exclude='*.fast5.gz' --exclude='*.pod5')
   fi
 
   # Note there is no --delete flag so if the sample list changes the old files will remain on the backup.
