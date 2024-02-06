@@ -35,6 +35,7 @@ def main(args):
 
     name_list = os.environ.get('PROJECT_NAME_LIST')
     if name_list:
+        # This short circuits the RT lookup
         res = projects_from_fixed_list(projects, name_list.split(","))
     else:
         rt_config_name = os.environ.get('RT_SYSTEM', 'test-rt' if args.test else 'production-rt')
@@ -185,6 +186,10 @@ class RTManager():
            as an integer, along with the ticket metadata as a dict,
            or return (None, None) if there is no such ticket.
         """
+        if not self.tracker:
+            # We've short-circuited RT
+            return (None, None)
+
         tickets = list(self.tracker.search( Queue = self._queue,
                                             Subject__like = f'% {project_number}_%',
                                           ))

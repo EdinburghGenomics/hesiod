@@ -326,13 +326,17 @@ action_cell_ready_visitor(){
 
     local rund="$(dirname "$PWD")"
     local based="$(basename "$PWD")"
+    set +e
     for cell in "${CELLSREADY[@]}" ; do
         # I could do this in parallel but I don't think it matters
-        ( cd "$RUN_OUTPUT"
+        ( set -e
+          cd "$RUN_OUTPUT"
           Snakefile.checksummer --config input_dir="$rund/./$based/$cell" \
                                          output_prefix="$(basename "$cell")"
         ) |& plog
+        [ $? = 0 ] || { pipeline_fail Checksumming "$cellsready_p" ; return ; }
     done
+    set -e
 
     local run_summary
     run_summary="$(make_summary.py --expid "$EXPERIMENT" --cells "${CELLS[@]}" --fudge 2>&1 || true)"
@@ -415,7 +419,8 @@ action_cell_ready_internal(){
             --config ${EXTRA_SNAKE_CONFIG:-}
       ) |& plog
 
-    ) |& plog ; [ $? = 0 ] || { pipeline_fail Processing_Cells "$cellsready_p" ; return ; }
+    ) |& plog
+    [ $? = 0 ] || { pipeline_fail Processing_Cells "$cellsready_p" ; return ; }
 
     # Check the status from earlier
     local report_status report_level
@@ -884,7 +889,7 @@ pipeline_fail() {
 project_realnames() {
     # Save info about the projects into $RUN_OUTPUT/project_realnames.yaml
     # This is done on a best-effort basis, so if we can't contact the LIMS no file is written.
-    plog "Asking LIMS for the real project names..."
+    plog "Asking RT for the real project names..."
     project_realnames.py -o "$RUN_OUTPUT/project_realnames.yaml" -t "${CELLS[@]}" |& plog || true
 }
 

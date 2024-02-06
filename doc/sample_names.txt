@@ -1,0 +1,39 @@
+I implemented a mechanism to name samples on a run but it's not much use without
+documentation. So here's the doc:
+
+---
+
+When Hesiod encounters a barcoded ONT flowcell, typically there will be some barcodes
+with many reads, some with a few (mis-assigned) reads and some with no reads at all.
+
+To make for a tidy report, the default behaviour of Hesiod is to apply a cutoff and
+ignore the barcodes with very few reads. This is not ideal as we want to specify
+exactly what is in the pool as well as naming the samples with our own names, rather
+than barcodeXX.
+
+First, you will need a TSV file with three columns:
+
+Barcode   Library_ID   Sample_Name
+
+eg.
+
+barcode01  23920AT0001  HeLa
+
+You do not need a header line on the file. You need to give the file a name which connects
+it to the run and you have several naming options:
+
+  * `12345XX_sample_names.tsv` will be applied to experiment, say, 20210520_EGS1_12345XX
+  * `12345_sample_names.tsv` will be applied to any cells for project 12345
+  * `PAG12345_sample_names.tsv` will apply to the given flowcell barcode
+  * `12345XXpool01` will apply to the pool, as entered into MinKNOW
+
+And you need to put the file into `/lustre-gseg/promethion/sample_names` or whatever directory
+is set to SAMPLE_NAMES_DIR in the Hesiod config. You can put the file into a subdirectory if
+you like. The subdirectory itself may have any name.
+
+If you put the file in place before the run starts then Hesiod will pick it up. One day I'd
+like to have this come from Ragic (or wherever).
+
+If you put the file in after the fact you will have to re-run Hesiod, by removing the
+`report.done` file from the `pipeline` directory. This will be quick because it only needs
+to redo the report. Processing of the actual data is unaffected.
