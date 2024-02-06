@@ -50,7 +50,10 @@ class T(unittest.TestCase):
                          RunID             = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
                          SamplingFrequency = '4.0 kHz',
                          ExperimentType    = 'genomic_dna',
+                         FlowcellId        = 'PAK00002',
+                         FlowcellType      = 'FLO-PRO002',
                          SequencingKit     = 'sqk-lsk109',
+                         Sample            = '14211AT0082',
                          BasecallConfig    = 'dna_r9.4.1_450bps_hac_prom.cfg' )
 
         self.assertEqual(dict(md), expected)

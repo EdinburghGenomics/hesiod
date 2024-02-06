@@ -94,9 +94,14 @@ def read_pod5(p5_filename):
         # read, so just get the first one, and dict-ify it.
         read0 = vars(next(p5_handle.reads()).run_info)
 
-        # Run ID (should be in the filename anyway!)
+        # Run ID used to be in the filename, but not now with the batched pod5 files
         res['RunID'] = read0['acquisition_id']
         res['Software'] = read0['software']
+
+        # Redundant but still useful to extract
+        res['FlowcellId'] = read0['flow_cell_id']
+        res['FlowcellType'] = read0['flow_cell_product_code']
+        res['Sample'] = read0['sample_id']
 
         # Stuff from 'context_tags'
         context_tags = dict(read0['context_tags'])

@@ -66,12 +66,12 @@ def i_merge_md5sum_pod5_batch(wildcards):
 
 rule merge_md5sum_pod5_batch:
     output:
-        pod5 = "{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod",
-        md5  = "md5sums/{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod.md5"
+        pod5 = "{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod5",
+        md5  = "md5sums/{cell}/pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod5.md5"
     input:
         i_merge_md5sum_pod5_batch
     params:
-        pod5_base = "pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod"
+        pod5_base = "pod5_{barcode}_{pfs}/batch{bsize}_{batch}.pod5"
     shell:
        r"""pod5 merge -o {output.pod5} {input}
            ( cd {wildcards.cell} && md5sum -- {params.pod5_base} ) > {output.md5}.tmp
@@ -98,7 +98,7 @@ def i_merge_pod5_md5sums(wildcards):
     res = []
     for b in range(output_pod5_needed):
         # FIXME - probably {b:08d} is wrong now?!
-        res.append(f"md5sums/{pod5_dir}/batch{POD5_BATCH_SIZE}_{b:08d}.pod.md5")
+        res.append(f"md5sums/{pod5_dir}/batch{POD5_BATCH_SIZE}_{b:08d}.pod5.md5")
     return res
 
 rule merge_pod5_md5sums:

@@ -1,0 +1,21 @@
+I'm so dumb. I made the Hesiod pipeline create batched pod5 files with the .pod extension.
+Of course, Dorado ignores them.
+
+I need to fix the runs I made, so:
+
+1) Test on ~/test_promethion/fastqdata/20231107_MIN2_26171SS
+
+* Check the md5sums
+* Remove the existing pod5_._fail and pod5_._pass directories
+* And the ones from md5sums too
+* Re-run the pipeline
+* Any more prodding needed?? No
+* Check the md5sums again - ok
+* Check that Dorado will read the files now - seems so
+
+2) And then release new Hesiod and repeat for the actual runs:
+
+20240124_EGS2_27971RLpool01
+20240125_EGS2_27971RLpool01_Run2
+20240126_EGS2_27971RLpool01_Run3
+20240125_EGS2_29490KG
