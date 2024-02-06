@@ -199,8 +199,11 @@ def scan_cells( expdir, cells=None, cellsready=None,
                               F" {skipped_skip_files[(c,ft)]}")
                     ft_sum += len( skipped_skip_files[(c,ft)] )
 
-                ft_expected = fs.get(f'{ft}_files_in_final_dest', 0)
-                if ft_sum != ft_expected and (subset is None):
+                # Specifically with MinKNOW 5.5.3 we have a bug where the pod5_files_in_final_dest
+                # is missing, so allow for this to be None and skip the check.
+                ft_expected = fs.get(f'{ft}_files_in_final_dest')
+                if (ft_expected is not None) and (ft_sum != ft_expected) and (subset is None):
+
                     raise RuntimeError( f"Mismatch between count of {ft.upper()} files for {c}:\n" +
                                         f"{ft_sum} (seen) != {ft_expected} (in final_summary.txt)" )
 

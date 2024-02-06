@@ -124,12 +124,13 @@ class RTManager():
 
         self.server_path = self._config['server']
         self.username, self.password = self._config['user'], self._config['pass']
-        self._queue = self._config.get(f"{self._queue_setting}_queue", self._queue_setting)
+        self._queues = [ self._config.get(f"{q}_queue", q)
+                         for q in self._queue_setting.split(",") ]
 
         self.tracker = Rt( '/'.join([self.server_path, 'REST', '1.0']),
                            self.username,
                            self.password,
-                           default_queue = self._queue )
+                           default_queue = self._queues[0] )
 
         if not self.tracker.login():
             raise AuthorizationError(f'login() failed on {self._config_name} ({self.tracker.url})')
@@ -190,9 +191,14 @@ class RTManager():
             # We've short-circuited RT
             return (None, None)
 
-        tickets = list(self.tracker.search( Queue = self._queue,
-                                            Subject__like = f'% {project_number}_%',
-                                          ))
+        tickets = list()
+        for q in self._queues:
+            tickets.extend( self.tracker.search( Queue = q,
+                                                 Subject__like = f'% {project_number}_%',
+                                               ) )
+            if tickets:
+                # We don't need more
+                break
 
         if not tickets:
             return (None, None)
@@ -217,9 +223,9 @@ def parse_args(*args):
                                 formatter_class = ArgumentDefaultsHelpFormatter )
     argparser.add_argument("projects", nargs="+",
                             help="The project(s) to look up.")
-    argparser.add_argument("-Q", "--queue", default="eg-projects",
+    argparser.add_argument("-Q", "--queue", default="eg-promethion-projects,eg-projects,eg-pb-projects",
                             help="The queue to use. A name defined in rt_settings.ini as FOO_queue,"
-                                 " or a literal queue name.")
+                                 " or a literal queue name. You can have multiple names comma-separated.")
     argparser.add_argument("--test", action="store_true",
                             help="Set the script to connect to test-rt (as defined in rt_settings.ini)")
 
