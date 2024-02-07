@@ -16,7 +16,7 @@ VERBOSE = os.environ.get('VERBOSE', '0') != '0'
 
 from hesiod import ( parse_cell_name, load_final_summary, abspath, groupby, glob,
                      find_sequencing_summary, find_summary, load_yaml, dump_yaml,
-                     empty_sc_data, od_key_replace )
+                     empty_sc_data, od_key_replace, get_common_prefix )
 
 class T(unittest.TestCase):
 
@@ -246,6 +246,32 @@ class T(unittest.TestCase):
         """
         self.assertEqual( type(empty_sc_data()), dict )
         self.assertEqual( len(empty_sc_data()), 7 )
+
+    def test_common_prefix(self):
+        """Used to help batching up the pod5 files
+        """
+        self.assertEqual( get_common_prefix([]), None )
+
+        self.assertEqual( get_common_prefix([ "foo.txt",
+                                              "foo.dat",
+                                              "foo.bam" ]), "foo" )
+
+        self.assertEqual( get_common_prefix([ "biz/foo.txt",
+                                              "boz/foo.dat",
+                                              "boo/foo.bam",
+                                              "foo.txt.md5" ]), "foo" )
+
+        self.assertEqual( get_common_prefix([ "foo.txt",
+                                              "foo.dat",
+                                              "foo.bam",
+                                              "md5/foo.md5" ],
+                                            extn = r"\.[^.]+"), "foo" )
+
+        self.assertEqual( get_common_prefix([ "foo.txt",
+                                              "foo.dat",
+                                              "foo.bam",
+                                              "md5/foo.txt.md5" ],
+                                            extn = r"\.[^.]+"), None )
 
 if __name__ == '__main__':
     unittest.main()

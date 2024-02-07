@@ -246,4 +246,27 @@ def slurp_file(filename):
     with open(filename) as fh:
         return [ l.rstrip("\n") for l in fh ]
 
+def get_common_prefix(list_of_filenames, extn=r"\..+", base_only=True):
+    """Used by the Snakefiles. Chop extn (which is a regex) off every file
+       in the list and see if that leaves a common prefix. If so, return it.
+       If not, return None.
+    """
+    extn_regex = re.compile(extn + "$")
+    if not list_of_filenames:
+        return None
+
+    if base_only:
+        list_of_filenames = (os.path.basename(f) for f in list_of_filenames)
+    else:
+        list_of_filenames = iter(list_of_filenames)
+
+    common_prefix = re.sub(extn_regex, '', next(list_of_filenames))
+
+    for f in list_of_filenames:
+        p = re.sub(extn_regex, '', f)
+        if p != common_prefix:
+            return None
+
+    return common_prefix
+
 hesiod_version = _determine_version()

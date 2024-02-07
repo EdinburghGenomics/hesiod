@@ -99,6 +99,22 @@ class T(unittest.TestCase):
         # And just to be sure:
         self.assertEqual(sc, expected)
 
+    def test_find_representative_pod5(self):
+        """This is rather redundant given the test above, but technically we can
+           change the batch size, and ther may be no pasing reads.
+        """
+        cell_name = "26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099"
+        sc = scan_cells( f"{DATA_DIR}/runs/20231107_MIN2_26171SS",
+                         cellsready=[cell_name] )['scanned_cells']
+
+        sc[cell_name]['.']['pod5_pass'] = []
+
+        self.assertEqual( find_representative_pod5( cell_name,
+                                                    sc[cell_name],
+                                                    batch_size = 123,
+                                                    try_glob = False),
+                          cell_name + "/pod5_._fail/AOZ898_fail_35873099_e8dfad65_batch123_00000000.pod5" )
+
     def test_scan_error(self):
         """ A missing fast5 file should raise an exception
         """
@@ -142,7 +158,7 @@ class T(unittest.TestCase):
     def test_find_representative_fast5_nobc(self):
         """ And for the barcodeless version
         """
-        cell_name = 'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b'
+        cell_name = "testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b"
         sc = scan_cells( f"{DATA_DIR}/runs/20190710_LOCALTEST_00newrun",
                          cellsready=[cell_name] )['scanned_cells']
 

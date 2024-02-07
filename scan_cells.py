@@ -15,7 +15,7 @@ from functools import partial
 from pprint import pprint, pformat
 
 from hesiod import ( glob, groupby, parse_cell_name, load_final_summary,
-                     fast5_out, find_summary, dump_yaml )
+                     fast5_out, find_summary, dump_yaml, get_common_prefix )
 
 DEFAULT_FILETYPES_TO_SCAN = ["fastq", "fastq.gz", "fast5", "pod5", "bam"]
 
@@ -263,11 +263,14 @@ def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
     pod5_pass = [ bc for bc, bcparts in infiles.items() for plist in bcparts['pod5_pass']  ]
     pod5_fail = [ bc for bc, bcparts in infiles.items() for flist in bcparts['pod5_fail']  ]
 
+    pod5_files = []
     if pod5_pass:
         bc = pod5_pass[0]
+        pod5_files = infiles[bc]['pod5_pass']
         pf = "pass"
     elif pod5_fail:
         bc = pod5_fail[0] # We have no passing reads, but we have fails and can still report
+        pod5_files = infiles[bc]['pod5_fail']
         pf = "fail"
     elif try_glob:
         # In this case, just look for any output file
@@ -277,8 +280,11 @@ def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
         # We really have nothing
         return None
 
+    # The Snakefile.rundata will maintain the common prefix, so get that
+    cp = get_common_prefix(pod5_files, extn=r"_\d+\.pod5") or 'combined'
+
     batch = 0  # This will always be padded to 8 digits
-    return f"{cell}/pod5_{bc}_{pf}/batch{batch_size}_{batch:08d}.pod"
+    return f"{cell}/pod5_{bc}_{pf}/{cp}_batch{batch_size}_{batch:08d}.pod5"
 
 def parse_args(*args):
     description = """Scan the input files for all cells, to provide a work plan for Snakemake"""

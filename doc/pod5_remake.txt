@@ -19,3 +19,20 @@ I need to fix the runs I made, so:
 20240125_EGS2_27971RLpool01_Run2
 20240126_EGS2_27971RLpool01_Run3
 20240125_EGS2_29490KG
+
+---
+
+OK this is fine, and I confirmed that running Dorado on the batched-up POD5 files produces the same result.
+However, I should really modify my code so that the original prefix of the POD5 files gets included in the
+batched file names. So for example files like:
+
+PAS24884_fail_barcode11_64b522fc_6e8790f5_1.pod5
+
+should be batched into:
+
+PAS24884_fail_barcode11_64b522fc_6e8790f5_batch100_00000000.pod5
+
+Not simply:
+batch100_00000000.pod5
+
+I'll sort this out later, once auto-delivery is back.

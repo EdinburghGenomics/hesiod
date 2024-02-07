@@ -37,3 +37,19 @@ like to have this come from Ragic (or wherever).
 If you put the file in after the fact you will have to re-run Hesiod, by removing the
 `report.done` file from the `pipeline` directory. This will be quick because it only needs
 to redo the report. Processing of the actual data is unaffected.
+
+---
+
+With run 20240125_EGS2_29490KG I did this but the sample names were not picked up.
+Did I just make a typo, or is there some deeper issue? What's the quickest way to debug
+the sample names lookup?
+
+$ env ENVIRON_SH=~pipeline/hesiod/current/environ.sh ./sample_names_check.sh 20240125_EGS2_29490KG
+
+So this helper script is helpful. In this case the error is:
+
+error: Unable to parse line 2
+
+So what did I do wrong in /lustre-gseg/promethion/sample_names/29490_sample_names.tsv?
+
+Oh, I misspelt "barcode" as "barocde". Well, I'm just going to make the script tolerate that.
