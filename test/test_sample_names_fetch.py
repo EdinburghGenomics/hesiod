@@ -117,6 +117,24 @@ class T(unittest.TestCase):
                                   'int_name': '12345XX0005',
                                   'ext_name': 'Another lovely  sample' } ] ) )
 
+    def test_parse_csv_again(self):
+        """This example did not parse and I could not immediately see why.
+           In fact, I'd written "barocde11" instead of "barcode11", so the failure
+           is legit. But I've decided to make the code more tolerant and make it
+           work!
+        """
+        res = parse_tsv(f"{DATA_DIR}/29490_sample_names.tsv")
+
+        self.assertEqual( res, dict( barcodes =
+                              [ { 'bc': "barcode11",
+                                  'int_name': "29490KG0001L01",
+                                  'ext_name': "RNA1" },
+                                { 'bc': "barcode12",
+                                  'int_name': "29490KG0002L01",
+                                  'ext_name': "RNA2" },
+                                { 'bc': "barcode13",
+                                  'int_name': "29490KG0003L01",
+                                  'ext_name': "RNA3" } ] ) )
 
     def test_parse_tsv_bad(self):
 
@@ -134,7 +152,7 @@ class T(unittest.TestCase):
 
         # Un-parseable line at end of file
         res4 = parse_tsv(f"{DATA_DIR}/PAM30737_sample_names.tsv")
-        self.assertEqual( res4, dict( error = "Unable to parse line 7" ) )
+        self.assertEqual( res4, dict( error = "Unable to parse barcode on line 7" ) )
 
         # Empty file
         res5 = parse_tsv("/dev/null")

@@ -52,6 +52,7 @@ def main(args):
             orig_filename = os.path.basename(info_dict['file'])
             shutil.copyfile(info_dict['file'], f"{cell}/{orig_filename}")
 
+        L.debug(f"Saving out {cell}/sample_names.yaml")
         dump_yaml(info_dict, filename=f"{cell}/sample_names.yaml")
 
 def get_info_main(experiment, cell, dir, delim):
@@ -80,6 +81,8 @@ def get_info_main(experiment, cell, dir, delim):
 def find_tsv(experiment, cell, dir='.'):
     """Locate a sample names TSV file to use for this cell.
     """
+    L.debug(f"Looking for a TSV file in {os.path.abspath(dir)}")
+
     parsed_cell = parse_cell_name(experiment, cell)
     parsed_cell['CellBase'] = os.path.basename(parsed_cell['Cell'])
     parsed_cell['ShortExpt'] = parsed_cell['Experiment'].split('_', 2)[-1]
@@ -96,7 +99,7 @@ def find_tsv(experiment, cell, dir='.'):
     all_tsv = glob(f"{dir}/*.tsv") + glob(f"{dir}/*/*.tsv")
 
     L.debug(f"candidate tsv: {candidate_tsv}")
-    L.debug(f"all tsv: {all_tsv}")
+    L.debug(f"files globbed: {all_tsv}")
 
     for cand in candidate_tsv:
         for f in all_tsv:
@@ -123,14 +126,20 @@ def parse_tsv(filename, delim="\t"):
                 # Blank rows are ignored.
                 if not row:
                     continue
-                if not re.fullmatch(r'barcode\d\d', row[0]):
+
+                # Tolerate some typos in the word "barcode"
+                mo = re.fullmatch(r'[Bb][arcode]{5,7}(\d\d)', row[0])
+                if mo:
+                    row[0] = f"barcode{mo.group(1)}"
+                else:
                     if n == 0:
                         # Header row does not need to be a barcode
                         continue
                     else:
                         # Other rows do need to be a barcode
-                        error = f"Unable to parse line {n+1}"
+                        error = f"Unable to parse barcode on line {n+1}"
                         break
+
                 if len(row) == 1:
                     error = f"Missing internal name for {row[0]}"
                     break
