@@ -13,7 +13,6 @@ import logging
 import gzip
 from io import BytesIO
 import shutil
-import math
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from collections import OrderedDict
 from contextlib import suppress

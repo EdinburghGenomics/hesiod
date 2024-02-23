@@ -81,7 +81,7 @@ def read_pod5(p5_filename):
     """Gets the metadata from the first read record in a single pod5 file
     """
     res = OrderedDict()
-    for x in ['POD5Version', 'StartTime', 'GuppyVersion']:
+    for x in ['POD5Version', 'StartTime', 'Software']:
         res[x] = 'unknown'
 
     p5_handle = pod5.Reader(Path(p5_filename))
@@ -94,7 +94,7 @@ def read_pod5(p5_filename):
         # read, so just get the first one, and dict-ify it.
         read0 = vars(next(p5_handle.reads()).run_info)
 
-        # Run ID used to be in the filename, but not now with the batched pod5 files
+        # Run ID used to be in the filename, but to be sure get it here
         res['RunID'] = read0['acquisition_id']
         res['Software'] = read0['software']
 
@@ -118,8 +118,12 @@ def read_pod5(p5_filename):
 
         # Stuff from 'tracking_id'
         tracking_id = dict(read0['tracking_id'])
+
+        # This is useful, being the experiment start time not the read start time
         res['StartTime']    = tracking_id['exp_start_time']
-        res['GuppyVersion'] = tracking_id['guppy_version']
+        # Note that 'guppy_version' will contain the Dorado version if Dorado is used
+        # We'll rely on read0['software'] from now on.
+        #res['GuppyVersion'] = tracking_id['guppy_version']
 
     finally:
         p5_handle.close()

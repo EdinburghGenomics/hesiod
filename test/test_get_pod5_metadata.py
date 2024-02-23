@@ -45,7 +45,6 @@ class T(unittest.TestCase):
         # This is identical to the FAST5 aside from the file version tag.
         expected = dict( POD5Version       = '0.0.15',
                          StartTime         = 'Tuesday, 01 Mar 2022 15:38:47',
-                         GuppyVersion      = '5.1.13+b292f4d',
                          Software          = 'python-pod5-converter',
                          RunID             = 'b7f7032d28779ac6666af1b4fd724bf2ec41ec25',
                          SamplingFrequency = '4.0 kHz',
@@ -55,6 +54,24 @@ class T(unittest.TestCase):
                          SequencingKit     = 'sqk-lsk109',
                          Sample            = '14211AT0082',
                          BasecallConfig    = 'dna_r9.4.1_450bps_hac_prom.cfg' )
+
+        self.assertEqual(dict(md), expected)
+
+    def test_actual_pod5(self):
+
+        md = md_from_pod5_file(DATA_DIR + '/PAS23464_fail_barcode11_c3f8b1dd_5ed8849a_0.pod5.gz')
+
+        expected = dict( POD5Version = '0.2.7',
+                         BasecallConfig = 'dna_r10.4.1_e8.2_400bps_5khz_sup.cfg',
+                         ExperimentType = 'genomic_dna',
+                         FlowcellId = 'PAS23464',
+                         FlowcellType = 'FLO-PRO114M',
+                         RunID = '5ed8849a0f6b8d388566af4955ce048a28f3fa09',
+                         Sample = 'DoesThisWork',
+                         SamplingFrequency = '5.0 kHz',
+                         SequencingKit = 'sqk-nbd114-24',
+                         Software = 'MinKNOW 23.11.7 (Bream 7.8.2, Core 5.8.6, Dorado 7.2.13+fba8e8925)',
+                         StartTime = 'Thursday, 22 Feb 2024 15:52:33' )
 
         self.assertEqual(dict(md), expected)
 

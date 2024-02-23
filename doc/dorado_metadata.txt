@@ -1,0 +1,46 @@
+After releasing Hesiod 3.x, which is the Dorado+POD5 update, I got Rob to do a test run:
+
+https://egcloud.bio.ed.ac.uk/hesiod/20240222_EGS2_Is_PromethION_Working/
+
+The run itself is a bit funky (used barcodes but the samples look to be un-barcoded) but
+Hesiod processed it fine (not I had to manually set it as an internal run to trigger
+getting a report).
+
+A few issues:
+
+We're making a load of empty fastq.gz files. In other pipelines we avoid this. I'm not sure
+if this is by accident or design here? Anyway, it works so I'll leave it for now.
+
+The Metadata reports "Guppy Version" and "Guppy Config". Of course we're now using Dorado.
+
+get_pod5_metadata.py now gives me:
+
+Software: MinKNOW 23.11.7 (Bream 7.8.2, Core 5.8.6, Dorado 7.2.13+fba8e8925)
+
+Which seems rather more informative so probably I should use that. Note that even for slightly
+older runs (eg. 20240124_EGS2_27971RLpool01) I see:
+
+Software: MinKNOW 23.04.5 (Bream 7.5.9, Core 5.5.3, Guppy 6.5.7+ca6d6af)
+
+So I should deffo be using this in the Hesiod reports now, not Guppy Version.
+But note that this gets used for the deliveries, so I need to modify
+disseminate_results.py and the template too!!
+
+Also "Guppy Config" does not reveal the model version, which in this case is:
+
+dna_r10.4.1_e8.2_400bps_sup@v4.2.0
+                             ^^^^^
+
+So I need to get this from the POD5 (or from the FASTQ header even??).
+
+OK.
+
+Hmm. The "Guppy Config" item in the report is coming from:
+
+res['BasecallConfig'] = context_tags.get('basecall_config_filename', 'unknown')
+
+But this doesn't capture the model number. It doesn't seem to be in the POD5 metadata
+at all. Or anywhere else! I think I'm going to need to get this from the actual FASTQ
+file header. What a PITA!
+
+OK, done. Let's incorporate this.

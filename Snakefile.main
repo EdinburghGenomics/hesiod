@@ -138,6 +138,7 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
                    blobs = None,
                    nanoplot = None,
                    pod5_meta = None,
+                   fastq_meta = None,
                    duplex = None,
                    minknow_report = None ):
     """Compiles the content of cell_info.yaml from various bits and pieces.
@@ -212,6 +213,10 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     # Fold in the pod5_metadata
     if pod5_meta:
         ci.update(pod5_meta)
+
+    # And the fastq_metadata. For some reason we can only find the basecall model here.
+    if fastq_meta:
+        ci['_fastq_metadata'] = fastq_meta
 
     # Add in the barcode-based filter. Here we can choose how to deal with internal
     # and external names, but remember that external names in particular must be
@@ -413,6 +418,7 @@ def one_cell_inputs(wc):
         duplex_list  = f"duplex_scan/{cell}/pair_ids_filtered.txt",
 
         pod5_meta    = f"{cell}/cell_pod5_metadata.yaml",
+        fastq_meta   = f"{cell}/cell_fastq_metadata.yaml",
         fin_summary  = f"{cell}/cell_final_summary.yaml",
 
         sample_names = f"{cell}/sample_names.yaml",
@@ -467,6 +473,7 @@ rule one_cell:
                             fin_summary = fin_summary,
                             blobs = input.blobs,
                             pod5_meta = load_yaml(input.pod5_meta),
+                            fastq_meta = load_yaml(input.fastq_meta),
                             nanoplot = input.nanoplot_r[0],
                             minknow_report = minknow_report,
                             sample_names = load_yaml(input.sample_names) )
@@ -480,26 +487,40 @@ rule sample_names:
     shell:
         "sample_names_fetch.py {wildcards.cell}"
 
-def find_representative_pod5(wildcards):
-    """Looks in SC_DATA for a representative POD5 for this cell. If there is none,
-       raises an exception.
+def find_representative_file(ftype):
+    """Returns a function that finds files of type ftype for a cell
     """
-    rep_pod5 = SC_DATA['representative_pod5'][wildcards.cell]
-    if not rep_pod5:
-        raise RuntimeError("No representative POD5 in SC_DATA")
+    def _find_representative(wildcards):
+        """Looks in SC_DATA for a representative POD5/FASTQ for this cell.
+           If there is none, raises an exception.
+        """
+        rep_file = SC_DATA[f'representative_{ftype}'][wildcards.cell]
+        if not rep_file:
+            raise RuntimeError("No representative {ftype} for {wildcards.cell} in SC_DATA")
 
-    return rep_pod5
+        return rep_file
 
-# This should get the same metadata from the batched or un-batched POD5 meaning it can be run
-# even after the originals are deleted.
-# The weird input definition tries to handle this. Whichever we use we only need a single file,
-# so return the first.
+    return _find_representative
+
+localrules: pod5_metadata, fastq_metadata
+
+# This is now always run on the output (batched) pod5.
+# The scan_cells.py script predicts what the name of a suitable file will be.
+# We only need one, as every read in every file has the same metadata.
 rule pod5_metadata:
     output: "{cell}/cell_pod5_metadata.yaml"
     input:
-        pod5 = find_representative_pod5
+        pod5 = find_representative_file("pod5")
     shell:
         "get_pod5_metadata.py -v {input.pod5} > {output}"
+
+# Similar shtick for fastq_metadata.
+rule fastq_metadata:
+    output: "{cell}/cell_fastq_metadata.yaml"
+    input:
+        fastq = find_representative_file("fastq")
+    shell:
+        "get_pod5_metadata.py {input.fastq} > {output}"
 
 # Only if the run directory is in place, load the rules that filter, compress and combine the
 # original files.

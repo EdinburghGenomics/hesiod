@@ -26,18 +26,22 @@ def get_cell_metadata(ci):
                ('Files in pass',),
                ('Files in fail',),
                ('SequencingKit',     'Sequencing Kit'),
-               ('GuppyVersion',      'Guppy Version'),
-               ('BasecallConfig',    'Guppy Config'),
+               ('Software',          'Software'),
+               ('BasecallConfig',    'Basecaller Config'),
+               (None,                'Basecall Model'),
                ('SamplingFrequency', 'Sampling Freq'),
                ('ExperimentType',    'Input Type'),
                ('Slot',),
                ('CellID',            'Cell ID'),
                ('RunID',             'Run UUID') ]:
         if len(x) == 1:
+            # Get that key
             res[x[0]] = ci.get(x[0], 'unknown')
         elif x[0]:
+            # Get that key but rename it
             res[x[1]] = ci.get(x[0], 'unknown')
         else:
+            # Add a placeholder but don't set it yet
             res[x[1]] = 'unknown'
 
     if '_final_summary' in ci:
@@ -45,6 +49,9 @@ def get_cell_metadata(ci):
         res['Start Time'] = strftime(fs['started'])
         res['End Time'] = strftime(fs['processing_stopped'])
         res['Run Time'] = fs['run_time']
+
+    if '_fastq_metadata' in ci:
+        res['Basecall Model'] = ci['_fastq_metadata']['basecall_model']
 
     return res
 

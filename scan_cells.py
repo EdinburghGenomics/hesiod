@@ -7,7 +7,7 @@
 
    $ scan_cells.py --cells 27051AT0005/20230608_0921_1C_PAQ21042_2a207d10 .
 """
-
+import os
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import logging as L
 from itertools import product
@@ -28,12 +28,17 @@ def main(args):
     if not args.missing_ok and not glob(f"{args.expdir}/."):
         exit(f"No such directory {args.expdir}. Use -m to look for output files in CWD.")
 
+    experiment = args.expname
+    if not experiment:
+        # Same logic used to set EXPERIMENT in Snakefile.main
+        experiment = os.path.basename(os.path.realpath(args.expdir)).split('.')[0]
+
     # Call scan_main, which is amenable to testing
-    res = scan_main(args)
+    res = scan_main(args, experiment)
 
     print( dump_yaml(res), end='' )
 
-def scan_main(args):
+def scan_main(args, experiment):
     # This will yield a dict with scanned_cells and counts as keys
     res = scan_cells(args.expdir, cells = args.cells,
                                   cellsready = args.cellsready,
@@ -41,7 +46,7 @@ def scan_main(args):
                                   subset = args.subset)
     sc = res['scanned_cells']
 
-    # Find a representative FAST5 and POD5 per cell
+    # Find a representative FAST5 and POD5 and FASTQ per cell
     for c, v in sc.items():
         rep_fast5 = res.setdefault('representative_fast5', dict())
         rep_fast5[c] = find_representative_fast5( cell = c,
@@ -52,6 +57,11 @@ def scan_main(args):
                                                 infiles = v,
                                                 batch_size = args.pod5_batch_size,
                                                 try_glob = args.missing_ok )
+        rep_fastq = res.setdefault('representative_fastq', dict())
+        rep_fastq[c] = find_representative_fastq( experiment = experiment,
+                                                  cell = c,
+                                                  infiles = v,
+                                                  try_glob = args.missing_ok )
 
     # Note the pod5_batch_size setting
     res['pod5_batch_size'] = args.pod5_batch_size
@@ -252,6 +262,39 @@ def find_representative_fast5(cell, infiles, try_glob=False):
     else:
         return None
 
+def find_representative_fastq(experiment, cell, infiles, try_glob=False):
+    """As for fast5 and pod5, but the FASTQ files are always merged so we just need to find
+       what barcode has at least one read.
+       Note that Hesiod does (at present) create zero-byte files for barcodes with nothing
+       assigned, so the glob() approach is naive and may well fail - we need to point to
+       a file with actual reads innit.
+    """
+    cell_base = parse_cell_name(experiment, cell)['Base']
+
+    fastq_list = []
+    pf = ''
+    for x in ['fastq.gz_pass', 'fastq.gz_fail', 'fastq_pass', 'fastq_fail']:
+        for barcode, bcparts in infiles.items():
+            fastq_list.extend([ plist for plist in bcparts.get(x,[]) ])
+            if fastq_list:
+                break
+        if fastq_list:
+            pf = x.split("_")[-1]
+            break
+
+    if fastq_list:
+        # The output will always be zipped even if the inputs are not
+        return f"{cell_base}_{barcode}_{pf}.fastq.gz"
+    elif try_glob:
+        # Look for an existing output file (but note the warning above)
+        globbed = glob(f"{cell}/*.fastq.gz") + glob(f"{cell}/*.fastq")
+        if globbed:
+            return globbed[0]
+        else:
+            return None
+    else:
+        return None
+
 def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
     """Find a suitable fast5 file to scan for metadata. The assumption is that all contain
        the same metadata.
@@ -299,6 +342,8 @@ def parse_args(*args):
                         help="Cells in this Experiment. If not specified, they will be scanned.")
     parser.add_argument("-r", "--cellsready", nargs='+',
                         help="Cells to process now. If not specified, the script will check all the cells.")
+    parser.add_argument("-e", "--expname",
+                        help="Experiment name, if not the real name of the expdir.")
     parser.add_argument("--pod5_batch_size", type=int, default=100,
                         help="Number of POD5 files to merge into a single file.")
 
