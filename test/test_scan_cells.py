@@ -71,7 +71,7 @@ class T(unittest.TestCase):
             on the command line.
         """
         args = parse_args([f"{DATA_DIR}/runs/20221103_EGS2_25070AT"])
-        sc = scan_main( args )
+        sc = scan_main( args, "20221103_EGS2_25070AT" )
 
         with open(f"{DATA_DIR}/runs/20221103_EGS2_25070AT/sc_data.yaml") as yfh:
             expected = yaml.safe_load(yfh)
@@ -87,7 +87,7 @@ class T(unittest.TestCase):
         """ A test using the run I was using to test pod5 runs.
         """
         args = parse_args([f"{DATA_DIR}/runs/20231107_MIN2_26171SS"])
-        sc = scan_main( args )
+        sc = scan_main( args, "foobarfoo" )
 
         with open(f"{DATA_DIR}/runs/20231107_MIN2_26171SS/sc_data.yaml") as yfh:
             expected = yaml.safe_load(yfh)
