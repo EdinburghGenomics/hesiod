@@ -520,7 +520,7 @@ rule fastq_metadata:
     input:
         fastq = find_representative_file("fastq")
     shell:
-        "get_pod5_metadata.py {input.fastq} > {output}"
+        "get_fastq_metadata.py {input.fastq} > {output}"
 
 # Only if the run directory is in place, load the rules that filter, compress and combine the
 # original files.
