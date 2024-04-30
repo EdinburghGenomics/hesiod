@@ -137,9 +137,9 @@ def scan_cells( expdir, cells=None, cellsready=None,
 
     if expdir:
         for c, d in res.items():
-            for pf, filetype in product(["pass", "fail"], filetypes_to_scan):
-                category = f"{filetype}_{pf}"
-                cat_dir  = f"{filetype.split('.')[0]}_{pf}"
+            for pf, filetype in product(["", "_pass", "_fail"], filetypes_to_scan):
+                category = f"{filetype}{pf}"
+                cat_dir  = f"{filetype.split('.')[0]}{pf}"
                 # Collect un-barcoded files
                 non_barcoded_files = [ f[len(expdir) + 1:]
                                        for f in globn(f"{expdir}/{c}/{cat_dir}/*.{filetype}") ]
@@ -176,33 +176,29 @@ def scan_cells( expdir, cells=None, cellsready=None,
                         # This is like rmdir - only remove the key if it now points to an empty dict.
                         del d['.']
 
-                # Whatever we got in the skip, work out where to put it
-                if 'unclassified' in d:
-                    d['unclassified'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
-                elif '.' in d:
-                    d['.'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
-                else:
-                    # Should never happen?
-                    skipped_skip_files[(c,filetype)] = files_in_skip
+                if files_in_skip:
+                    # Whatever we got in the skip, work out where to put it
+                    if 'unclassified' in d:
+                        d['unclassified'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
+                    elif '.' in d:
+                        d['.'].setdefault(f"{filetype}_fail",[]).extend( files_in_skip )
+                    else:
+                        # Should never happen?
+                        skipped_skip_files[(c,filetype)] = files_in_skip
 
-            # Add in empty lists for missing items.
             # A quirk of the logic above is that barcodes with "fail" reads but no "pass" reads
             # are listed after those with "pass" reads, and this carries into the reports. If this
             # is a problem, this is the place to fix it by sorting all dicts within res.
-            for bcdict in d.values():
-                for pf, filetype in product(["pass", "fail"], filetypes_to_scan):
-                    # If the barcode is there we should have all four categories in bcdict
-                    bcdict.setdefault(f"{filetype}_{pf}", [])
 
         # Sanity-check that the file counts match with final_summary.txt
         for c, d in res.items():
             fs = load_final_summary(f"{expdir}/{c}/")
             for ft in ["fastq", "fast5", "pod5"]:
                 # Add zipped and unzipped FASTQ files...
-                ft_sum = sum( len(fileslist[f"{ft}{z}_{pf}"])
+                ft_sum = sum( len(fileslist.get(f"{ft}{z}{pf}",()))
                                 for fileslist in d.values()
                                 for z in (["", ".gz"] if ft == "fastq" else [""])
-                                for pf in ["pass", "fail"] )
+                                for pf in ["", "_pass", "_fail"] )
                 # Account for skipped_skip_files
                 if skipped_skip_files.get((c,ft)):
                     L.warning(f"skipped_skip_files is non-empty for {(c,ft)}:"
@@ -244,8 +240,8 @@ def find_representative_fast5(cell, infiles, try_glob=False):
        If try_glob is True, the fallback if sc has no candidates will be to scan the
        output directory itself.
     """
-    fast5_pass = [ plist for bc in infiles.values() for plist in bc['fast5_pass']  ]
-    fast5_fail = [ flist for bc in infiles.values() for flist in bc['fast5_fail']  ]
+    fast5_pass = [ plist for bc in infiles.values() for plist in bc.get('fast5_pass',())  ]
+    fast5_fail = [ flist for bc in infiles.values() for flist in bc.get('fast5_fail',())  ]
     if fast5_pass:
         # Depend on the first file provided by SC[wc.cell] for any barcode
         return fast5_out(fast5_pass[0])
@@ -303,31 +299,29 @@ def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
     # fast5 files, and the name of the first one will be:
     #
     # {cell}/pod5_{bc}_{pf}/batch{POD5_BATCH_SIZE}_{b:08d}.pod
-    pod5_pass = [ bc for bc, bcparts in infiles.items() for plist in bcparts['pod5_pass']  ]
-    pod5_fail = [ bc for bc, bcparts in infiles.items() for flist in bcparts['pod5_fail']  ]
 
-    pod5_files = []
-    if pod5_pass:
-        bc = pod5_pass[0]
-        pod5_files = infiles[bc]['pod5_pass']
-        pf = "pass"
-    elif pod5_fail:
-        bc = pod5_fail[0] # We have no passing reads, but we have fails and can still report
-        pod5_files = infiles[bc]['pod5_fail']
-        pf = "fail"
-    elif try_glob:
-        # In this case, just look for any output file
-        globbed = glob(f"{cell}/pod5_*_????/*.pod5")
-        return globbed[0] if globbed else None
+    # So I just need to work out {bc} and {pf}
+    for pf in ['', '_pass', '_fail']:
+        pod5_pf = [ bc for bc, bcparts in infiles.items() for plist in bcparts.get(f'pod5{pf}',())  ]
+        # If we have no passing reads but we have fails we can still report
+        if pod5_pf:
+            bc = pod5_pf[0]
+            pod5_files = infiles[bc][f'pod5{pf}']
+            break
     else:
-        # We really have nothing
-        return None
+        if try_glob:
+            # In this case, just look for any output file
+            globbed = glob(f"{cell}/pod5_*_????/*.pod5")
+            return globbed[0] if globbed else None
+        else:
+            # We really have nothing
+            return None
 
     # The Snakefile.rundata will maintain the common prefix, so get that
     cp = get_common_prefix(pod5_files, extn=r"_\d+\.pod5") or 'combined'
 
     batch = 0  # This will always be padded to 8 digits
-    return f"{cell}/pod5_{bc}_{pf}/{cp}_batch{batch_size}_{batch:08d}.pod5"
+    return f"{cell}/pod5_{bc}{pf}/{cp}_batch{batch_size}_{batch:08d}.pod5"
 
 def parse_args(*args):
     description = """Scan the input files for all cells, to provide a work plan for Snakemake"""

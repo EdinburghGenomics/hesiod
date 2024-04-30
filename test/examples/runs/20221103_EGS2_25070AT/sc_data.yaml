@@ -23,241 +23,145 @@ printable_counts: |-
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode02': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode03': {'bam_fail': '<10 files>',
                                                                     'bam_pass': '<10 files>',
                                                                     'fast5_fail': '<10 files>',
                                                                     'fast5_pass': '<10 files>',
                                                                     'fastq.gz_fail': '<10 files>',
-                                                                    'fastq.gz_pass': '<10 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<10 files>'},
                                                       'barcode04': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode05': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'unclassified': {'bam_fail': '<11 files>',
                                                                        'bam_pass': '<10 files>',
                                                                        'fast5_fail': '<11 files>',
                                                                        'fast5_pass': '<10 files>',
                                                                        'fastq.gz_fail': '<10 files>',
-                                                                       'fastq.gz_pass': '<10 files>',
-                                                                       'fastq_fail': '<0 files>',
-                                                                       'fastq_pass': '<0 files>',
-                                                                       'pod5_fail': '<0 files>',
-                                                                       'pod5_pass': '<0 files>'}},
+                                                                       'fastq.gz_pass': '<10 files>'}},
    '25070AT0003/20221104_1306_1G_PAM78534_6623d643': {'barcode01': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode02': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode03': {'bam_fail': '<10 files>',
                                                                     'bam_pass': '<10 files>',
                                                                     'fast5_fail': '<10 files>',
                                                                     'fast5_pass': '<10 files>',
                                                                     'fastq.gz_fail': '<10 files>',
-                                                                    'fastq.gz_pass': '<10 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<10 files>'},
                                                       'barcode04': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode05': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'unclassified': {'bam_fail': '<11 files>',
                                                                        'bam_pass': '<10 files>',
                                                                        'fast5_fail': '<11 files>',
                                                                        'fast5_pass': '<10 files>',
                                                                        'fastq.gz_fail': '<10 files>',
-                                                                       'fastq.gz_pass': '<10 files>',
-                                                                       'fastq_fail': '<0 files>',
-                                                                       'fastq_pass': '<0 files>',
-                                                                       'pod5_fail': '<0 files>',
-                                                                       'pod5_pass': '<0 files>'}},
+                                                                       'fastq.gz_pass': '<10 files>'}},
    '25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd': {'barcode01': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode02': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode03': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode04': {'bam_fail': '<10 files>',
                                                                     'bam_pass': '<10 files>',
                                                                     'fast5_fail': '<10 files>',
                                                                     'fast5_pass': '<10 files>',
                                                                     'fastq.gz_fail': '<10 files>',
-                                                                    'fastq.gz_pass': '<10 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<10 files>'},
                                                       'barcode05': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'unclassified': {'bam_fail': '<11 files>',
                                                                        'bam_pass': '<10 files>',
                                                                        'fast5_fail': '<11 files>',
                                                                        'fast5_pass': '<10 files>',
                                                                        'fastq.gz_fail': '<10 files>',
-                                                                       'fastq.gz_pass': '<10 files>',
-                                                                       'fastq_fail': '<0 files>',
-                                                                       'fastq_pass': '<0 files>',
-                                                                       'pod5_fail': '<0 files>',
-                                                                       'pod5_pass': '<0 files>'}},
+                                                                       'fastq.gz_pass': '<10 files>'}},
    '25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e': {'barcode01': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode02': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode03': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode04': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
                                                                     'fast5_fail': '<1 files>',
                                                                     'fast5_pass': '<1 files>',
                                                                     'fastq.gz_fail': '<1 files>',
-                                                                    'fastq.gz_pass': '<1 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<1 files>'},
                                                       'barcode05': {'bam_fail': '<10 files>',
                                                                     'bam_pass': '<10 files>',
                                                                     'fast5_fail': '<10 files>',
                                                                     'fast5_pass': '<10 files>',
                                                                     'fastq.gz_fail': '<10 files>',
-                                                                    'fastq.gz_pass': '<10 files>',
-                                                                    'fastq_fail': '<0 files>',
-                                                                    'fastq_pass': '<0 files>',
-                                                                    'pod5_fail': '<0 files>',
-                                                                    'pod5_pass': '<0 files>'},
+                                                                    'fastq.gz_pass': '<10 files>'},
                                                       'unclassified': {'bam_fail': '<11 files>',
                                                                        'bam_pass': '<10 files>',
                                                                        'fast5_fail': '<11 files>',
                                                                        'fast5_pass': '<10 files>',
                                                                        'fastq.gz_fail': '<10 files>',
-                                                                       'fastq.gz_pass': '<10 files>',
-                                                                       'fastq_fail': '<0 files>',
-                                                                       'fastq_pass': '<0 files>',
-                                                                       'pod5_fail': '<0 files>',
-                                                                       'pod5_pass': '<0 files>'}}}
+                                                                       'fastq.gz_pass': '<10 files>'}}}
 representative_fast5:
   25070AT0003/20221103_1710_1F_PAM83464_136e9f68: 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fast5_barcode01_pass/PAM83464_pass_barcode01_136e9f68_a6bd7a6d_0.fast5
   25070AT0003/20221104_1306_1G_PAM78534_6623d643: 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fast5_barcode01_pass/PAM78534_pass_barcode01_6623d643_f41edafc_0.fast5
@@ -288,10 +192,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_fail/barcode01/PAM83464_fail_barcode01_136e9f68_a6bd7a6d_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode01/PAM83464_pass_barcode01_136e9f68_a6bd7a6d_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode02:
       bam_fail:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/bam_fail/barcode02/PAM83464_fail_barcode02_136e9f68_a6bd7a6d_0.bam
@@ -305,10 +205,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_fail/barcode02/PAM83464_fail_barcode02_136e9f68_a6bd7a6d_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode02/PAM83464_pass_barcode02_136e9f68_a6bd7a6d_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode03:
       bam_fail:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/bam_fail/barcode03/PAM83464_fail_barcode03_136e9f68_a6bd7a6d_0.bam
@@ -376,10 +272,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode03/PAM83464_pass_barcode03_136e9f68_a6bd7a6d_7.fastq.gz
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode03/PAM83464_pass_barcode03_136e9f68_a6bd7a6d_10.fastq.gz
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode03/PAM83464_pass_barcode03_136e9f68_a6bd7a6d_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode04:
       bam_fail:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/bam_fail/barcode04/PAM83464_fail_barcode04_136e9f68_a6bd7a6d_0.bam
@@ -393,10 +285,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_fail/barcode04/PAM83464_fail_barcode04_136e9f68_a6bd7a6d_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode04/PAM83464_pass_barcode04_136e9f68_a6bd7a6d_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode05:
       bam_fail:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/bam_fail/barcode05/PAM83464_fail_barcode05_136e9f68_a6bd7a6d_0.bam
@@ -410,10 +298,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_fail/barcode05/PAM83464_fail_barcode05_136e9f68_a6bd7a6d_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/barcode05/PAM83464_pass_barcode05_136e9f68_a6bd7a6d_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     unclassified:
       bam_fail:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/bam_fail/unclassified/PAM83464_fail_unclassified_136e9f68_a6bd7a6d_0.bam
@@ -483,10 +367,6 @@ scanned_cells:
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/unclassified/PAM83464_pass_unclassified_136e9f68_a6bd7a6d_7.fastq.gz
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/unclassified/PAM83464_pass_unclassified_136e9f68_a6bd7a6d_10.fastq.gz
       - 25070AT0003/20221103_1710_1F_PAM83464_136e9f68/fastq_pass/unclassified/PAM83464_pass_unclassified_136e9f68_a6bd7a6d_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
   25070AT0003/20221104_1306_1G_PAM78534_6623d643:
     barcode01:
       bam_fail:
@@ -501,10 +381,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_fail/barcode01/PAM78534_fail_barcode01_6623d643_f41edafc_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode01/PAM78534_pass_barcode01_6623d643_f41edafc_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode02:
       bam_fail:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/bam_fail/barcode02/PAM78534_fail_barcode02_6623d643_f41edafc_0.bam
@@ -518,10 +394,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_fail/barcode02/PAM78534_fail_barcode02_6623d643_f41edafc_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode02/PAM78534_pass_barcode02_6623d643_f41edafc_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode03:
       bam_fail:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/bam_fail/barcode03/PAM78534_fail_barcode03_6623d643_f41edafc_0.bam
@@ -589,10 +461,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode03/PAM78534_pass_barcode03_6623d643_f41edafc_7.fastq.gz
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode03/PAM78534_pass_barcode03_6623d643_f41edafc_10.fastq.gz
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode03/PAM78534_pass_barcode03_6623d643_f41edafc_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode04:
       bam_fail:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/bam_fail/barcode04/PAM78534_fail_barcode04_6623d643_f41edafc_0.bam
@@ -606,10 +474,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_fail/barcode04/PAM78534_fail_barcode04_6623d643_f41edafc_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode04/PAM78534_pass_barcode04_6623d643_f41edafc_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode05:
       bam_fail:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/bam_fail/barcode05/PAM78534_fail_barcode05_6623d643_f41edafc_0.bam
@@ -623,10 +487,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_fail/barcode05/PAM78534_fail_barcode05_6623d643_f41edafc_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/barcode05/PAM78534_pass_barcode05_6623d643_f41edafc_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     unclassified:
       bam_fail:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/bam_fail/unclassified/PAM78534_fail_unclassified_6623d643_f41edafc_0.bam
@@ -696,10 +556,6 @@ scanned_cells:
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/unclassified/PAM78534_pass_unclassified_6623d643_f41edafc_7.fastq.gz
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/unclassified/PAM78534_pass_unclassified_6623d643_f41edafc_10.fastq.gz
       - 25070AT0003/20221104_1306_1G_PAM78534_6623d643/fastq_pass/unclassified/PAM78534_pass_unclassified_6623d643_f41edafc_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
   25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd:
     barcode01:
       bam_fail:
@@ -714,10 +570,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_fail/barcode01/PAM83454_fail_barcode01_1f1b14bd_490b3e31_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode01/PAM83454_pass_barcode01_1f1b14bd_490b3e31_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode02:
       bam_fail:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/bam_fail/barcode02/PAM83454_fail_barcode02_1f1b14bd_490b3e31_0.bam
@@ -731,10 +583,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_fail/barcode02/PAM83454_fail_barcode02_1f1b14bd_490b3e31_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode02/PAM83454_pass_barcode02_1f1b14bd_490b3e31_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode03:
       bam_fail:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/bam_fail/barcode03/PAM83454_fail_barcode03_1f1b14bd_490b3e31_0.bam
@@ -748,10 +596,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_fail/barcode03/PAM83454_fail_barcode03_1f1b14bd_490b3e31_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode03/PAM83454_pass_barcode03_1f1b14bd_490b3e31_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode04:
       bam_fail:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/bam_fail/barcode04/PAM83454_fail_barcode04_1f1b14bd_490b3e31_0.bam
@@ -819,10 +663,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode04/PAM83454_pass_barcode04_1f1b14bd_490b3e31_7.fastq.gz
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode04/PAM83454_pass_barcode04_1f1b14bd_490b3e31_10.fastq.gz
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode04/PAM83454_pass_barcode04_1f1b14bd_490b3e31_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode05:
       bam_fail:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/bam_fail/barcode05/PAM83454_fail_barcode05_1f1b14bd_490b3e31_0.bam
@@ -836,10 +676,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_fail/barcode05/PAM83454_fail_barcode05_1f1b14bd_490b3e31_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/barcode05/PAM83454_pass_barcode05_1f1b14bd_490b3e31_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     unclassified:
       bam_fail:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/bam_fail/unclassified/PAM83454_fail_unclassified_1f1b14bd_490b3e31_0.bam
@@ -909,10 +745,6 @@ scanned_cells:
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/unclassified/PAM83454_pass_unclassified_1f1b14bd_490b3e31_7.fastq.gz
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/unclassified/PAM83454_pass_unclassified_1f1b14bd_490b3e31_10.fastq.gz
       - 25070AT0004/20221103_1710_1D_PAM83454_1f1b14bd/fastq_pass/unclassified/PAM83454_pass_unclassified_1f1b14bd_490b3e31_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
   25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e:
     barcode01:
       bam_fail:
@@ -927,10 +759,6 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_fail/barcode01/PAM82832_fail_barcode01_3ed26d0e_3f3157da_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode01/PAM82832_pass_barcode01_3ed26d0e_3f3157da_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode02:
       bam_fail:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/bam_fail/barcode02/PAM82832_fail_barcode02_3ed26d0e_3f3157da_0.bam
@@ -944,10 +772,6 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_fail/barcode02/PAM82832_fail_barcode02_3ed26d0e_3f3157da_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode02/PAM82832_pass_barcode02_3ed26d0e_3f3157da_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode03:
       bam_fail:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/bam_fail/barcode03/PAM82832_fail_barcode03_3ed26d0e_3f3157da_0.bam
@@ -961,10 +785,6 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_fail/barcode03/PAM82832_fail_barcode03_3ed26d0e_3f3157da_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode03/PAM82832_pass_barcode03_3ed26d0e_3f3157da_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode04:
       bam_fail:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/bam_fail/barcode04/PAM82832_fail_barcode04_3ed26d0e_3f3157da_0.bam
@@ -978,10 +798,6 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_fail/barcode04/PAM82832_fail_barcode04_3ed26d0e_3f3157da_0.fastq.gz
       fastq.gz_pass:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode04/PAM82832_pass_barcode04_3ed26d0e_3f3157da_0.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     barcode05:
       bam_fail:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/bam_fail/barcode05/PAM82832_fail_barcode05_3ed26d0e_3f3157da_0.bam
@@ -1049,10 +865,6 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode05/PAM82832_pass_barcode05_3ed26d0e_3f3157da_7.fastq.gz
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode05/PAM82832_pass_barcode05_3ed26d0e_3f3157da_10.fastq.gz
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/barcode05/PAM82832_pass_barcode05_3ed26d0e_3f3157da_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []
     unclassified:
       bam_fail:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/bam_fail/unclassified/PAM82832_fail_unclassified_3ed26d0e_3f3157da_0.bam
@@ -1122,7 +934,3 @@ scanned_cells:
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/unclassified/PAM82832_pass_unclassified_3ed26d0e_3f3157da_7.fastq.gz
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/unclassified/PAM82832_pass_unclassified_3ed26d0e_3f3157da_10.fastq.gz
       - 25070AT0005/20221103_1710_1B_PAM82832_3ed26d0e/fastq_pass/unclassified/PAM82832_pass_unclassified_3ed26d0e_3f3157da_1001.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
-      pod5_fail: []
-      pod5_pass: []

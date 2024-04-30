@@ -42,13 +42,6 @@ class T(unittest.TestCase):
         sc = res['scanned_cells']
 
         self.assertEqual(sc, {'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b' : { '.': {
-                                       "bam_pass": [],
-                                       "bam_fail": [],
-                                       "pod5_pass": [],
-                                       "pod5_fail": [],
-                                       "fast5_fail": [],
-                                       "fastq_fail": [],
-                                       "fastq.gz_fail": [],
                                        "fast5_pass": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
                                                         'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_0.fast5',
                                                       'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fast5_pass/'
@@ -60,7 +53,9 @@ class T(unittest.TestCase):
                                                       'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
                                                         'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_1.fastq'],
                                        "fastq.gz_pass": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/fastq_pass/'
-                                                           'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_2.fastq.gz']
+                                                           'PAD38578_ceefaf6d76ad8167a2c1050da8a9b3de9601f838_2.fastq.gz'],
+                                       "pod5": ['testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/pod5/foo0.pod5',
+                                                'testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b/pod5/foo1.pod5']
                                  } }})
         self.assertEqual(res['counts'], dict( cells=1, cellsaborted=0, cellsready=1 ))
 

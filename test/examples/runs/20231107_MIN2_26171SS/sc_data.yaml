@@ -10,14 +10,8 @@ counts:
   cellsready: 1
 pod5_batch_size: 100
 printable_counts: |-
-  {'26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099': {'.': {'bam_fail': '<0 files>',
-                                                                  'bam_pass': '<0 files>',
-                                                                  'fast5_fail': '<0 files>',
-                                                                  'fast5_pass': '<0 files>',
-                                                                  'fastq.gz_fail': '<9 files>',
+  {'26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099': {'.': {'fastq.gz_fail': '<9 files>',
                                                                   'fastq.gz_pass': '<24 files>',
-                                                                  'fastq_fail': '<0 files>',
-                                                                  'fastq_pass': '<0 files>',
                                                                   'pod5_fail': '<11 files>',
                                                                   'pod5_pass': '<27 files>'}}}
 representative_fast5:
@@ -29,10 +23,6 @@ representative_fastq:
 scanned_cells:
   26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099:
     .:
-      bam_fail: []
-      bam_pass: []
-      fast5_fail: []
-      fast5_pass: []
       fastq.gz_fail:
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/fastq_fail/AOZ898_fail_35873099_e8dfad65_0.fastq.gz
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/fastq_fail/AOZ898_fail_35873099_e8dfad65_1.fastq.gz
@@ -68,8 +58,6 @@ scanned_cells:
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/fastq_pass/AOZ898_pass_35873099_e8dfad65_109.fastq.gz
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/fastq_pass/AOZ898_pass_35873099_e8dfad65_110.fastq.gz
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/fastq_pass/AOZ898_pass_35873099_e8dfad65_111.fastq.gz
-      fastq_fail: []
-      fastq_pass: []
       pod5_fail:
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/pod5_fail/AOZ898_fail_35873099_e8dfad65_0.pod5
       - 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/pod5_fail/AOZ898_fail_35873099_e8dfad65_1.pod5
