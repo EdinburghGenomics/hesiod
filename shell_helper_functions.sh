@@ -38,16 +38,6 @@ find_templates() {
     fi
 }
 
-find_refs() {
-    #And again for refs dir
-    _def_refs="$(readlink -f $(dirname "$BASH_SOURCE")/refs)"
-    echo "${REFS:-$_def_refs}"
-
-    if ! [ -e "${REFS:-$_def_refs}/" ] ; then
-        echo "WARNING - find_ref - No such directory ${REFS:-$_def_refs}" >&2
-    fi
-}
-
 # Functions to run a Snakefile
 find_snakefile() {
     #Is it in the CWD (or an absolute path)?

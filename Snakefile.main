@@ -28,7 +28,6 @@ fi
 # does not, as SLURM resets that env var.
 export TOOLBOX="$(find_toolbox)"
 export TEMPLATES="$(find_templates)"
-export REFS="$(find_refs)"
 export PATH="${PATH}:$(dirname "$0")"
 
 snakerun_drmaa "$0" "$@"
@@ -147,23 +146,19 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
     """
     ci = parse_cell_name(experiment, cell)
 
-    # Add pass/fail number of files. If the relevant cell_content is not available we'll not attempt
-    # to recalculate this, but in general it should all be loaded from sc_data.
+    # Add pass/fail number of files. Now with the file lists being saved in sc_data.yaml there
+    # is no reason we shouldn't have this info even if the input files were deleted.
     for pf in ["pass", "fail"]:
-        try:
-            # The counts in fastq and pod5 may well not match. Record all counts.
-            # The dict comprehension aggregates over all barcodes.
-            cell_files = { k: [f for cfb in cell_content.values() for f in cfb[f'{k}_{pf}']]
-                           for k in ["fastq", "pod5"] }
-            # Add in gzipped file counts
-            cell_files[f'fastq'] += [f for cfb in cell_content.values() for f in cfb.get(f'fastq.gz_{pf}',[])]
-            ci['Files in '+pf] = len(cell_files['fastq'])
-            ci['Files in pod5 '+pf] = len(cell_files['pod5'])
-
-        except KeyError as e:
-            # see comment above.
-            logger.warning(repr(e))
-            ci['Files in '+pf] = "unknown"
+        # The counts in fastq and pod5 may well not match. Record all counts.
+        # The dict comprehension aggregates over all barcodes.
+        fastq_files = [ f for cfb in cell_content.values()
+                        for x in ["fastq", "fastq.gz"]
+                        for f in cfb.get(f'{x}_{pf}',()) ]
+        ci[f'Files in {pf}'] = len(fastq_files)
+    pod5_files = [ f for cfb in cell_content.values()
+                   for _pf in ["", "_skip", "_pass", "_fail"]
+                   for f in cfb.get(f'pod{_pf}',()) ]
+    ci['Files in pod5'] = len(pod5_files)
 
     # Add info from the .count files - add in '_label' and '_barcode' too but I'm not sure
     # if we will split them out by barcode in the report or just add them up.
@@ -283,6 +278,7 @@ wildcard_constraints:
     barcode    = "[^/_]+",
     pf         = "pass|fail",
     pfs        = "pass|fail|skip",
+    _pfs       = "_pass|_fail|_skip|",
     batch      = "[0-9]{8}",
     batch_size = "[0-9]+",
 
@@ -345,10 +341,11 @@ rule main:
 # 'copy_pod5'
 rule copy_pod5:
     input:
-        all_md5 = [ f"md5sums/{cell}/pod5_{bc}_{pf}/all_pod5.md5"
+        all_md5 = [ f"md5sums/{cell}/pod5_{bc}{_pf}/all_pod5.md5"
                         for cell, barcodes in SC.items()
                         for bc in barcodes
-                        for pf in ['pass', 'fail'] ]
+                        for _pf in ['', '_skip', '_pass', '_fail']
+                        if barcodes[bc].get(f'pod5{_pf}') ]
     run:
         # Un-silence sys.stderr in sub-jobs:
         logger.quiet.discard('all')

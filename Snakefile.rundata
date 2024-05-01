@@ -56,7 +56,7 @@ def i_merge_md5sum_pod5_batch(wildcards):
     """Input func for a single batch of pod5 files to be merged.
        The final batch may be small - maybe just one single POD5.
     """
-    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"pod5_{wildcards.pfs}"]
+    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"pod5{wildcards._pfs}"]
 
     batch_size = int(wildcards.bsize)
     batch_num = int(wildcards.batch)
@@ -66,12 +66,12 @@ def i_merge_md5sum_pod5_batch(wildcards):
 
 rule merge_md5sum_pod5_batch:
     output:
-        pod5 = "{cell}/pod5_{barcode}_{pfs}/{cp}_batch{bsize}_{batch}.pod5",
-        md5  = "md5sums/{cell}/pod5_{barcode}_{pfs}/{cp}_batch{bsize}_{batch}.pod5.md5"
+        pod5 = "{cell}/pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5",
+        md5  = "md5sums/{cell}/pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5.md5"
     input:
         i_merge_md5sum_pod5_batch
     params:
-        pod5_base = "pod5_{barcode}_{pfs}/{cp}_batch{bsize}_{batch}.pod5"
+        pod5_base = "pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5"
     wildcard_constraints:
         bsize = r"\d+",
         batch = r"\d+",
@@ -90,10 +90,10 @@ def i_merge_pod5_md5sums(wildcards):
     """Available POD5 files within a single directory are divided into
        batches of, say, 80
     """
-    pod5_dir = f"{wildcards.cell}/pod5_{wildcards.bc}_{wildcards.pf}"
+    pod5_dir = f"{wildcards.cell}/pod5_{wildcards.barcode}{wildcards._pfs}"
 
     # How many files in total for this barcode? And thus how many merged files?
-    all_files = SC[wildcards.cell][wildcards.bc][f'pod5_{wildcards.pf}']
+    all_files = SC[wildcards.cell][wildcards.barcode][f'pod5{wildcards._pfs}']
     output_pod5_needed = ((len(all_files) - 1) // POD5_BATCH_SIZE) + 1
 
     # If the files have a common prefix then keep it
@@ -102,12 +102,12 @@ def i_merge_pod5_md5sums(wildcards):
     # List of md5 files we thus need to generate.
     res = []
     for b in range(output_pod5_needed):
-        # FIXME - probably {b:08d} is wrong now?!
+        # FIXME - maybe {b:08d} should not be hard-coded?
         res.append(f"md5sums/{pod5_dir}/{cp}_batch{POD5_BATCH_SIZE}_{b:08d}.pod5.md5")
     return res
 
 rule merge_pod5_md5sums:
-    output: "md5sums/{cell}/pod5_{bc}_{pf}/all_pod5.md5"
+    output: "md5sums/{cell}/pod5_{barcode}{_pfs}/all_pod5.md5"
     input:  i_merge_pod5_md5sums
     run:
         # Cos sys.stderr gets silenced in sub-jobs:
@@ -140,7 +140,7 @@ rule list_fastq_or_bam:
         fofn  = r"{cell}/{fullid}_{barcode}_{pf}_{extn}.list"
     input:
         infiles = lambda wc: [ ancient(f"{EXPDIR}/{f}")
-                               for f in SC[wc.cell][wc.barcode][f"{wc.extn}_{wc.pf}"] ]
+                               for f in SC[wc.cell][wc.barcode].get(f"{wc.extn}_{wc.pf}",()) ]
     wildcard_constraints:
         extn = r"fastq|fastq\.gz|bam",
     run:
