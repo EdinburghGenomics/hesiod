@@ -36,3 +36,10 @@ Not simply:
 batch100_00000000.pod5
 
 I'll sort this out later, once auto-delivery is back.
+
+---
+
+May 2024. So ONT have finally fixed the batching of the POD5 files themselves. Now I just need
+to copy the files and md5sum them. So I can rip out all the batching logic and just replicate
+what I previously had for fast5. Well I guess that was a waste of my time after all. I'll get
+that sorted when I can.
