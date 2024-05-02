@@ -15,7 +15,7 @@ from functools import partial
 from pprint import pprint, pformat
 
 from hesiod import ( glob, groupby, parse_cell_name, load_final_summary,
-                     fast5_out, find_summary, dump_yaml, get_common_prefix )
+                     fast5_out, pod5_out, find_summary, dump_yaml, get_common_prefix )
 
 DEFAULT_FILETYPES_TO_SCAN = ["fastq", "fastq.gz", "fast5", "pod5", "bam"]
 
@@ -55,16 +55,12 @@ def scan_main(args, experiment):
         rep_pod5 = res.setdefault('representative_pod5', dict())
         rep_pod5[c] = find_representative_pod5( cell = c,
                                                 infiles = v,
-                                                batch_size = args.pod5_batch_size,
                                                 try_glob = args.missing_ok )
         rep_fastq = res.setdefault('representative_fastq', dict())
         rep_fastq[c] = find_representative_fastq( experiment = experiment,
                                                   cell = c,
                                                   infiles = v,
                                                   try_glob = args.missing_ok )
-
-    # Note the pod5_batch_size setting
-    res['pod5_batch_size'] = args.pod5_batch_size
 
     # Add printable counts
     res['printable_counts'] = sc_counts(sc)
@@ -137,7 +133,7 @@ def scan_cells( expdir, cells=None, cellsready=None,
 
     if expdir:
         for c, d in res.items():
-            for pf, filetype in product(["", "_pass", "_fail"], filetypes_to_scan):
+            for pf, filetype in product(["", "_skip", "_pass", "_fail"], filetypes_to_scan):
                 category = f"{filetype}{pf}"
                 cat_dir  = f"{filetype.split('.')[0]}{pf}"
                 # Collect un-barcoded files
@@ -157,11 +153,11 @@ def scan_cells( expdir, cells=None, cellsready=None,
             # We may have files in fast5_skip (or pod5_skip) but these are never barcoded, nor are
             # there any fastq files, since they are not even basecalled. They do need to be
             # included in the tally when checking vs. the final summary.
-            # For non-barcoded runs I'll tack them on with fast5_fail. For barcoded runs they go in
-            # unclassified/fast5_fail. This seems to be fairly reasonable.
-            # Oh and we apparently need to do this for BAM files too? Let's just do it for all
-            # types.
+            # I'll keep these in pod5_skip, but any other skip types go into "_fail"
             for filetype in filetypes_to_scan:
+                if filetype == "pod5":
+                    continue
+
                 files_in_skip = [ f[len(expdir) + 1:]
                                   for f in globn(f"{expdir}/{c}/{filetype}_skip/*") ]
 
@@ -198,7 +194,7 @@ def scan_cells( expdir, cells=None, cellsready=None,
                 ft_sum = sum( len(fileslist.get(f"{ft}{z}{pf}",()))
                                 for fileslist in d.values()
                                 for z in (["", ".gz"] if ft == "fastq" else [""])
-                                for pf in ["", "_pass", "_fail"] )
+                                for pf in ["", "_skip", "_pass", "_fail"] )
                 # Account for skipped_skip_files
                 if skipped_skip_files.get((c,ft)):
                     L.warning(f"skipped_skip_files is non-empty for {(c,ft)}:"
@@ -291,37 +287,26 @@ def find_representative_fastq(experiment, cell, infiles, try_glob=False):
     else:
         return None
 
-def find_representative_pod5(cell, infiles, batch_size, try_glob=False):
-    """Find a suitable fast5 file to scan for metadata. The assumption is that all contain
+def find_representative_pod5(cell, infiles, try_glob=False):
+    """Find a suitable pod5 file to scan for metadata. The assumption is that all contain
        the same metadata.
+       We're now ripping out the batching logic, so pod5 files will simply be copied from
+       source to dest, and I need to replicate the FAST5 logic.
     """
-    # As we now batch up the pod5 files, the names are more predicatable than when we had
-    # fast5 files, and the name of the first one will be:
-    #
-    # {cell}/pod5_{bc}_{pf}/batch{POD5_BATCH_SIZE}_{b:08d}.pod
-
     # So I just need to work out {bc} and {pf}
     for pf in ['', '_pass', '_fail']:
-        pod5_pf = [ bc for bc, bcparts in infiles.items() for plist in bcparts.get(f'pod5{pf}',())  ]
+        pod5_pf = [ plist for bc in infiles.values() for plist in bc.get(f'pod5{pf}',())  ]
         # If we have no passing reads but we have fails we can still report
         if pod5_pf:
-            bc = pod5_pf[0]
-            pod5_files = infiles[bc][f'pod5{pf}']
-            break
-    else:
-        if try_glob:
-            # In this case, just look for any output file
-            globbed = glob(f"{cell}/pod5_*_????/*.pod5")
-            return globbed[0] if globbed else None
-        else:
-            # We really have nothing
-            return None
+            return pod5_out(pod5_pf[0])
+    # else
+    if try_glob:
+        # In this case, just look for any output file
+        globbed = glob(f"{cell}/pod5_*_????/*.pod5")
+        return globbed[0] if globbed else None
 
-    # The Snakefile.rundata will maintain the common prefix, so get that
-    cp = get_common_prefix(pod5_files, extn=r"_\d+\.pod5") or 'combined'
-
-    batch = 0  # This will always be padded to 8 digits
-    return f"{cell}/pod5_{bc}{pf}/{cp}_batch{batch_size}_{batch:08d}.pod5"
+    # else, we really have nothing
+    return None
 
 def parse_args(*args):
     description = """Scan the input files for all cells, to provide a work plan for Snakemake"""
@@ -338,8 +323,6 @@ def parse_args(*args):
                         help="Cells to process now. If not specified, the script will check all the cells.")
     parser.add_argument("-e", "--expname",
                         help="Experiment name, if not the real name of the expdir.")
-    parser.add_argument("--pod5_batch_size", type=int, default=100,
-                        help="Number of POD5 files to merge into a single file.")
 
     # The point of this is that if the pipeline is being re-run, ./rundata may have been deleted but we can
     # still look at the outut files to reconstruct the info. But unless the pipeline has previously run and

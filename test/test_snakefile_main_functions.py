@@ -96,9 +96,9 @@ class T(unittest.TestCase):
                      'Project': '12345',
                      'Base': '12345AA0018/20220101_1234_1-A1-A1_AAA66666_deadbeef/'
                              '20220101_EGS1_12345AA_12345AA0018_AAA66666_deadbeef',
-                     'Files in pass': 'unknown',
+                     'Files in pass': 0,
                      'Files in fail': 1,
-                     'Files in pod5 fail': 1,
+                     'Files in pod5': 2,
                      '_counts': [
                         {'_barcode': '.', '_label': 'All passed reads', '_part': 'pass', 'total_reads': 200},
                         {'_barcode': '.', '_label': 'All failed reads', '_part': 'fail'} ],

@@ -8,7 +8,6 @@ counts:
   cells: 1
   cellsaborted: 0
   cellsready: 1
-pod5_batch_size: 100
 printable_counts: |-
   {'26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099': {'.': {'fastq.gz_fail': '<9 files>',
                                                                   'fastq.gz_pass': '<24 files>',
@@ -17,7 +16,7 @@ printable_counts: |-
 representative_fast5:
   26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099: null
 representative_pod5:
-  26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099: 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/pod5_._pass/AOZ898_pass_35873099_e8dfad65_batch100_00000000.pod5
+  26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099: 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/pod5_._pass/AOZ898_pass_35873099_e8dfad65_0.pod5
 representative_fastq:
   26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099: 26171SS0001L02/20231108_1411_MN32284_AOZ898_35873099/foobarfoo_26171SS0001L02_AOZ898_35873099_._pass.fastq.gz
 scanned_cells:

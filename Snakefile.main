@@ -156,8 +156,8 @@ def get_cell_info( experiment, cell, cell_content, counts, fin_summary,
                         for f in cfb.get(f'{x}_{pf}',()) ]
         ci[f'Files in {pf}'] = len(fastq_files)
     pod5_files = [ f for cfb in cell_content.values()
-                   for _pf in ["", "_skip", "_pass", "_fail"]
-                   for f in cfb.get(f'pod{_pf}',()) ]
+                   for _pf in ["", "_pass", "_fail"]
+                   for f in cfb.get(f'pod5{_pf}',()) ]
     ci['Files in pod5'] = len(pod5_files)
 
     # Add info from the .count files - add in '_label' and '_barcode' too but I'm not sure
@@ -339,12 +339,14 @@ rule main:
 # I've split out the pod5 batch-merging and md5summing in order to allow me to re-run everything
 # else without doing this part. So to fully process a run you need to call targets 'main' AND
 # 'copy_pod5'
+# Note that I'm not copying the "_skip" .pod5 files. I just regard them as junk. If you want them,
+# add '_skip' back to the list here.
 rule copy_pod5:
     input:
         all_md5 = [ f"md5sums/{cell}/pod5_{bc}{_pf}/all_pod5.md5"
                         for cell, barcodes in SC.items()
                         for bc in barcodes
-                        for _pf in ['', '_skip', '_pass', '_fail']
+                        for _pf in ['', '_pass', '_fail']
                         if barcodes[bc].get(f'pod5{_pf}') ]
     run:
         # Un-silence sys.stderr in sub-jobs:

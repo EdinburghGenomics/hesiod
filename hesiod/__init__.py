@@ -199,7 +199,7 @@ def find_sequencing_summary(rundir, cell):
 def fast5_out(f5_in):
     """Given an input .fast5 file in the expdir, say what the output .fast5 will be
 
-       This is deprecated now we have batched pod5 files.
+       This is deprecated now we have pod5 files.
     """
     f5_split = f5_in.split('/')
     pf = f5_split[2].split('_')[1]
@@ -209,6 +209,20 @@ def fast5_out(f5_in):
         return f"{f5_split[0]}/{f5_split[1]}/fast5_{f5_split[3]}_{pf}/{f5_split[-1]}"
     else:
         return f"{f5_split[0]}/{f5_split[1]}/fast5_._{pf}/{f5_split[-1]}"
+
+def pod5_out(p5_in):
+    """Given an input .pod5 file in the expdir, say what the output .fast5 will be
+
+       This only makes sense since we stopped batching up the pod5 files.
+    """
+    p5_split = p5_in.split('/')
+    _pf = re.search("_.*|$", p5_split[2]).group(0)
+
+    if len(p5_split) == 5:
+        # has barcode
+        return f"{p5_split[0]}/{p5_split[1]}/pod5_{p5_split[3]}{_pf}/{p5_split[-1]}"
+    else:
+        return f"{p5_split[0]}/{p5_split[1]}/pod5_.{_pf}/{p5_split[-1]}"
 
 def find_summary(pattern, rundir, cell, allow_missing=False):
     """Find other summary files then sequencing_summary.txt.

@@ -16,7 +16,6 @@ counts:
   cells: 4
   cellsaborted: 0
   cellsready: 4
-pod5_batch_size: 100
 printable_counts: |-
   {'25070AT0003/20221103_1710_1F_PAM83464_136e9f68': {'barcode01': {'bam_fail': '<1 files>',
                                                                     'bam_pass': '<1 files>',
