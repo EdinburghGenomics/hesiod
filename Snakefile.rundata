@@ -44,66 +44,60 @@ rule copy_report:
         else:
             shell("touch {output}")
 
-# Merge and checksum a batch of pod5 files:
-# * merging is done with "pod5 merge" which should do some basic validation
-#   TODO - check that I get an error if files are truncated.
-#   TODO - check that merging a single POD5 is allowed and validates the POD5
+# Copy and checksum a pod5 file:
+# * merging is no longer needed, as of May 2024, but we should check the pod5 integrity
 # * md5sum is invoked such that keeps the full path out of the .md5 file, as usual
 # * barcode=. should work with this even though it's a bit sus.
 # * making the input 'ancient' is an attempt to speed up the DAG build but I'm not sure it helps
 #   (it does with my hacked Snakemake!)
-def i_merge_md5sum_pod5_batch(wildcards):
-    """Input func for a single batch of pod5 files to be merged.
-       The final batch may be small - maybe just one single POD5.
+def i_copy_md5sum_pod5(wc):
+    """Input func for a single pod5 file to be copied and checksummed.
+       The only fiddly bit is the barcode.
     """
-    all_in_dir = SC[wildcards.cell][wildcards.barcode][f"pod5{wildcards._pfs}"]
+    # This is not much use.
+    #all_in_dir = SC[wildcards.cell][wildcards.barcode][f"pod5{wildcards._pfs}"]
 
-    batch_size = int(wildcards.bsize)
-    batch_num = int(wildcards.batch)
+    if wc.barcode == ".":
+        res =  f"{EXPDIR}/{wc.cell}/pod5{wc._pfs}/{wc.pod5file}.pod5"
+    else:
+        res =  f"{EXPDIR}/{wc.cell}/pod5_{wc._pfs}/{wc.barcode}/{wc.pod5file}.pod5"
 
-    return [ ancient(f"{EXPDIR}/{f}") for f in
-             all_in_dir[batch_num*batch_size:(batch_num+1)*batch_size] ]
+    return [ ancient(res) ]
 
-rule merge_md5sum_pod5_batch:
+# pod5 view seems a reasonable way to check pod5 files for basis consistency
+rule copy_md5sum_pod5:
     output:
-        pod5 = "{cell}/pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5",
-        md5  = "md5sums/{cell}/pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5.md5"
+        pod5 = "{cell}/pod5_{barcode}{_pfs}/{pod5file}.pod5",
+        md5  = "md5sums/{cell}/pod5_{barcode}{_pfs}/{pod5file}.pod5.md5"
     input:
-        i_merge_md5sum_pod5_batch
+        i_copy_md5sum_pod5
     params:
-        pod5_base = "pod5_{barcode}{_pfs}/{cp}_batch{bsize}_{batch}.pod5"
-    wildcard_constraints:
-        bsize = r"\d+",
-        batch = r"\d+",
+        pod5_base = "pod5_{barcode}{_pfs}/{pod5file}.pod5"
     shell:
-       r"""pod5 merge -o {output.pod5} {input}
+       r"""cp --no-preserve=all {input} {output.pod5}
            ( cd {wildcards.cell} && md5sum -- {params.pod5_base} ) > {output.md5}.tmp
+           pod5 view -I -o /dev/null {output.pod5}
            mv {output.md5}.tmp {output.md5}
         """
 
 localrules: merge_pod5_md5sums
 
 # The copy_pod5 rule in Snakefile.main drives execution of the rule below which runs per barcode
-# (each time for pass+fail) and drives the rule above which actually merges/sums the batches of
+# (and within that for pass+fail) and drives the rule above which actually copes and checksums the
 # files.
 def i_merge_pod5_md5sums(wildcards):
-    """Available POD5 files within a single directory are divided into
-       batches of, say, 80
+    """Available POD5 files within a single directory are listed
     """
     pod5_dir = f"{wildcards.cell}/pod5_{wildcards.barcode}{wildcards._pfs}"
 
-    # How many files in total for this barcode? And thus how many merged files?
+    # What are the input pod5 files for this barcode?
+    # For output, we collapse the directory path slighly but keep the file names.
     all_files = SC[wildcards.cell][wildcards.barcode][f'pod5{wildcards._pfs}']
-    output_pod5_needed = ((len(all_files) - 1) // POD5_BATCH_SIZE) + 1
 
-    # If the files have a common prefix then keep it
-    cp = get_common_prefix(all_files, extn=r"_\d+\.pod5") or 'combined'
-
-    # List of md5 files we thus need to generate.
     res = []
-    for b in range(output_pod5_needed):
-        # FIXME - maybe {b:08d} should not be hard-coded?
-        res.append(f"md5sums/{pod5_dir}/{cp}_batch{POD5_BATCH_SIZE}_{b:08d}.pod5.md5")
+    for af in all_files:
+        basename = os.path.basename(af)
+        res.append(f"md5sums/{pod5_dir}/{basename}.md5")
     return res
 
 rule merge_pod5_md5sums:

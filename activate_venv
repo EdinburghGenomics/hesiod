@@ -89,8 +89,8 @@ else
         pip_install h5py==3.8.0
 
         # For get_pod5_metadata.py
-        pip_install pyarrow==11.0.0
-        pip_install pod5==0.2.4
+        pip_install pyarrow==14.0.2
+        pip_install pod5==0.3.10
 
         # Here’s the big one
         pip_install numpy==1.23.2     # upgrade with NanoPlot

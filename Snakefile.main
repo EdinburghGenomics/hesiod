@@ -85,10 +85,6 @@ except Exception:
 SC = SC_DATA['scanned_cells']
 CELL_COUNT = SC_DATA['counts']['cellsready']
 
-# The POD5_BATCH_SIZE needs to correspond with the filename in SC_DATA.representative_pod5,
-# so get both settings from SC_DATA
-POD5_BATCH_SIZE = SC_DATA.get('pod5_batch_size', empty_sc_data()['pod5_batch_size'])
-
 logger.info( f"SC =\n{SC_DATA['printable_counts']}" )
 
 # NanoPlot makes many plots, but here are the ones we care about.
@@ -274,13 +270,12 @@ def count_up_passing(counts, cutoff=None, include_unclassified=True):
 
 # Global wildcard patterns
 wildcard_constraints:
+    pod5file   = "\w+",
     fullid     = "[^/]+",
     barcode    = "[^/_]+",
     pf         = "pass|fail",
     pfs        = "pass|fail|skip",
     _pfs       = "_pass|_fail|_skip|",
-    batch      = "[0-9]{8}",
-    batch_size = "[0-9]+",
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
@@ -336,11 +331,13 @@ rule main:
         # Link just the main one
         shell("ln -snr {output.rep} {output.replink}")
 
-# I've split out the pod5 batch-merging and md5summing in order to allow me to re-run everything
+# I've split out the pod5 copying and md5summing in order to allow me to re-run everything
 # else without doing this part. So to fully process a run you need to call targets 'main' AND
 # 'copy_pod5'
 # Note that I'm not copying the "_skip" .pod5 files. I just regard them as junk. If you want them,
 # add '_skip' back to the list here.
+# TODO - remove _pass and _fail as they should be redundant from now (but check with MinION)
+# TODO - see if the pod5 files for a barcoded run are still grouped by barcode or not?
 rule copy_pod5:
     input:
         all_md5 = [ f"md5sums/{cell}/pod5_{bc}{_pf}/all_pod5.md5"
@@ -354,8 +351,8 @@ rule copy_pod5:
 
         ldcache = {}
 
-        # Exlicitly verify that all the files are actually present (but don't run 'md5sum -c'
-        # that would be silly).
+        # Explicitly verify that all the files are actually present (but don't run 'md5sum -c'
+        # that would be silly and slow).
         for ifile in input.all_md5:
             print(f"Checking md5 file {ifile}")
             with open(str(ifile)) as ifh:
@@ -371,8 +368,9 @@ rule copy_pod5:
                     assert fname in ldcache[dname], f"{cell}/{target_file} is missing"
 
 # Per-cell driver rule. In short:
-#  All pod5 files get merged into batches of 80
-#  All _fail.fastq files get concatenated and compressed
+#  All pod5 files get copied (no longer merged)
+#  All _fail.fastq and _pass.fastq files get concatenated and compressed
+#  Same for BAM files, if present
 #  All of the files get an md5sum
 
 def one_cell_inputs(wc):
@@ -503,7 +501,7 @@ def find_representative_file(ftype):
 
 localrules: pod5_metadata, fastq_metadata
 
-# This is now always run on the output (batched) pod5.
+# This is now always run on the output (copy of) pod5.
 # The scan_cells.py script predicts what the name of a suitable file will be.
 # We only need one, as every read in every file has the same metadata.
 rule pod5_metadata:
