@@ -43,3 +43,29 @@ May 2024. So ONT have finally fixed the batching of the POD5 files themselves. N
 to copy the files and md5sum them. So I can rip out all the batching logic and just replicate
 what I previously had for fast5. Well I guess that was a waste of my time after all. I'll get
 that sorted when I can.
+
+(Friday 2nd)
+It's working and has made a test report. Let us check:
+
+1) Does the report look OK (Did I ever report the total number of POD5 files)?
+
+Yes it does.
+Snakefile.main get_cell_info() sets ci['Files in pod5'] and this gets saved into
+cell_info.yaml. Here "Files in pod5: 73" which disregards the skipped files and is not
+the same as "pod5_files_in_final_dest: 75" in the final summary. I think this is OK.
+I'll add this to the report.
+
+2) Are all the POD5 files there?
+   With the md5sums? - yes, need to make individual files temp
+   What about the _pass and _fail? - not there
+   What about the _skip? - not there
+
+3) Do the POD5 files segragate by channel? Would be cool if they did.
+
+$ pod5 view pod5_file.pod5 -i "read_id,channel"
+
+No such luck.
+
+4) Data delivery needs testing, and inevitably fixing.
+
+I'll release and run the code first.

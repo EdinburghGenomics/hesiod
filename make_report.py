@@ -25,6 +25,7 @@ def get_cell_metadata(ci):
                (None,                'Run Time'),
                ('Files in pass',),
                ('Files in fail',),
+               ('Files in pod5',     'POD5 files (excluding skipped)'),
                ('SequencingKit',     'Sequencing Kit'),
                ('Software',          'Software'),
                ('BasecallConfig',    'Basecaller Config'),

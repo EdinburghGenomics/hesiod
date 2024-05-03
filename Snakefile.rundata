@@ -68,7 +68,7 @@ def i_copy_md5sum_pod5(wc):
 rule copy_md5sum_pod5:
     output:
         pod5 = "{cell}/pod5_{barcode}{_pfs}/{pod5file}.pod5",
-        md5  = "md5sums/{cell}/pod5_{barcode}{_pfs}/{pod5file}.pod5.md5"
+        md5  = temp("md5sums/{cell}/pod5_{barcode}{_pfs}/{pod5file}.pod5.md5")
     input:
         i_copy_md5sum_pod5
     params:

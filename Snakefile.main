@@ -270,12 +270,12 @@ def count_up_passing(counts, cutoff=None, include_unclassified=True):
 
 # Global wildcard patterns
 wildcard_constraints:
-    pod5file   = "\w+",
-    fullid     = "[^/]+",
-    barcode    = "[^/_]+",
-    pf         = "pass|fail",
-    pfs        = "pass|fail|skip",
-    _pfs       = "_pass|_fail|_skip|",
+    pod5file   = r"\w+",
+    fullid     = r"[^/]+",
+    barcode    = r"[^/_]+",
+    pf         = r"pass|fail",
+    pfs        = r"pass|fail|skip",
+    _pfs       = r"_pass|_fail|_skip|",
 
 # Main target is one yaml file (of metadata) per cell. A little bit like statfrombam.yml in the
 # project QC pipelines.
