@@ -57,14 +57,25 @@ for run in "$FASTQDATA"/*/ ; do
 
   # Invoke run_status.py to see if the run is done. Same as in
   # deletion_management_tools/find_prom_runs_to_delete.sh
-  run_status=$(run_status.py "$run" | sed -n '/^PipelineStatus:/s/.*: *//p')
-  debug "Status is reported as $run_status"
+  run_status="$(run_status.py "$run")"
+
+  pipeline_status=$(sed -n '/^PipelineStatus:/s/.*: *//p' <<<"$run_status")
+  debug "Status is reported as $pipeline_status"
+
+  run_type=$(sed -n '/^Type:/s/.*: *//p' <<<"$run_status")
+  debug "Type of run (visitor, internal, etc.) is reported as $run_type"
 
   # Wait for qc to complete before running the sync.
   # Maybe I should RSYNC anyway here and not wait for final QC? But that gets messy.
   # If the pipeline dir is missing this check will be skipped, but we do need the log - see the next check.
-  if [ "$run_status" != "complete" ] ; then
-    debug "Ignoring $run_status $run_name"
+  if [ "$pipeline_status" != "complete" ] ; then
+    debug "Ignoring $pipeline_status $run_name"
+    continue
+  fi
+
+  # We're only backing up internal runs. Not visitor runs. We should probably make this configurable.
+  if ! grep -q "$run_type" <<<"internal" ; then
+    debug "Ignoring $run_type $run_name"
     continue
   fi
 
