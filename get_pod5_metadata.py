@@ -92,6 +92,8 @@ def read_pod5(p5_filename):
 
         # Just as the metadata is the same for each file, it's the same for each
         # read, so just get the first one, and dict-ify it.
+        # Note - I could get at the same info in a less convenient format with:
+        #   p5_handle.run_info_table.get_batch(0)
         read0 = vars(next(p5_handle.reads()).run_info)
 
         # Run ID used to be in the filename, but to be sure get it here

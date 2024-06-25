@@ -64,7 +64,7 @@ else
         # https://github.com/EdinburghGenomics/blobtools/tree/tims_patches
         pip_install docopt==0.6.2
         pip_install matplotlib==3.3.3
-        pip_install pysam==0.19.0
+        pip_install pysam==0.22.1
         pip_install tqdm==4.64.0
         pip_install ujson==5.2.0
 
@@ -83,14 +83,14 @@ else
 
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8
-        pip_install psycopg2-binary==2.9.3
+        pip_install psycopg2-binary==2.9.9
 
         # For get_fast5_metadata.py
-        pip_install h5py==3.8.0
+        pip_install h5py==3.11.0
 
         # For get_pod5_metadata.py
-        pip_install pyarrow==14.0.2
-        pip_install pod5==0.3.10
+        pip_install pyarrow==16.1.0
+        pip_install pod5==0.3.11
 
         # Here’s the big one
         pip_install numpy==1.23.2     # upgrade with NanoPlot

@@ -380,11 +380,6 @@ def one_cell_inputs(wc):
     base = cellname_to_base(cell)
     barcodes = SC[cell].keys()
 
-    # Load the final summary to see if this is RNA or DNA. If the summary
-    # YAML is already in the output this bypasses needing EXPDIR.
-    fs = load_final_summary(f"{EXPDIR}/{cell}/",
-                            yamlfile = f"{cell}/cell_final_summary.yaml")
-
     xxpand = partial(expand, cell = cell,
                              base = base,
                              bc = barcodes,

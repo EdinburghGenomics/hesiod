@@ -11,6 +11,8 @@ from unittest.mock import Mock, patch
 from tempfile import mkstemp
 from collections import OrderedDict
 
+from snakemake import Workflow
+
 SNAKEFILE = os.path.abspath(os.path.dirname(__file__) + '/../Snakefile.main')
 DATA_DIR = os.path.abspath(os.path.dirname(__file__) + '/examples')
 VERBOSE = os.environ.get('VERBOSE', '0') != '0'
@@ -26,30 +28,24 @@ class T(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # So the thing is I don't want to take the functions out of the Snakefile
-        # But I really want to test them. So we have this hack. Hackety hack.
-        with open(SNAKEFILE) as sfh:
-            # Chop out everything after "## End of functions ##"
-            snake_code = list(takewhile(lambda l: not l.startswith("## End of functions ##"), sfh))
-            snake_code = compile("".join(snake_code), sfh.name, 'exec')
+        # But I really want to test them. So...
+        wf = Workflow(snakefile=SNAKEFILE)
+        # Fix the logging for the Snakefile functions which normally log
+        # to the Snakemake logger.
+        wf.globals['logger'] = logging.getLogger()
+        wf.globals['logger'].setLevel(logging.DEBUG if VERBOSE else logging.CRITICAL)
+        # There's no config to set but if there was it would be set here
+        wf.config.update(dict())
+        # Avoid changing os.environ directly as it could mess with other tests.
+        with patch('os.environ', new=dict(os.environ)) as os_environ:
+            os_environ.update(dict(TOOLBOX="NONE", REFS="."))
+            wf.include(wf.main_snakefile)
 
-        os.environ['TOOLBOX'] = 'NONE'
-        os.environ['REFS'] = '.'
-        gdict = dict( os = os,
-                      workflow = Mock(snakefile='NONE'),
-                      snakemake = Mock(),
-                      config = dict() )
-        exec(snake_code, gdict)
-        #pprint(gdict)
-
-        # Import to global namespace.
+        # Import the funcs we are testing to global namespace.
         funcs_to_import = [ k for k, v in globals().items() if v == "_importme" ]
         for func in funcs_to_import:
-            globals()[func] = gdict[func]
+            globals()[func] = wf.globals[func]
 
-        # Now we can fix the logging for the Snakefile functions which normally log
-        # to the Snakemake logger.
-        gdict['logger'] = logging.getLogger()
-        gdict['logger'].setLevel(logging.DEBUG if VERBOSE else logging.CRITICAL)
 
     def setUp(self):
         # See the errors in all their glory
