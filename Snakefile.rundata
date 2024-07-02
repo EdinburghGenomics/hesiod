@@ -60,7 +60,7 @@ def i_copy_md5sum_pod5(wc):
     if wc.barcode == ".":
         res =  f"{EXPDIR}/{wc.cell}/pod5{wc._pfs}/{wc.pod5file}.pod5"
     else:
-        res =  f"{EXPDIR}/{wc.cell}/pod5_{wc._pfs}/{wc.barcode}/{wc.pod5file}.pod5"
+        res =  f"{EXPDIR}/{wc.cell}/pod5{wc._pfs}/{wc.barcode}/{wc.pod5file}.pod5"
 
     return [ ancient(res) ]
 
