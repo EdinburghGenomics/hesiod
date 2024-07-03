@@ -7,37 +7,33 @@ from collections import OrderedDict
 from dateutil.parser import isoparse
 from datetime import timedelta
 from collections import namedtuple
+from glob import iglob
+from itertools import islice
 
 from .YAMLHelpers import load_yaml, dump_yaml, abspath
 from .CollectionHelpers import groupby, od_key_replace
 
-def _glob():
-    """Regular glob() is useful but we want consistent sort order, including
-       for the numbered files produced by the Promethion.
+def _glob_key_func(filename, digits_regex=re.compile(r"(?<=[._])\d+(?=[._])")):
+    r"""Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
+        that dictionary sort will produce a numeric sort (at least up to 99.9 million
+        files)
     """
-    from glob import iglob
-    from itertools import islice
+    return re.sub(digits_regex, lambda d: d.group().rjust(8,'0'), filename)
 
-    key_regex = re.compile(r"(?<=[._])\d+(?=[._])")
-    def key_func(filename):
-        r"""Strategy is that if we see /_\d+\./ then zero-pad the number to 8 chars so
-            that dictionary sort will produce a numeric sort (at least up to 99.9 million
-            files)
-        """
-        return re.sub(key_regex, lambda d: d.group().rjust(8,'0'), filename)
+def glob(pattern, limit=None, digits_regex=re.compile(r"(?<=[._])\d+(?=[._])")):
+    """
+       Enhanced glob wrapper.
+       Regular glob() is useful but we want consistent sort order, including
+       for the numbered files produced by the Promethion.
 
-    def _new_glob(p, limit=None):
-        """Enhanced glob() wrapper.
-           p : blob pattern, may contain ~/
-           limit : max number of results to return
-        """
-        res = [f.rstrip('/') for f in islice(iglob(os.path.expanduser(p)),0,limit)]
+         p : blob pattern, may contain ~/
+         limit : max number of results to return
+    """
+    files_iter = islice(iglob(os.path.expanduser(pattern)),0,limit)
+    res = [f.rstrip('/') for f in files_iter]
 
-        res.sort(key=key_func)
-        return res
-
-    return _new_glob
-glob = _glob()
+    res.sort(key=_glob_key_func)
+    return res
 
 def _determine_version():
     """Report the version of Hesiod being used. Normally this is in version.txt
