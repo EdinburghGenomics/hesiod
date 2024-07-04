@@ -354,13 +354,14 @@ def format_report( all_info,
             if '_filter' in ci:
                 # We want to make some changes to the display, but I'm not going to mess
                 # around with the format of cell_info.yaml so fix it here.
-                headings = ("sample total_reads passing_reads passing_bases"
+                headings = ("sample barcode total_reads passing_reads passing_bases"
                             " min_length max_length").split()
 
                 rowsdict = {}
                 for c in ci['_counts']:
                     if c['_barcode'] in ci['_filter'] and c['_part'] == 'pass':
                         rowsdict[c['_barcode']] = [ ci['_filter'][c['_barcode']],
+                                                    c['_barcode'],
                                                     c['total_reads'],
                                                     c['total_reads'],
                                                     c['total_bases'],
