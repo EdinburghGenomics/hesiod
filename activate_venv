@@ -57,7 +57,7 @@ else
         pip_install rt==2.2.2
         pip_install python-dateutil==2.8.2
 
-        pip_install 'numpy<2'     # upgrade with NanoPlot. Install before matplotlib
+        pip_install 'numpy<1.24'     # upgrade with NanoPlot. Install before matplotlib
 
         # My test helper
         pip_install bashmocker==0.3.0
