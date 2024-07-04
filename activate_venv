@@ -57,6 +57,8 @@ else
         pip_install rt==2.2.2
         pip_install python-dateutil==2.8.2
 
+        pip_install 'numpy<2'     # upgrade with NanoPlot. Install before matplotlib
+
         # My test helper
         pip_install bashmocker==0.3.0
 
@@ -93,7 +95,6 @@ else
         pip_install pod5==0.3.11
 
         # Here’s the big one
-        pip_install numpy==1.23.2     # upgrade with NanoPlot
         pip_install pauvre==0.2       # upgrade with NanoPlot
         pip_install pillow==8.4.0
         pip_install seaborn==0.10.1   # upgrade with NanoPlot
