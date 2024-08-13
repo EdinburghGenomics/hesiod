@@ -5,9 +5,10 @@
 from hesiod import slurp_file
 
 # Blob plotting is originally copied from SMRTino
-# BLAST S sequences in C chunks
+# BLAST 10k sequences in 40 chunks, chopping long sequences to 4096 bases
 BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
 BLOB_CHUNKS    = int(config.get('blob_chunks', 40))
+BLOB_CHOP      = int(config.get('blob_chop', 4096))
 BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 BLAST_SCRIPT   = config.get('blast_script', "blast_nt")
 
@@ -26,7 +27,12 @@ if BLOB_PARTS == "none" or BLOB_PARTS == ["none"]:
 # We also depend on the CSV outputs of parse_blob_table, which will be rendered to
 # markdown within the make_report script. These are grouped by project not cell, so
 # we need a separate rule below.
-localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, parse_blob_table
+localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, \
+            parse_blob_table, chop_chunk
+
+wildcard_constraints:
+    chunk   = r"part_[0-9]+",
+    chop    = r"[0-9]+",
 
 # Basic FASTA sequence counter...
 # we need a special case for empty files here - these simply have 0 sequences.
@@ -218,7 +224,7 @@ rule merge_blast_reports:
 # in config['blast_script']
 rule blast_chunk:
     output: temp("blob/{foo}.blast_parts/{chunk}.bpart")
-    input:  "blob/{foo}.fasta_parts/{chunk}.fasta"
+    input:  f"blob/{{foo}}.fasta_parts/{{chunk}}+chop{BLOB_CHOP}.fasta"
     threads: 6
     resources:
         mem_mb = 24000,
@@ -232,6 +238,14 @@ rule blast_chunk:
            mv {output}.tmp {output}
         """
 
+rule chop_chunk:
+    output: temp("blob/{foo}.fasta_parts/{chunk}+chop{chop}.fasta")
+    input:  "blob/{foo}.fasta_parts/{chunk}.fasta"
+    shell:
+        """awk -v chop={wildcards.chop} \
+            '{{print $1~/^>/ ? $0 : substr($0,0,chop)}}' {input} > {output}
+        """
+
 # Makes a blob db per FASTA using the complexity file as a COV file.
 # {foo} is {cell}.subreads or {cell}.scraps
 # If reads_sample is empty this will generate an empty file
@@ -239,9 +253,9 @@ rule blob_db:
     output:
         json = "blob/{foo}.blobDB.json",
     input:
-        blast_results = "blob/{{foo}}+sub{}.blast".format(BLOB_SUBSAMPLE),
-        reads_sample  = "blob/{{foo}}+sub{}.fasta".format(BLOB_SUBSAMPLE),
-        cov           = "blob/{{foo}}+sub{}.complexity".format(BLOB_SUBSAMPLE)
+        blast_results = f"blob/{{foo}}+sub{BLOB_SUBSAMPLE}.blast",
+        reads_sample  = f"blob/{{foo}}+sub{BLOB_SUBSAMPLE}.fasta",
+        cov           = f"blob/{{foo}}+sub{BLOB_SUBSAMPLE}.complexity"
     shadow: 'minimal'
     resources:
         mem_mb = 12000,
