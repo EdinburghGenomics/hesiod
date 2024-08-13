@@ -7,7 +7,7 @@ from hesiod import slurp_file
 # Blob plotting is originally copied from SMRTino
 # BLAST S sequences in C chunks
 BLOB_SUBSAMPLE = int(config.get('blob_subsample', 10000))
-BLOB_CHUNKS    = int(config.get('blob_chunks', 20))
+BLOB_CHUNKS    = int(config.get('blob_chunks', 40))
 BLOB_LEVELS    = config.get('blob_levels', "phylum order species".split())
 BLAST_SCRIPT   = config.get('blast_script', "blast_nt")
 
@@ -219,10 +219,10 @@ rule merge_blast_reports:
 rule blast_chunk:
     output: temp("blob/{foo}.blast_parts/{chunk}.bpart")
     input:  "blob/{foo}.fasta_parts/{chunk}.fasta"
-    threads: 4
+    threads: 6
     resources:
         mem_mb = 24000,
-        n_cpus = 6,
+        n_cpus = 8,
     params:
         evalue = '1e-50',
         outfmt = '6 qseqid staxid bitscore'
