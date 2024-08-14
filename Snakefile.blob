@@ -32,7 +32,7 @@ localrules: per_cell_blob_plots, per_project_blob_tables, fasta_numseqs, \
 
 wildcard_constraints:
     chunk   = r"part_[0-9]+",
-    chop    = r"[0-9]+",
+    n       = r"[0-9]+",
 
 # Basic FASTA sequence counter...
 # we need a special case for empty files here - these simply have 0 sequences.
@@ -150,7 +150,7 @@ rule parse_blob_table:
 # Note I was thinking to add "sed '/^>/!s/U/T/g'" to fix U's to T's but apparently BLAST is cool
 # with the U bases.
 rule fastq_to_subsampled_fasta:
-    output: "blob/{foo,.+(_pass|_fail)}+sub{n}.fasta"
+    output: "blob/{foo}_{pf}+sub{n}.fasta"
     input:  "{foo}.fastq.gz"
     threads: 2
     shell:
@@ -239,10 +239,10 @@ rule blast_chunk:
         """
 
 rule chop_chunk:
-    output: temp("blob/{foo}.fasta_parts/{chunk}+chop{chop}.fasta")
+    output: temp("blob/{foo}.fasta_parts/{chunk}+chop{n}.fasta")
     input:  "blob/{foo}.fasta_parts/{chunk}.fasta"
     shell:
-        """awk -v chop={wildcards.chop} \
+        """awk -v chop={wildcards.n} \
             '{{print $1~/^>/ ? $0 : substr($0,0,chop)}}' {input} > {output}
         """
 
