@@ -370,8 +370,9 @@ def format_report( all_info,
                 # Go again and add the fails
                 for c in ci['_counts']:
                     if c['_barcode'] in rowsdict and c['_part'] == 'fail':
-                        # Anything else? Or just add to total_reads?
-                        rowsdict[c['_barcode']][2] += c['total_reads']
+                        # Add the fail count to the 'total_reads' column
+                        tr_col_num = headings.index('total_reads')
+                        rowsdict[c['_barcode']][tr_col_num] += c['total_reads']
                 rows = rowsdict.values()
             else:
                 # Old version just tabulates what's in the file
