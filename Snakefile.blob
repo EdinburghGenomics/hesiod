@@ -16,7 +16,7 @@ BLAST_SCRIPT   = config.get('blast_script', "blast_nt")
 # final version. See also label_for_part() in the main Snakefile.
 BLOB_PARTS  = config.get('blob_parts', ["pass"])
 
-# Snakemake won't let us set a congif item to [], so...
+# Snakemake won't let us set a config item to [], so...
 if BLOB_PARTS == "none" or BLOB_PARTS == ["none"]:
     BLOB_PARTS = []
 
