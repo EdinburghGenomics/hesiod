@@ -151,7 +151,7 @@ rule parse_blob_table:
 # with the U bases.
 rule fastq_to_subsampled_fasta:
     output: "blob/{foo}_{pf}+sub{n}.fasta"
-    input:  "{foo}.fastq.gz"
+    input:  "{foo}_{pf}.fastq.gz"
     threads: 2
     shell:
        r"""set +o pipefail

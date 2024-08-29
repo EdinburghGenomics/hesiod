@@ -11,7 +11,7 @@ This Hesiod writes reports about your Promethion (or other NanoPore) data.
 * Concatenates .fastq files to a single .fastq.gz
 * Checksums everything
 * Runs NanoPlot
-* Extracts useful metadata from FAST5 files
+* Extracts useful metadata from POD5 files
 * Makes a report, including contamination screen
 * Logs progress (by sending messages to Request Tracker, if available)
 * Tags processed runs for removal from work drive
@@ -20,8 +20,8 @@ This Hesiod writes reports about your Promethion (or other NanoPore) data.
 
 as of version 3 it does not:
 
-* ~~Strip out spike-in controls (eg. lambda)~~
-* ~~Zips down .fast5 files~~ *(they are no longer worth compressing)*
+* ~~Strip out spike-in controls (eg. lambda)~~ *(this feature may come back)*
+* ~~Zips down .fast5/.pod5 files~~ *(they are no longer worth compressing)*
 
 ## Cluster compatibility
 
