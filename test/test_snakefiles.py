@@ -33,8 +33,7 @@ class T(unittest.TestCase):
     def syntax_check(self, sf, mock_stdout):
         """ Check that I can load a given workflow OK
         """
-        wf = Workflow(sf, overwrite_config=dict( noyaml = True,
-                                                 workdir = '.',
+        wf = Workflow(sf, overwrite_config=dict( workdir = '.',
                                                  rundir = '.',
                                                  input_dir = '.',
                                                  ignore_missing = True))
