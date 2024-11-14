@@ -71,17 +71,17 @@ else
         pip_install ujson==5.2.0
 
         # snakemake and drmaa (note the settings/wrapper in shell_helper_functions.sh)
-        pip_install yte==1.5.1
+        pip_install yte==1.5.4
         pip_install tabulate==0.9.0
-        pip_install reretry==0.11.1
-        pip_install throttler==1.2.1
-        pip_install PuLP==2.7.0
+        pip_install reretry==0.11.8
+        pip_install throttler==1.2.2
+        pip_install PuLP==2.9.0
         pip_install snakemake==7.18.2
         pip_install drmaa==0.7.9
 
         # My patches for Snakemake bugs : 'v7.18.2.x'
         # Not needed for unit tests
-        pip_install 'git+https://github.com/EdinburghGenomics/snakemake.git@main#egg=snakemake'
+        pip_install 'git+https://github.com/EdinburghGenomics/snakemake.git@speed_hack#egg=snakemake'
 
         # For access the Clarity
         pip_install pyclarity_lims==0.4.8
