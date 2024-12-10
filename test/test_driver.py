@@ -4,7 +4,7 @@ import unittest
 import sys, os, re
 from unittest.mock import patch
 
-import subprocess
+from subprocess import check_call
 from tempfile import mkdtemp
 from shutil import rmtree, copytree
 from glob import glob
@@ -32,8 +32,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
-            subprocess.call(["head", "-v", f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"])
+            check_call(["head", "-v", f"{self.temp_dir}/runs/{run_name}/pipeline/type.yaml"])
 
         # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{run_name}/pipeline"))
@@ -78,7 +77,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         # The run is named '20190226_TEST_00testrun'. Check for dirs and symlinks.
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/2019-02/{run_name}/pipeline"))
@@ -97,7 +96,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/20000101_TEST_00testrun2/pipeline"))
 
@@ -116,7 +115,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/2000/20000101_TEST_00testrun2/pipeline"))
 
@@ -140,7 +139,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         # Check for dirs and symlinks as above
         self.assertTrue(os.path.isdir(f"{self.temp_dir}/runs/{run_name}/pipeline"))
@@ -196,7 +195,7 @@ class T(TestDriverBase):
         self.assertInStdout("cannot create directory")
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         # The failed flag should be set
         self.assertTrue(os.path.exists(f"{self.temp_dir}/runs/20190710_LOCALTEST_00newrun/pipeline/failed"))
@@ -249,7 +248,7 @@ class T(TestDriverBase):
         self.bm_rundriver()
 
         if self.verbose:
-            subprocess.call(["tree", "-usa", self.temp_dir])
+            check_call(["tree", "-usa", self.temp_dir])
 
         # The run will be named '20190226_TEST_00testrun'. Check for dirs and symlinks.
         log1 = slurp_file(f"{self.temp_dir}/fastqdata/20190226_TEST_00testrun/pipeline.log")
