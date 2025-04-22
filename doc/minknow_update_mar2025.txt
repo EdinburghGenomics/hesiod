@@ -1,0 +1,17 @@
+After the MinKNOW update we have a minor issue with the POD5 files. Had to manually
+make md5sums and add the files to the delivery for:
+
+/lustre-gseg/transfer/36420_Schoenebeck_Jeffrey/raw_data/20250401/all_pod5/20250327_EGS2_36420SJpool02_36420SJpool02_PBC54922_cc49acdf/
+
+The change is that there are now no basecalls for the failed reads, and so the POD5 for these goes into pod5_skip.
+
+But it looks like this is an option that can be turened off, in which case the normal behaviour is observed.
+So I'm not sure we actually want to fix it?
+
+If we do want to support the new behaviour then:
+
+1) We should deliver POD5 files in pod5 and pod5_skip directories rather than moving them around
+2) We need to make sure everything is md5summed
+3) (Actually most importantly) we need to work out how this operates with barcodes
+
+Aye.

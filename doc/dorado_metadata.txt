@@ -3,7 +3,7 @@ After releasing Hesiod 3.x, which is the Dorado+POD5 update, I got Rob to do a t
 https://egcloud.bio.ed.ac.uk/hesiod/20240222_EGS2_Is_PromethION_Working/
 
 The run itself is a bit funky (used barcodes but the samples look to be un-barcoded) but
-Hesiod processed it fine (not I had to manually set it as an internal run to trigger
+Hesiod processed it fine (note: I had to manually set it as an internal run to trigger
 getting a report).
 
 A few issues:
