@@ -16,7 +16,7 @@ keep-going: true
 jobs: 200
 cores: 400
 local-cores: 4
-latency-wait: 10
+latency-wait: 30
 max-jobs-per-second: 1
 set-resource-scopes:
     - extra_slurm_flags=local
