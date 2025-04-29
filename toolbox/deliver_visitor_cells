@@ -13,7 +13,7 @@ for cell in "$@" ; do
 done
 
 # So, first this...
-source /lustre-gseg/software/qc_tools_python/current/activate
+source /mnt/lustre/e1000/home/edg01/edg01/shared/software/qc_tools_python/current/activate
 
 echo "Running visitor_disseminate.py in $(pwd)"
 set -x

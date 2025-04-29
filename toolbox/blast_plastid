@@ -5,5 +5,7 @@
 # Note that, due to the way I made the BLAST DB, everything that
 # looks like plastid sequence comes out as 'Meles meles'
 
-exec /lustre-gseg/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
-    -db /lustre-gseg/references/refseq_plastid/refseq_plastid "$@"
+BASE="/mnt/lustre/e1000/home/edg01/edg01/shared"
+
+exec "$BASE"/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
+    -db "$BASE"/references/refseq_plastid/refseq_plastid "$@"

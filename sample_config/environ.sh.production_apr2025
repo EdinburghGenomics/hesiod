@@ -1,0 +1,73 @@
+# Config parameters for Hesiod
+VERBOSE=0
+
+# This is needed due to missing certs in the Python certifi package:
+export REQUESTS_CA_BUNDLE=/etc/pki/tls/certs/ca-bundle.crt
+
+# We have BLOB issues :-(
+#EXTRA_SNAKE_CONFIG="blob_parts=none"
+
+# Marks cells as deletable once done (actual deletion is confirmed by operator)
+DEL_REMOTE_CELLS=yes
+
+# Where do I look for sample names on barcoded runs?
+SAMPLE_NAMES_DIR=/mnt/lustre/e1000/home/edg01/edg01/shared/promethion/sample_names
+
+# We may have multiple UPSTREAM locations, ie. instruments. Here we have EGS2 which is our
+# new Promethion and MIN2 which represents any Minion connected to the PC.
+UPSTREAM="EGS2 MIN2"
+UPSTREAM_EGS2=prom@promethion2.bio.ed.ac.uk:/data
+UPSTREAM_MIN2=minion@minnie.bio.ed.ac.uk:/data
+
+# Inactive or retired:
+UPSTREAM_EGS1=prom@promethion.genepool.private:/data
+UPSTREAM_MIN1=/fluidfs/f1/minion
+
+PROM_RUNS_BATCH=year
+PROM_RUNS=/mnt/lustre/e1000/home/edg01/edg01/shared/promethion/prom_runs
+FASTQDATA=/mnt/lustre/e1000/home/edg01/edg01/shared/promethion/prom_fastqdata
+
+# For production, use the real RT and use the standard partition on SLURM
+# Remember that turning off RT now stops project name lookups as well as
+# messages.
+RT_SYSTEM="production-rt"
+CLUSTER_PARTITION=standard
+
+# This is now default in toolbox/profile_config.yaml
+#EXTRA_SLURM_FLAGS="--time=24:00:00 --qos=edgen --account=edg01"
+
+# Provide a sync command as a template that may access:
+#   {upstream}      - The full path as per column 2 of the remote info
+#   {upstream_host} - eg prom@promethion
+#   {upstream_path} - eg /data/testrun
+#   {cell}          - col 3 - eg. testlib/20190710_1723_2-A5-D5_PAD38578_c6ded78b
+#   {run}           - col 1 - eg. 20190710_TEST_testrun
+#   {run_dir}       - run incorporating batch dir - eg. 2019/20190710_TEST_testrun
+#   {run_dir_full}  - full location of run, ie. $PROM_RUNS/$run_dir
+# eg.
+# SYNC_CMD='rsync -vrltR --modify-window=5 ${upstream}/./${cell} ${run_dir_full}/'
+
+# Here's a basic one for Minion runs placed directly in /fluidfs
+SYNC_CMD_MIN1='rsync -vrltR ${upstream}/./${cell} ${run_dir_full}/'
+
+## This uses the SMB mount and is faster than RSYNC-over-SSH but only works if
+## /mnt/lustre/e1000/home/edg01/edg01/shared/promethion is mounted on the host. Line from /etc/fstab on promethion2 is:
+# //edgen-login0.genepool.private/promethion /mnt/lustre_promethion cifs _netdev,uid=1000,username=pipeline,password=******,iocharset=utf8,rw  0  0
+## and see the /etc/samba/smb.conf on edgen-login0
+SYNC_CMD_EGS2='ssh -T ${upstream_host} rsync -vrltR --size-only --append ${upstream_path}/./${cell} /mnt/lustre_promethion/prom_runs/${run_dir}/'
+SYNC_CMD_MIN2='ssh -T ${upstream_host} rsync -vrltR --size-only --append ${upstream_path}/./${cell} /mnt/lustre_promethion/prom_runs/${run_dir}/'
+
+# Reports reports reports
+REPORT_DESTINATION=edgenom1@egcloud.bio.ed.ac.uk:hesiod
+REPORT_LINK=https://egcloud.bio.ed.ac.uk/hesiod
+RSYNC_CMD="rsync --rsync-path=bin/rsync_reports"
+PROJECT_PAGE_URL=https://www.wiki.ed.ac.uk/display/GenePool/
+
+# SPECIAL CASE
+# For running when there is minimal processing power - minimize blasting.
+#MAIN_SNAKE_TARGETS=main
+
+# And for the RSYNC backups...
+BACKUP_NAME_REGEX='202[2345678]...._.*_.*'
+BACKUP_LOCATION=/fluidfs/f1/prom_fastqdata_copy
+BACKUP_FAST5=yes

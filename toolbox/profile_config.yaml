@@ -21,7 +21,7 @@ max-jobs-per-second: 1
 set-resource-scopes:
     - extra_slurm_flags=local
 default-resources:
-    - tmpdir='/lustre-gseg/tmp'
+    - tmpdir='/mnt/lustre/e1000/home/edg01/edg01/shared/tmp'
     - time_h=24
     - mem_mb=6000
     - n_cpus=1

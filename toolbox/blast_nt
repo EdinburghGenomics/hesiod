@@ -4,6 +4,7 @@
 # with an edited script.
 
 # Note for regular QC we use "-task dc-megablast" but that seems to break things here?!
+BASE="/mnt/lustre/e1000/home/edg01/edg01/shared"
 
-exec /lustre-gseg/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
-    -db /lustre-gseg/references/blastdb/nt-20190719/nt "$@"
+exec "$BASE"/software/blast+/ncbi-blast-2.12.0+/bin/blastn \
+    -db "$BASE"/references/blastdb/nt-20190719/nt "$@"
