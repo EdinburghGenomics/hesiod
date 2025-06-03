@@ -11,13 +11,13 @@ drmaa: >-
     {EXTRA_SLURM_FLAGS}
 jobname: '{{rulename}}.snakejob.{{jobid}}.sh'
 jobscript: '{TOOLBOX}/snakemake_jobscript.sh'
-printshellcmds: true
 keep-going: true
 jobs: 200
 cores: 400
 local-cores: 4
-latency-wait: 30
+latency-wait: 120
 max-jobs-per-second: 1
+printshellcmds: true
 set-resource-scopes:
     - extra_slurm_flags=local
 default-resources:
