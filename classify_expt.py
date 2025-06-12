@@ -21,7 +21,7 @@ def classify(expt_name):
         return dict(type="unknown")
 
     # Visitor expts start "v_" but be a little forgiving of the exact format.
-    mo_v = re.search(r"^v[_-]+([a-z0-9]+)[_-]", expt_name, flags=re.IGNORECASE)
+    mo_v = re.search(r"^v[_-]+([a-z0-9]+)(?:[_-]|$)", expt_name, flags=re.IGNORECASE)
     # Internal expts start with a number.
     mo_i = re.search(r"^[0-9]", expt_name)
 
